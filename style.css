@@ -1472,3 +1472,120 @@ button.stage-slot.selected {
   .hero-actions { display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end; }
   .hero-actions button { font-size:.68rem; padding:5px 7px; }
 }
+
+/* v0.2.5: 戻る改善・スケジュール候補カード・スマホ整理 */
+.slim-stats.compact-stat-strip {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+}
+.slim-stats .compact-stat {
+  padding: 4px 3px;
+  border-radius: 9px;
+}
+.slim-stats .compact-stat span {
+  font-size: .58rem;
+  letter-spacing: 0;
+}
+.slim-stats .compact-stat b {
+  font-size: .72rem;
+  line-height: 1.1;
+}
+.floatingHomeBtn {
+  position: fixed;
+  right: max(10px, env(safe-area-inset-right));
+  bottom: max(12px, env(safe-area-inset-bottom));
+  z-index: 40;
+  border-color: rgba(255,206,92,.55);
+  background: linear-gradient(180deg, rgba(255,206,92,.20), rgba(36,36,50,.98));
+  box-shadow: 0 10px 28px rgba(0,0,0,.35);
+}
+.live-candidate-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  max-height: 430px;
+  overflow: auto;
+  padding-right: 2px;
+}
+.liveCandidateBtn.schedule-event {
+  width: 100%;
+  text-align: left;
+  color: var(--text);
+  cursor: pointer;
+}
+.liveCandidateBtn.schedule-event:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent);
+}
+.deadline-note {
+  color: var(--danger);
+  font-weight: 700;
+}
+.editor-back-btn {
+  width: 100%;
+  margin-top: 10px;
+}
+.schedule-head-btn {
+  border-color: rgba(117,191,255,.42);
+}
+@media (max-width: 780px) {
+  .live-candidate-list { grid-template-columns: 1fr; max-height: none; }
+  .booked-list .schedule-event { flex-basis: 182px; min-width: 182px; }
+  .slim-stats.compact-stat-strip { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) and (orientation: portrait) {
+  :root { --mobile-bottom-tabs: 0px; }
+  .app-shell { padding: max(6px, env(safe-area-inset-top)) 7px calc(56px + env(safe-area-inset-bottom)); }
+  .tabbar,
+  .tabbar.live-lock {
+    position: static !important;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    display: none;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: transparent;
+  }
+  .hero-actions {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .hero-actions button {
+    font-size: .6rem;
+    padding: 5px 2px;
+  }
+  .compact-dashboard { padding: 5px; }
+  .slim-stats.compact-stat-strip {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 3px;
+  }
+  .slim-stats .compact-stat {
+    padding: 4px 2px;
+    min-width: 0;
+  }
+  .slim-stats .compact-stat span { font-size: .52rem; }
+  .slim-stats .compact-stat b { font-size: .64rem; }
+  .compact-stat .meter { display: none; }
+  .home-menu-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .menu-tile {
+    min-height: 74px;
+    padding: 8px 5px;
+  }
+  .menu-tile span { font-size: 1.25rem; }
+  .menu-tile b { font-size: .82rem; }
+  .menu-tile small { font-size: .62rem; }
+  .floatingHomeBtn {
+    right: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    min-height: 34px;
+    padding: 7px 10px;
+    border-radius: 999px;
+    font-size: .78rem;
+  }
+  .live-candidate-list { gap: 7px; }
+  .liveCandidateBtn.schedule-event { min-height: 88px; }
+  .schedule-event small, .schedule-event em { font-size: .68rem; }
+}

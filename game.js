@@ -1,5 +1,5 @@
 /*
-  アンダーグラウンド（仮） v0.2.4 prototype
+  アンダーグラウンド（仮） v0.2.5 prototype
   - 1ファイル内の DATA を差し替えるだけでキャラ・曲・サポート候補を変更できます。
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
@@ -316,7 +316,7 @@ function initials(name) { return String(name).replace(/[（(].*?[）)]/g, "").sl
 const DISCOVERY_KEY = "underground_v014_discovered_subgenres"; // v0.2.4でも継続利用
 const SAVE_KEY = "underground_v020_save";
 const AUTOSAVE_KEY = "underground_v020_autosave";
-const SAVE_VERSION = "v0.2.4";
+const SAVE_VERSION = "v0.2.5";
 function loadDiscoveredSubGenres() {
   try { return JSON.parse(localStorage.getItem(DISCOVERY_KEY) || "{}"); } catch (e) { return {}; }
 }
@@ -455,7 +455,7 @@ function createInitialState() {
       direction: { "パンク": 18, "青春パンク": 12, "ロック": 8 }
     },
     supportAffinity: {},
-    logs: ["地下のスタジオから、最大30ターンの育成が始まった。初ライブは5ターン目固定。初回ライブ後は、自分でライブスケジュールを予約する方式。予約は開催2ターン前まで。"],
+    logs: ["地下のスタジオから、最大30ターンの育成が始まった。初ライブは5ターン目固定。初回ライブ後は、自分でライブスケジュールを予約する方式。予約・キャンセルは残り2ターン以内になると不可。"],
     lastApplicant: null,
     liveResultHistory: [],
     saveNotice: "",
@@ -546,21 +546,27 @@ function render() {
     <div class="app-shell">
       <div class="hero">
         <div>
-          <h1>アンダーグラウンド（仮） v0.2.4</h1>
-          <p>曲エディタ画面遷移＋ホーム簡素化版。プルダウン中心から、選択画面を進むUIへ調整。</p>
+          <h1>アンダーグラウンド（仮） v0.2.5</h1>
+          <p>曲エディタ戻る改善＋スケジュール帳予約UI調整版。</p>
         </div>
-        <div class="hero-actions"><button id="refreshAppBtn" class="ghost-btn update-btn">最新版</button><button id="saveBtn" class="ghost-btn">セーブ</button><button id="loadBtn" class="ghost-btn">ロード</button><button id="deleteSaveBtn" class="ghost-btn danger">セーブ削除</button><button id="restartMiniBtn" class="ghost-btn">最初から</button></div>
+        <div class="hero-actions"><button class="jumpTabBtn ghost-btn schedule-head-btn" data-view="schedule">予定</button><button id="refreshAppBtn" class="ghost-btn update-btn">最新版</button><button id="saveBtn" class="ghost-btn">セーブ</button><button id="loadBtn" class="ghost-btn">ロード</button><button id="deleteSaveBtn" class="ghost-btn danger">セーブ削除</button><button id="restartMiniBtn" class="ghost-btn">最初から</button></div>
       </div>
       ${renderTimeline()}
       ${renderTopStats()}
       ${renderTelop()}
       ${renderNav(liveMode)}
       ${liveMode ? renderLivePrep() : renderMainContent()}
+      ${renderFloatingHomeButton(liveMode)}
       ${renderOverlays()}
     </div>
   `;
   bindEvents();
   autoSaveGame();
+}
+
+function renderFloatingHomeButton(liveMode=false) {
+  if ((state.view || "home") === "home" || liveMode) return "";
+  return `<button class="floatingHomeBtn jumpTabBtn" data-view="home">🏠 ホーム</button>`;
 }
 
 function renderNav(liveMode=false) {
@@ -610,6 +616,8 @@ function renderHomeScreen() {
           <button class="jumpTabBtn menu-tile" data-view="band"><span>👥</span><b>バンドの編成</b><small>主人公・仲間・控え確認</small></button>
           <button class="openSongEditorBtn menu-tile"><span>🎼</span><b>作詞・作曲</b><small>新曲・強化・未完成曲</small></button>
           <button class="jumpTabBtn menu-tile ${canBookSchedules() ? "" : "locked"}" data-view="schedule" ${canBookSchedules() ? "" : "disabled"}><span>📅</span><b>スケジュール帳</b><small>${canBookSchedules() ? "ライブ予約・キャンセル" : "初ライブ後に解放"}</small></button>
+          <button class="jumpTabBtn menu-tile" data-view="shop"><span>🛒</span><b>ショップ</b><small>回復・機材・演出アイテム</small></button>
+          <button class="jumpTabBtn menu-tile" data-view="log"><span>📺</span><b>ログ</b><small>イベント履歴を見る</small></button>
         </div>
       </div>
     </div>
@@ -626,30 +634,49 @@ function renderSavePanel() {
 function renderPwaPanel() {
   return `<div class="pwa-panel">
     <b>スマホ確認</b>
-    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.2.4は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
+    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.2.5は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
   </div>`;
 }
 
 function renderSchedulePanel() {
   refreshLiveSchedule();
   const events = state.liveEvents.filter(e => e.turn >= state.turn).sort((a,b)=>a.turn-b.turn);
-  const dateOptions = Array.from({length: 29 - Math.min(29, state.turn + 2) + 1}, (_,i)=>i + state.turn + 2)
-    .filter(t => t < 30 && !liveEventForTurn(t))
-    .map(t => `<option value="${t}">${t}ターン目</option>`).join("");
-  const venueOptions = VENUES.map(v => `<option value="${v.id}">${v.name} / キャパ${v.capacity} / 会場費${v.fee.toLocaleString()}円 / 準備${v.prepNeed}</option>`).join("");
-  const canBook = canBookSchedules() && !!dateOptions;
+  const canBook = canBookSchedules();
+  const candidates = canBook ? buildLiveCandidates() : [];
   return `<div class="schedule-panel">
-    <div class="section-title"><h3>ライブスケジュール</h3><span class="badge warn">2ターン前まで予約</span></div>
-    <div class="schedule-list-x">
+    <div class="section-title"><h3>スケジュール帳</h3><span class="badge warn">残り2ターン以内は予約・キャンセル不可</span></div>
+    <div class="schedule-list-x booked-list">
       ${events.map(e => renderScheduleEvent(e)).join("") || `<div class="schedule-event empty-panel">予定なし</div>`}
     </div>
-    <div class="schedule-booker ${canBookSchedules() ? "" : "locked"}">
-      <div><label>日程</label><select id="scheduleTurnSelect" ${canBook ? "" : "disabled"}>${dateOptions || `<option>予約可能日なし</option>`}</select></div>
-      <div><label>会場</label><select id="scheduleVenueSelect" ${canBook ? "" : "disabled"}>${venueOptions}</select></div>
-      <button id="bookLiveBtn" ${canBook ? "" : "disabled"}>ライブを予約</button>
+    <hr class="soft" />
+    <div class="section-title"><h3>出演できるライブ候補</h3><span class="badge ${canBook ? "good" : "warn"}">${canBook ? "選択して予約" : "初ライブ後に解放"}</span></div>
+    <div class="live-candidate-list">
+      ${canBook ? candidates.map(renderLiveCandidate).join("") || `<div class="empty-panel">予約可能なライブ候補がありません。</div>` : `<div class="empty-panel">初ライブ後から、スケジュール帳で出たいライブを選んで予約できます。</div>`}
     </div>
-    <small>${canBookSchedules() ? "キャパが大きい会場ほど、知名度・ファン・曲認知・信頼度などの準備が足りないと評価にペナルティ。参加自体はどのレベルでも可能。" : "初ライブ後から、自分でライブ日程を予約できます。"}</small>
+    <small>${canBook ? "候補カードを押すと予約。大きい会場ほど準備不足時の評価ペナルティが強いです。" : "まずは5ターン目の初ライブを目標に準備しましょう。"}</small>
   </div>`;
+}
+function buildLiveCandidates() {
+  const turns = [];
+  for (let t = state.turn + 3; t < 30 && turns.length < 6; t++) {
+    if (!liveEventForTurn(t)) turns.push(t);
+  }
+  const list = [];
+  turns.forEach(t => VENUES.forEach(v => list.push({ turn:t, venueId:v.id })));
+  return list;
+}
+function renderLiveCandidate(c) {
+  const v = venueById(c.venueId);
+  const prep = estimatePrepScore();
+  const diff = prep - v.prepNeed;
+  const status = diff >= 12 ? "準備十分" : diff >= 0 ? "挑戦圏" : "準備不足";
+  const cls = diff >= 0 ? "good" : "risk";
+  return `<button class="liveCandidateBtn schedule-event candidate ${cls}" data-turn="${c.turn}" data-venue="${v.id}">
+    <b>${c.turn}T ${v.name}</b>
+    <span>キャパ${v.capacity} / 会場費${v.fee.toLocaleString()}円</span>
+    <small>要準備${v.prepNeed} / 現在${val(prep)}</small>
+    <em>${status}</em>
+  </button>`;
 }
 function renderScheduleEvent(e) {
   const v = venueById(e.venueId);
@@ -657,7 +684,9 @@ function renderScheduleEvent(e) {
   const diff = prep - v.prepNeed;
   const status = diff >= 12 ? "準備十分" : diff >= 0 ? "挑戦圏" : "準備不足";
   const cls = e.fixed ? "fixed" : diff >= 0 ? "good" : "risk";
-  const cancelBtn = !e.fixed && e.turn >= state.turn ? `<button class="cancelLiveBtn ghost-btn" data-turn="${e.turn}">キャンセル</button>` : "";
+  const remaining = e.turn - state.turn;
+  const canCancel = !e.fixed && remaining > 2;
+  const cancelBtn = canCancel ? `<button class="cancelLiveBtn ghost-btn" data-turn="${e.turn}">キャンセル</button>` : (!e.fixed ? `<small class="deadline-note">残り2ターン以内：変更不可</small>` : "");
   return `<div class="schedule-event ${cls}">
     <b>${e.turn}T ${e.label || e.name}</b>
     <span>${v.name}</span>
@@ -830,7 +859,7 @@ function songEditorTitle(ed) {
   const map = { menu:"曲エディタ", newTitle:"新曲：曲名", newType:"新曲：作詞/作曲", newMain:"新曲：メインジャンル", newSub:"新曲：サブジャンル", newTheme:"新曲：テーマ", newKeyword:"新曲：キーワード", newArrange:"新曲：アレンジ", newMember:"新曲：担当メンバー", boostSong:"強化：曲選択", boostType:"強化：カテゴリ", boostMember:"強化：担当メンバー", draftSelect:"未完成曲", draftType:"未完成曲：作詞/作曲", draftMember:"未完成曲：担当メンバー" };
   return map[ed.step] || "曲エディタ";
 }
-function editorBackButton() { return `<button class="songEditorChoiceBtn ghost-btn" data-action="editor:menu">← メニューへ戻る</button>`; }
+function editorBackButton() { return `<button class="songEditorChoiceBtn ghost-btn editor-back-btn" data-action="editor:back">← 戻る</button>`; }
 function renderSongEditorStep(ed) {
   if (state.songcraftUsedThisTurn && !["menu","closed"].includes(ed.step)) return `<div class="empty-panel">今ターンの作詞作曲は実行済み。次ターンにまた進められます。</div>${editorBackButton()}`;
   if (ed.step === "menu") {
@@ -869,8 +898,29 @@ function renderSongEditorStep(ed) {
 function editorSummary(ed) {
   return `<div class="editor-summary"><b>制作内容</b><span>曲名：${escapeHtml(ed.title || "未入力")}</span><span>カテゴリ：${ed.type === "lyrics" ? "作詞" : "作曲"}</span><span>ジャンル：${ed.mainGenre || "-"} / ${ed.subGenre || "-"}</span><span>テーマ：${ed.theme || "-"}</span><span>キーワード：${ed.keyword || "-"}</span><span>アレンジ：${ed.arrange || "-"}</span></div>`;
 }
+function stepSongEditorBack(ed) {
+  const backMap = {
+    newTitle: "menu",
+    newType: "newTitle",
+    newMain: "newType",
+    newSub: "newMain",
+    newTheme: "newSub",
+    newKeyword: "newTheme",
+    newArrange: "newKeyword",
+    newMember: "newArrange",
+    boostSong: "menu",
+    boostType: "boostSong",
+    boostMember: "boostType",
+    draftSelect: "menu",
+    draftType: "draftSelect",
+    draftMember: "draftType"
+  };
+  ed.step = backMap[ed.step] || "menu";
+}
+
 function handleSongEditorAction(action) {
   const ed = editorData();
+  if (action === "editor:back") { stepSongEditorBack(ed); render(); return; }
   if (action === "editor:menu") { state.songEditor = { step:"menu" }; render(); return; }
   if (action === "new:start") { state.songEditor = { step:"newTitle", title:"" }; render(); return; }
   if (action === "boost:start") { state.songEditor = { step:"boostSong" }; render(); return; }
@@ -969,14 +1019,19 @@ function renderTelop() {
 function renderTopStats() {
   const b = state.band;
   const stats = [
-    ["資金", `${b.funds.toLocaleString()}円`],
+    ["資金", `¥${shortMoney(b.funds)}`],
     ["ファン", `${b.fans}人`],
-    ["知名度", b.fame],
-    ["業界評価", b.industry],
+    ["知名", b.fame],
+    ["業界", b.industry],
     ["疲労", b.fatigue],
-    ["編成/メンバー", `${activeMembers().length}/${state.memberCap}人`]
+    ["編成", `${activeMembers().length}/${state.memberCap}`]
   ];
-  return `<div class="success-dashboard compact-dashboard"><div class="compact-stat-strip">${stats.map(([k,v])=>`<div class="stat success-stat compact-stat"><span>${k}</span><b>${v}</b>${renderTinyMeter(k, v)}</div>`).join("")}</div></div>`;
+  return `<div class="success-dashboard compact-dashboard"><div class="compact-stat-strip slim-stats">${stats.map(([k,v])=>`<div class="stat success-stat compact-stat"><span>${k}</span><b>${v}</b>${k === "疲労" ? renderTinyMeter(k, v) : ""}</div>`).join("")}</div></div>`;
+}
+function shortMoney(n) {
+  const num = Number(n) || 0;
+  if (Math.abs(num) >= 10000) return `${(num/10000).toFixed(num % 10000 ? 1 : 0)}万`;
+  return num.toLocaleString();
 }
 function renderTinyMeter(k, v) {
   if (!["知名度","コア人気","業界評価","信頼度","疲労"].includes(k)) return "";
@@ -1362,7 +1417,8 @@ function bindEvents() {
   document.querySelectorAll(".popupCloseBtn").forEach(btn => btn.addEventListener("click", closeActivePopup));
   document.querySelectorAll(".liveResultCloseBtn").forEach(btn => btn.addEventListener("click", closeLiveResultModal));
   const bookLiveBtn = document.getElementById("bookLiveBtn");
-  if (bookLiveBtn) bookLiveBtn.addEventListener("click", bookLiveFromHome);
+  if (bookLiveBtn) bookLiveBtn.addEventListener("click", () => bookLiveFromHome());
+  document.querySelectorAll(".liveCandidateBtn").forEach(btn => btn.addEventListener("click", () => bookLiveFromHome(Number(btn.dataset.turn), btn.dataset.venue)));
   document.querySelectorAll(".cancelLiveBtn").forEach(btn => btn.addEventListener("click", () => cancelBookedLive(Number(btn.dataset.turn), false)));
   document.querySelectorAll(".selectMemberBtn").forEach(btn => btn.addEventListener("click", () => { state.selectedMemberId = btn.dataset.memberId || "player"; render(); }));
   const noShowBtn = document.getElementById("noShowLiveBtn");
@@ -1372,16 +1428,16 @@ function bindEvents() {
   if (chorusSel) chorusSel.addEventListener("change", enforceChorusRule);
 }
 
-function bookLiveFromHome() {
+function bookLiveFromHome(turnArg=null, venueArg=null) {
   if (!canBookSchedules()) {
     log("初ライブ後からライブ予約ができるようになります。");
     render();
     return;
   }
-  const turn = Number(document.getElementById("scheduleTurnSelect")?.value || 0);
-  const venueId = document.getElementById("scheduleVenueSelect")?.value || VENUES[0].id;
-  if (!turn || turn < state.turn + 2 || turn >= 30) {
-    log("ライブ予約は開催2ターン前まで。30ターン目はUNDER FES固定です。");
+  const turn = Number(turnArg || document.getElementById("scheduleTurnSelect")?.value || 0);
+  const venueId = venueArg || document.getElementById("scheduleVenueSelect")?.value || VENUES[0].id;
+  if (!turn || turn <= state.turn + 2 || turn >= 30) {
+    log("ライブ予約は残り2ターン以内になると不可。3ターン以上先の予定から選びます。");
     render();
     return;
   }
@@ -1394,28 +1450,30 @@ function bookLiveFromHome() {
   state.liveEvents.push({ turn, venueId, label:"自主予約ライブ", fixed:false, booked:true, cancelled:false, name:"自主予約ライブ", capacity:v.capacity, fee:v.fee, prepNeed:v.prepNeed });
   refreshLiveSchedule();
   scheduleNextLive();
-  log(`${turn}ターン目に「${v.name}」を予約した。キャパ${v.capacity}、会場費${v.fee.toLocaleString()}円。大きい会場ほど準備不足ペナルティが強い。`);
+  log(`${turn}ターン目に「${v.name}」を予約した。キャパ${v.capacity}、会場費${v.fee.toLocaleString()}円。`);
   render();
 }
 function cancelBookedLive(turn, noShow=false) {
   const ev = liveEventForTurn(turn);
   if (!ev) { log("キャンセルできるライブ予定が見つからない。"); render(); return; }
   if (ev.fixed) { log("初ライブとUNDER FESは固定予定なのでキャンセルできない。"); render(); return; }
+  const remaining = ev.turn - state.turn;
+  if (!noShow && remaining <= 2) { log("残り2ターン以内のライブは、通常キャンセルできない。当日ならドタキャン扱いになる。"); render(); return; }
   const v = venueById(ev.venueId);
   state.liveEvents = state.liveEvents.filter(e => e.turn !== turn);
   refreshLiveSchedule();
-  state.band.trust = clamp(state.band.trust - (noShow ? 8 : 3), 0, 100);
-  state.band.fame = clamp(state.band.fame - (noShow ? 3 : 1), 0, 999);
-  if (noShow) state.band.funds -= Math.round(v.fee * 0.35);
-  scheduleNextLive();
+  state.band.trust = clamp(state.band.trust - (noShow ? 10 : 3), 0, 100);
+  state.band.fame = clamp(state.band.fame - (noShow ? 4 : 1), 0, 999);
   if (noShow) {
-    log(`${turn}Tの「${v.name}」をドタキャンした。メリットはなく、キャンセル精算・信頼低下・知名度低下が発生した。`);
+    const penalty = v.fee + Math.round(v.fee * 0.5);
+    state.band.funds -= penalty;
+    log(`${turn}Tの「${v.name}」をドタキャンした。会場費＋損料 ${penalty.toLocaleString()}円を支払い、信頼度と知名度が下がった。`);
     state.turn += 1;
     state.songcraftUsedThisTurn = false;
-    scheduleNextLive();
   } else {
     log(`${turn}Tの「${v.name}」をキャンセルした。メリットはなし。信頼度と知名度が少し下がった。`);
   }
+  scheduleNextLive();
   render();
 }
 
