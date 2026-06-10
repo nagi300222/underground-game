@@ -1,0 +1,5 @@
+アンダーグラウンド（仮） v0.2.0
+
+スマホ実機確認用のPWA/セーブ対応版。
+ベース: v0.1.9
+追加: manifest.json / sw.js / icons / save-load UI / GitHub Pages guide
