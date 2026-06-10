@@ -1473,7 +1473,7 @@ button.stage-slot.selected {
   .hero-actions button { font-size:.68rem; padding:5px 7px; }
 }
 
-/* v0.2.5: 戻る改善・スケジュール候補カード・スマホ整理 */
+/* v0.2.7: メインジャンル2択・派生サブジャンル抽選 */
 .slim-stats.compact-stat-strip {
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 4px;
