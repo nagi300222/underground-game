@@ -711,3 +711,110 @@ button.stage-slot.selected {
   .schedule-event, .timeline-cell { scroll-snap-align: start; }
   .card { padding: 12px; }
 }
+
+/* v0.2.1: スマホコンパクトUI + スケジュール1列横スクロール */
+.timeline.long.schedule-scroll,
+.timeline.schedule-scroll {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 2px 8px;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+.timeline.long.schedule-scroll .turn-cell,
+.timeline.schedule-scroll .turn-cell {
+  flex: 0 0 54px;
+  min-width: 54px;
+  min-height: 42px;
+  scroll-snap-align: start;
+}
+.schedule-list-x {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 2px 9px;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+.schedule-event {
+  flex: 0 0 210px;
+  min-width: 210px;
+  min-height: 104px;
+  padding: 8px;
+  font-size: .9rem;
+  scroll-snap-align: start;
+}
+.schedule-event button { padding: 6px 8px; border-radius: 9px; }
+.schedule-booker { gap: 8px; }
+.schedule-title span { font-size: .82rem; }
+
+@media (max-width: 900px), (orientation: landscape) and (max-height: 620px) {
+  body { font-size: 13px; line-height: 1.42; }
+  button { padding: 7px 9px; border-radius: 10px; }
+  select, input { padding: 7px 8px; border-radius: 9px; }
+  .app-shell { width: calc(100vw - 10px); padding: 6px 0 14px; }
+  .hero { padding: 9px 10px; border-radius: 14px; gap: 8px; }
+  .hero h1 { font-size: 1.05rem; }
+  .hero p { font-size: .76rem; line-height: 1.32; }
+  .hero-actions { gap: 5px; }
+  .hero-actions button { padding: 6px 7px; font-size: .78rem; }
+  .timeline-wrap { margin-top: 8px; padding: 7px; border-radius: 13px; }
+  .schedule-title { margin-bottom: 5px; gap: 6px; }
+  .schedule-title span { white-space: nowrap; font-size: .74rem; }
+  .turn-cell b { font-size: .82rem; }
+  .turn-cell span { font-size: .62rem; }
+  .grid { gap: 8px; margin-top: 8px; }
+  .card { padding: 8px; border-radius: 13px; }
+  .card h2, .card h3 { margin-bottom: 6px; font-size: 1rem; }
+  .stat-list, .top-stats { gap: 5px; }
+  .stat { padding: 6px; border-radius: 10px; }
+  .stat b { font-size: .9rem; }
+  .stat span { font-size: .68rem; }
+  .badge { padding: 2px 6px; font-size: .68rem; }
+  .telop { margin-top: 7px; border-radius: 10px; border-width: 1px; }
+  .telop span { padding: 5px 10px; font-size: .8rem; }
+  .tabbar { margin-top: 8px; gap: 5px; grid-template-columns: repeat(6, minmax(0,1fr)); }
+  .tabBtn { min-height: 42px; border-radius: 10px; padding: 5px 3px; }
+  .tabBtn span { font-size: .92rem; }
+  .tabBtn b { font-size: .68rem; }
+  .success-window-title { margin-bottom: 7px; gap: 6px; }
+  .success-window-title span { padding: 1px 7px; font-size: .7rem; }
+  .success-window-title b { font-size: 1rem; }
+  .coach-line, .event-box { padding: 7px; margin-bottom: 7px; border-radius: 10px; grid-template-columns: 78px 1fr; gap: 6px; }
+  .event-box span { font-size: .9rem; }
+  .goal-board, .schedule-panel, .save-panel, .pwa-panel { padding: 8px; margin-top: 8px; border-radius: 12px; }
+  .goal-grid { gap: 5px; }
+  .goal-chip { padding: 6px; border-radius: 10px; }
+  .home-actions { gap: 6px; margin-top: 8px; }
+  .compact-member, .compact-song { padding: 7px; border-radius: 10px; }
+  .avatar { width: 42px; height: 42px; border-radius: 12px; }
+  .avatar.small { width: 30px; height: 30px; border-radius: 9px; font-size: .72rem; }
+  .command-grid { gap: 6px; }
+  .command-card, .success-command { min-height: 78px; padding: 7px; }
+  .command-card b { font-size: .9rem; }
+  .command-icon { font-size: 1.35rem; }
+  .command-card small { font-size: .7rem; }
+  .song, .member, .manage-card, .draft-card, .songcraft-box, .band-menu { padding: 8px; border-radius: 11px; margin: 6px 0; }
+  .control-row { grid-template-columns: 110px 1fr; gap: 6px; }
+  .schedule-list-x { gap: 7px; }
+  .schedule-event { flex-basis: 190px; min-width: 190px; min-height: 96px; font-size: .78rem; }
+  .schedule-event b { font-size: .86rem; }
+  .schedule-booker { grid-template-columns: 90px minmax(180px, 1fr) auto; gap: 6px; }
+  .schedule-booker label { font-size: .72rem; }
+  .schedule-booker button { white-space: nowrap; }
+}
+
+@media (max-width: 620px) {
+  .tabbar { grid-template-columns: repeat(6, minmax(48px,1fr)); overflow-x: auto; }
+  .tabBtn { min-width: 48px; }
+  .schedule-booker { grid-template-columns: 1fr; }
+  .timeline.long.schedule-scroll .turn-cell,
+  .timeline.schedule-scroll .turn-cell { flex-basis: 48px; min-width: 48px; }
+  .schedule-event { flex-basis: 178px; min-width: 178px; }
+  .home-actions { grid-template-columns: 1fr; }
+}

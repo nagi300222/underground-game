@@ -1,5 +1,5 @@
 /*
-  アンダーグラウンド（仮） v0.2.0 prototype
+  アンダーグラウンド（仮） v0.2.1 prototype
   - 1ファイル内の DATA を差し替えるだけでキャラ・曲・サポート候補を変更できます。
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
@@ -222,7 +222,7 @@ const DATA = {
     { id: "sup_other", name: "その他楽器サポート", instrument: "other", cost: 6000, score: 7, genres: ["ジャズ", "クラシック", "ポップ", "ロック"] }
   ]};
 
-// v0.2.0: 仮キャラ追加。ここは本キャラに差し替え前提。
+// v0.2.1: 仮キャラ追加。ここは本キャラに差し替え前提。
 DATA.candidateCharacters.push(
   {
     id: "ranka", name: "ランカ（仮）", part: "Vo", mainInstrument: "vocal", mainGenre: "ポップ", secondMainGenres: ["ジャズ", "ロック"],
@@ -313,10 +313,10 @@ function instFullLabel(inst) { return { vocal:"ボーカル", guitar:"ギター"
 function statLabel(key) { return { stamina:"体力", technique:"技術", knowledge:"知識", sense:"センス", mental:"メンタル", teamwork:"協調性", rhythm:"リズム", charisma:"カリスマ" }[key] || key; }
 function initials(name) { return String(name).replace(/[（(].*?[）)]/g, "").slice(0, 2); }
 
-const DISCOVERY_KEY = "underground_v014_discovered_subgenres"; // v0.2.0でも継続利用
+const DISCOVERY_KEY = "underground_v014_discovered_subgenres"; // v0.2.1でも継続利用
 const SAVE_KEY = "underground_v020_save";
 const AUTOSAVE_KEY = "underground_v020_autosave";
-const SAVE_VERSION = "v0.2.0";
+const SAVE_VERSION = "v0.2.1";
 function loadDiscoveredSubGenres() {
   try { return JSON.parse(localStorage.getItem(DISCOVERY_KEY) || "{}"); } catch (e) { return {}; }
 }
@@ -515,7 +515,7 @@ function render() {
     <div class="app-shell">
       <div class="hero">
         <div>
-          <h1>アンダーグラウンド（仮） v0.2.0</h1>
+          <h1>アンダーグラウンド（仮） v0.2.1</h1>
           <p>PWA/セーブ対応版。GitHub Pagesで公開して、スマホ横画面からホーム画面追加できる仮アプリ寄りプロトタイプ。</p>
         </div>
         <div class="hero-actions"><button id="saveBtn" class="ghost-btn">セーブ</button><button id="loadBtn" class="ghost-btn">ロード</button><button id="deleteSaveBtn" class="ghost-btn danger">セーブ削除</button><button id="restartMiniBtn" class="ghost-btn">最初から</button></div>
