@@ -1,5 +1,5 @@
 /*
-  アンダーグラウンド（仮） v0.2.2 prototype
+  アンダーグラウンド（仮） v0.2.3 prototype
   - 1ファイル内の DATA を差し替えるだけでキャラ・曲・サポート候補を変更できます。
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
@@ -313,10 +313,10 @@ function instFullLabel(inst) { return { vocal:"ボーカル", guitar:"ギター"
 function statLabel(key) { return { stamina:"体力", technique:"技術", knowledge:"知識", sense:"センス", mental:"メンタル", teamwork:"協調性", rhythm:"リズム", charisma:"カリスマ" }[key] || key; }
 function initials(name) { return String(name).replace(/[（(].*?[）)]/g, "").slice(0, 2); }
 
-const DISCOVERY_KEY = "underground_v014_discovered_subgenres"; // v0.2.1でも継続利用
+const DISCOVERY_KEY = "underground_v014_discovered_subgenres"; // v0.2.3でも継続利用
 const SAVE_KEY = "underground_v020_save";
 const AUTOSAVE_KEY = "underground_v020_autosave";
-const SAVE_VERSION = "v0.2.2";
+const SAVE_VERSION = "v0.2.3";
 function loadDiscoveredSubGenres() {
   try { return JSON.parse(localStorage.getItem(DISCOVERY_KEY) || "{}"); } catch (e) { return {}; }
 }
@@ -457,6 +457,10 @@ function createInitialState() {
     lastApplicant: null,
     liveResultHistory: [],
     saveNotice: "",
+    activePopup: null,
+    liveResultModal: null,
+    lastLogType: "info",
+    telopFlash: 0,
     installHintDismissed: false
   };
 }
@@ -506,7 +510,25 @@ function nextLiveLabel() {
   return `${state.nextLiveTurn}T ${ev?.label || ev?.name || "ライブ"}`;
 }
 function turnsUntilNextLive() { return Math.max(0, state.nextLiveTurn - state.turn); }
-function log(msg) { state.logs.unshift(msg); }
+function log(msg, type="info") {
+  state.logs.unshift(msg);
+  state.lastLogType = type;
+  state.telopFlash = Date.now();
+}
+function showEventPopup(title, body, type="info", icon="🎸") {
+  state.activePopup = { title, body, type, icon };
+}
+function closeActivePopup() {
+  state.activePopup = null;
+  render();
+}
+function closeLiveResultModal() {
+  state.liveResultModal = null;
+  render();
+}
+function firstLine(text) {
+  return String(text || "").split("\n").find(Boolean) || "地下から始まる。";
+}
 
 function render() {
   if (state.ended) return renderEnding();
@@ -515,8 +537,8 @@ function render() {
     <div class="app-shell">
       <div class="hero">
         <div>
-          <h1>アンダーグラウンド（仮） v0.2.2</h1>
-          <p>PWA/セーブ対応版。スマホ縦画面での実機確認に寄せた仮アプリ寄りプロトタイプ。</p>
+          <h1>アンダーグラウンド（仮） v0.2.3</h1>
+          <p>演出追加版。画面遷移・イベントポップアップ・ライブ結果画面を追加したスマホ縦画面プロトタイプ。</p>
         </div>
         <div class="hero-actions"><button id="refreshAppBtn" class="ghost-btn update-btn">最新版</button><button id="saveBtn" class="ghost-btn">セーブ</button><button id="loadBtn" class="ghost-btn">ロード</button><button id="deleteSaveBtn" class="ghost-btn danger">セーブ削除</button><button id="restartMiniBtn" class="ghost-btn">最初から</button></div>
       </div>
@@ -525,6 +547,7 @@ function render() {
       ${renderTelop()}
       ${renderNav(liveMode)}
       ${liveMode ? renderLivePrep() : renderMainContent()}
+      ${renderOverlays()}
     </div>
   `;
   bindEvents();
@@ -547,12 +570,14 @@ function renderNav(liveMode=false) {
 }
 
 function renderMainContent() {
-  if (state.view === "command") return renderCommandDesk();
-  if (state.view === "band") return renderBandScreen();
-  if (state.view === "songs") return renderSongsScreen();
-  if (state.view === "shop") return renderShopScreen();
-  if (state.view === "log") return renderLogScreen();
-  return renderHomeScreen();
+  let html;
+  if (state.view === "command") html = renderCommandDesk();
+  else if (state.view === "band") html = renderBandScreen();
+  else if (state.view === "songs") html = renderSongsScreen();
+  else if (state.view === "shop") html = renderShopScreen();
+  else if (state.view === "log") html = renderLogScreen();
+  else html = renderHomeScreen();
+  return `<main class="view-panel" data-view="${state.view || "home"}">${html}</main>`;
 }
 
 function renderHomeScreen() {
@@ -606,7 +631,7 @@ function renderSavePanel() {
 function renderPwaPanel() {
   return `<div class="pwa-panel">
     <b>スマホ確認</b>
-    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.2.2は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
+    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.2.3は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
   </div>`;
 }
 
@@ -1088,6 +1113,81 @@ async function reloadLatestVersion() {
   }
 }
 
+
+function maybeTriggerCommandEvent(command) {
+  if (state.activePopup || Math.random() > 0.34) return;
+  const active = activeMembers();
+  const member = active[rand(0, active.length - 1)] || state.player;
+  const events = {
+    practice: [
+      ["練習後の一言", `${member.name}が最後にもう一回だけ合わせようと言った。\n信頼度が少し上がり、疲労も少しだけ増えた。`, () => { state.band.trust = clamp(state.band.trust + 1,0,100); state.band.fatigue = clamp(state.band.fatigue + 2,0,100); }, "🥁"],
+      ["小さな成長", `${member.name}が自分の音を掴みかけている。\nメンタル+1。`, () => { member.stats.mental = clamp(member.stats.mental + 1,1,99); }, "📈"]
+    ],
+    rest: [
+      ["帰り道", `今日は早めに切り上げた。\nコンビニ前で少しだけ話して、バンドの空気が軽くなった。`, () => { state.band.trust = clamp(state.band.trust + 2,0,100); }, "🌙"]
+    ],
+    work: [
+      ["バイト先のBGM", `バイト中、店内で流れていた曲が妙に耳に残った。\n次の作曲に使えそうな気がする。`, () => { state.band.direction["ポップ"] = (state.band.direction["ポップ"] || 0) + 2; }, "🎧"]
+    ],
+    recruit: [
+      ["貼り紙を見た人", `スタジオの掲示板を見た人から連絡が来た。\n次の募集結果が少し良くなりそう。`, () => { state.band.fame = clamp(state.band.fame + 1,0,999); }, "📨"]
+    ],
+    promote: [
+      ["SNSが少し伸びた", `投稿がいつもより少しだけ回った。\nまだ小さいが、知らない誰かに届いている。`, () => { state.band.fame = clamp(state.band.fame + 2,0,999); }, "📱"]
+    ],
+    talk: [
+      ["本音の会話", `${member.name}が最近の不安を少し話してくれた。\n信頼度+3。`, () => { state.band.trust = clamp(state.band.trust + 3,0,100); }, "☕"]
+    ]
+  };
+  const list = events[command] || events.talk;
+  const [title, body, effect, icon] = list[rand(0, list.length - 1)];
+  effect();
+  showEventPopup(title, body, "event", icon);
+}
+
+function renderOverlays() {
+  const popup = state.activePopup ? `<div class="modal-backdrop">
+    <div class="event-modal ${state.activePopup.type || "info"}">
+      <div class="modal-icon">${state.activePopup.icon || "🎸"}</div>
+      <div class="modal-copy"><h2>${escapeHtml(state.activePopup.title)}</h2><p>${escapeHtml(state.activePopup.body).replace(/\n/g,"<br>")}</p></div>
+      <button class="popupCloseBtn big-action">OK</button>
+    </div>
+  </div>` : "";
+  const r = state.liveResultModal;
+  const live = r ? `<div class="modal-backdrop result-backdrop">
+    <div class="live-result-modal rank-${r.rank}">
+      <div class="result-header"><span>LIVE RESULT</span><b>${escapeHtml(r.title)}</b><em>評価 ${r.rank}</em></div>
+      <div class="rank-burst">${r.rank}</div>
+      <div class="result-score"><b>${r.total}</b><span>/100</span></div>
+      <div class="result-bars">
+        ${resultBar("演奏", r.performance)}
+        ${resultBar("表現", r.expression)}
+        ${resultBar("熱量", r.heat)}
+        ${resultBar("戦略", r.strategy)}
+        ${resultBar("安定", r.stability)}
+      </div>
+      <div class="result-summary-grid">
+        <div><b>会場</b><span>${escapeHtml(r.venue)}</span></div>
+        <div><b>集客</b><span>${r.attendees}人</span></div>
+        <div><b>利益</b><span>${r.profit.toLocaleString()}円</span></div>
+        <div><b>曲</b><span>オリジナル${r.originalCount} / コピー${r.coverCount}</span></div>
+      </div>
+      <div class="result-setlist"><b>SETLIST</b>${r.songs.map((s,i)=>`<span>${i+1}. ${escapeHtml(s)}</span>`).join("")}</div>
+      <div class="result-notes">
+        <p>アドリブ：${escapeHtml(r.adlib)}</p>
+        <p>同一曲再演：${escapeHtml(r.repeatText)}</p>
+        ${r.coreEvent ? `<p>コアなファンに刺さった。小さな熱が残った。</p>` : ""}
+      </div>
+      <button class="liveResultCloseBtn big-action">次へ</button>
+    </div>
+  </div>` : "";
+  return popup + live;
+}
+function resultBar(label, value) {
+  const pct = clamp(value / 2.2, 0, 100);
+  return `<div class="result-bar"><span>${label}</span><div class="meter mini"><div class="fill" style="width:${pct}%"></div></div><b>${value}</b></div>`;
+}
+
 function bindEvents() {
   document.querySelectorAll(".command-card").forEach(btn => btn.addEventListener("click", () => handleCommandClick(btn.dataset.command)));
   document.querySelectorAll(".tabBtn:not(:disabled), .jumpTabBtn").forEach(btn => btn.addEventListener("click", () => { state.view = btn.dataset.view || "home"; render(); }));
@@ -1113,6 +1213,8 @@ function bindEvents() {
   const deleteSaveBtn = document.getElementById("deleteSaveBtn");
   if (deleteSaveBtn) deleteSaveBtn.addEventListener("click", deleteSave);
   ["refreshAppBtn", "pwaRefreshBtn"].forEach(id => { const btn = document.getElementById(id); if (btn) btn.addEventListener("click", reloadLatestVersion); });
+  document.querySelectorAll(".popupCloseBtn").forEach(btn => btn.addEventListener("click", closeActivePopup));
+  document.querySelectorAll(".liveResultCloseBtn").forEach(btn => btn.addEventListener("click", closeLiveResultModal));
   const bookLiveBtn = document.getElementById("bookLiveBtn");
   if (bookLiveBtn) bookLiveBtn.addEventListener("click", bookLiveFromHome);
   document.querySelectorAll(".cancelLiveBtn").forEach(btn => btn.addEventListener("click", () => cancelBookedLive(Number(btn.dataset.turn), false)));
@@ -1189,6 +1291,7 @@ function enforceChorusRule() {
 
 function handleCommandClick(command) {
   executeCommand(command);
+  maybeTriggerCommandEvent(command);
   postTurnMaintenance(command);
   state.turn += 1;
   state.songcraftUsedThisTurn = false;
@@ -1469,13 +1572,17 @@ function advanceDraft(d, type, member) {
     d.lyricsDone = true;
     d.lyricsScore = Math.max(d.lyricsScore, score);
     if (score > 70 && !d.tags.includes("エモさ")) d.tags.push("エモさ");
-    log(`${member.name}が「${d.titleHint}」の作詞を完成させた。完成度 ${val(score)}%。`);
+    log(`${member.name}が「${d.titleHint}」の作詞を完成させた。完成度 ${val(score)}%。`, "song");
+    if (score >= 75) showEventPopup("歌詞が刺さった", `${member.name}の言葉が、スタジオの空気を一瞬止めた。
+「${d.titleHint}」の歌詞完成度 ${val(score)}%。`, "song", "✍️");
   } else {
     d.musicDone = true;
     d.musicScore = Math.max(d.musicScore, score);
     if ((d.arrange.includes("疾走") || score > 75) && !d.tags.includes("疾走感")) d.tags.push("疾走感");
     if ((d.arrange.includes("ドラム") || d.arrange.includes("DJ")) && !d.tags.includes("爆発力")) d.tags.push("爆発力");
-    log(`${member.name}が「${d.titleHint}」の作曲を完成させた。完成度 ${val(score)}%。`);
+    log(`${member.name}が「${d.titleHint}」の作曲を完成させた。完成度 ${val(score)}%。`, "song");
+    if (score >= 75) showEventPopup("リフがハマった", `${member.name}が鳴らしたフレーズに、全員が少し前のめりになった。
+「${d.titleHint}」の作曲完成度 ${val(score)}%。`, "song", "🎼");
   }
   if (d.lyricsDone && d.musicDone) finishDraft(d.id);
 }
@@ -1516,7 +1623,10 @@ function finishDraft(draftId) {
   state.songs.push(song);
   updateDirection(song.mainGenre, 5); updateDirection(song.subGenre, 4);
   state.pendingDrafts.splice(idx, 1);
-  log(`新曲「${song.title}」が完成！ ジャンル:${genreDisplay(song)} / タグ:${song.tags.join("・")}`);
+  log(`新曲「${song.title}」が完成！ ジャンル:${genreDisplay(song)} / タグ:${song.tags.join("・")}`, "song");
+  showEventPopup("新曲完成！", `「${song.title}」が完成した。
+ジャンル：${genreDisplay(song)}
+タグ：${song.tags.join("・")}`, "song", "💿");
 }
 
 function boostSong(type, member, songId) {
@@ -1582,6 +1692,7 @@ function performLive() {
   const chorus = activeMembers().find(m => m.id === chorusId) || null;
   const result = calculateLive(setlist, supports, merch, positions, vocalist, chorus);
   applyLiveResult(result, setlist, supports, merch);
+  state.liveResultModal = makeLiveResultModal(result, setlist);
   state.liveResultHistory.push(result);
   state.liveCount += 1;
   if (state.turn === 30) {
@@ -1821,7 +1932,30 @@ function applyLiveResult(r, setlist, supports) {
     `集客:${r.revenue.attendees}人 / チケット:${r.revenue.ticketRevenue.toLocaleString()}円 / 物販:${r.revenue.merch.revenue.toLocaleString()}円 / デモ単価:${r.revenue.merch.demoPrice ? r.revenue.merch.demoPrice.toLocaleString()+"円" : "なし"}`,
     `会場費:${r.revenue.venueFee.toLocaleString()}円 / サポート代:${r.revenue.supportCost.toLocaleString()}円 / 物販準備:${r.revenue.merch.cost.toLocaleString()}円 / 最終利益:${r.revenue.finalProfit.toLocaleString()}円`
   ].filter(Boolean).join("\n");
-  log(summary);
+  log(summary, "live");
+}
+
+function makeLiveResultModal(r, setlist) {
+  const title = `${currentLiveName()} 結果`;
+  return {
+    title,
+    rank: r.rank,
+    total: val(r.total),
+    performance: val(r.performance),
+    expression: val(r.expression),
+    heat: val(r.heat),
+    strategy: val(r.strategy),
+    stability: val(r.stability),
+    venue: r.venue.name,
+    attendees: r.revenue.attendees,
+    profit: r.revenue.finalProfit,
+    originalCount: r.originalCount,
+    coverCount: r.coverCount,
+    adlib: r.adlib.text,
+    repeatText: r.repeatInfo?.hasRepeats ? r.repeatInfo.text : "なし",
+    coreEvent: !!r.coreEvent,
+    songs: setlist.map(s => s.title)
+  };
 }
 
 function revealSubGenresAfterLive(result, setlist) {
