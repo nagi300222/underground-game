@@ -1,4 +1,4 @@
-const CACHE_NAME = "underground-v0-2-1";
+const CACHE_NAME = "underground-v0-2-2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -23,11 +23,13 @@ self.addEventListener("activate", event => {
 
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
+
+  // 開発中は更新反映を優先。ネットワーク取得に成功したらキャッシュ更新、失敗時だけキャッシュ fallback。
   event.respondWith(
-    caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
+    fetch(event.request).then(response => {
       const copy = response.clone();
       caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
       return response;
-    }).catch(() => caches.match("./index.html")))
+    }).catch(() => caches.match(event.request).then(cached => cached || caches.match("./index.html")))
   );
 });

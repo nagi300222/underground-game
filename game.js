@@ -1,5 +1,5 @@
 /*
-  アンダーグラウンド（仮） v0.2.1 prototype
+  アンダーグラウンド（仮） v0.2.2 prototype
   - 1ファイル内の DATA を差し替えるだけでキャラ・曲・サポート候補を変更できます。
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
@@ -316,7 +316,7 @@ function initials(name) { return String(name).replace(/[（(].*?[）)]/g, "").sl
 const DISCOVERY_KEY = "underground_v014_discovered_subgenres"; // v0.2.1でも継続利用
 const SAVE_KEY = "underground_v020_save";
 const AUTOSAVE_KEY = "underground_v020_autosave";
-const SAVE_VERSION = "v0.2.1";
+const SAVE_VERSION = "v0.2.2";
 function loadDiscoveredSubGenres() {
   try { return JSON.parse(localStorage.getItem(DISCOVERY_KEY) || "{}"); } catch (e) { return {}; }
 }
@@ -515,10 +515,10 @@ function render() {
     <div class="app-shell">
       <div class="hero">
         <div>
-          <h1>アンダーグラウンド（仮） v0.2.1</h1>
-          <p>PWA/セーブ対応版。GitHub Pagesで公開して、スマホ横画面からホーム画面追加できる仮アプリ寄りプロトタイプ。</p>
+          <h1>アンダーグラウンド（仮） v0.2.2</h1>
+          <p>PWA/セーブ対応版。スマホ縦画面での実機確認に寄せた仮アプリ寄りプロトタイプ。</p>
         </div>
-        <div class="hero-actions"><button id="saveBtn" class="ghost-btn">セーブ</button><button id="loadBtn" class="ghost-btn">ロード</button><button id="deleteSaveBtn" class="ghost-btn danger">セーブ削除</button><button id="restartMiniBtn" class="ghost-btn">最初から</button></div>
+        <div class="hero-actions"><button id="refreshAppBtn" class="ghost-btn update-btn">最新版</button><button id="saveBtn" class="ghost-btn">セーブ</button><button id="loadBtn" class="ghost-btn">ロード</button><button id="deleteSaveBtn" class="ghost-btn danger">セーブ削除</button><button id="restartMiniBtn" class="ghost-btn">最初から</button></div>
       </div>
       ${renderTimeline()}
       ${renderTopStats()}
@@ -606,7 +606,7 @@ function renderSavePanel() {
 function renderPwaPanel() {
   return `<div class="pwa-panel">
     <b>スマホ確認</b>
-    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。横画面推奨。</span>
+    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.2.2は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
   </div>`;
 }
 
@@ -1069,6 +1069,25 @@ function positionOptions(selected) {
   return opts.map(o => `<option value="${o}" ${selected===o ? "selected" : ""}>${instFullLabel(o)}</option>`).join("");
 }
 
+
+async function reloadLatestVersion() {
+  try {
+    state.saveNotice = "最新版を読み込み中。セーブは残したまま、アプリのキャッシュだけ更新します。";
+    const registrations = navigator.serviceWorker ? await navigator.serviceWorker.getRegistrations() : [];
+    await Promise.all(registrations.map(reg => reg.unregister()));
+    if (window.caches) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(key => caches.delete(key)));
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set("fresh", Date.now().toString());
+    window.location.replace(url.toString());
+  } catch (err) {
+    state.saveNotice = "自動更新に失敗しました。ブラウザの再読み込みかサイトデータ削除を試してください。";
+    render();
+  }
+}
+
 function bindEvents() {
   document.querySelectorAll(".command-card").forEach(btn => btn.addEventListener("click", () => handleCommandClick(btn.dataset.command)));
   document.querySelectorAll(".tabBtn:not(:disabled), .jumpTabBtn").forEach(btn => btn.addEventListener("click", () => { state.view = btn.dataset.view || "home"; render(); }));
@@ -1093,6 +1112,7 @@ function bindEvents() {
   ["loadBtn", "homeLoadBtn"].forEach(id => { const btn = document.getElementById(id); if (btn) btn.addEventListener("click", restoreGame); });
   const deleteSaveBtn = document.getElementById("deleteSaveBtn");
   if (deleteSaveBtn) deleteSaveBtn.addEventListener("click", deleteSave);
+  ["refreshAppBtn", "pwaRefreshBtn"].forEach(id => { const btn = document.getElementById(id); if (btn) btn.addEventListener("click", reloadLatestVersion); });
   const bookLiveBtn = document.getElementById("bookLiveBtn");
   if (bookLiveBtn) bookLiveBtn.addEventListener("click", bookLiveFromHome);
   document.querySelectorAll(".cancelLiveBtn").forEach(btn => btn.addEventListener("click", () => cancelBookedLive(Number(btn.dataset.turn), false)));
