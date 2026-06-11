@@ -532,7 +532,7 @@ function initials(name) { return String(name).replace(/[（(].*?[）)]/g, "").sl
 const DISCOVERY_KEY = "underground_v014_discovered_subgenres"; // v0.2.4でも継続利用
 const SAVE_KEY = "underground_v020_save";
 const AUTOSAVE_KEY = "underground_v020_autosave";
-const SAVE_VERSION = "v0.3.0";
+const SAVE_VERSION = "v0.3.1";
 function loadDiscoveredSubGenres() {
   try { return JSON.parse(localStorage.getItem(DISCOVERY_KEY) || "{}"); } catch (e) { return {}; }
 }
@@ -867,6 +867,10 @@ function completeSongcraftTutorial() {
 
 function showTutorialBlocked(kind) {
   if (state.tutorialStage === "needSong") {
+    // 初回チュートリアル中は「作詞・作曲」だけ通す。
+    // v0.3.0ではここで song もブロックしてしまい、
+    // 曲作りポップアップ後に先へ進めない状態になっていた。
+    if (kind === "song") return false;
     state.activePopup = { title:"まずは曲作り", body:"最初は作詞・作曲から始めよう。\nホームの「作詞・作曲」だけが使える。", type:"event", icon:"🎼" };
     render();
     return true;
@@ -988,7 +992,7 @@ function renderSavePanel() {
 function renderPwaPanel() {
   return `<div class="pwa-panel">
     <b>スマホ確認</b>
-    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.0は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
+    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.1は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
   </div>`;
 }
 
@@ -2370,10 +2374,11 @@ function finishDraft(draftId) {
   state.songs.push(song);
   updateDirection(song.mainGenre, 5); if (song.subGenre) updateDirection(song.subGenre, 4);
   state.pendingDrafts.splice(idx, 1);
+  const discovery = registerGenreDiscovery(song.subGenre || song.mainGenre, song.title);
   log(`新曲「${song.title}」が完成！ ジャンル:${genreDisplay(song)} / タグ:${song.tags.join("・")}`, "song");
   showEventPopup("新曲完成！", `「${song.title}」が完成した。
 ジャンル：${genreDisplay(song)}
-タグ：${song.tags.join("・")}`, discovered?.rare ? "rare" : "song", discovered?.rare ? "⭐" : "💿");
+タグ：${song.tags.join("・")}`, discovery?.rare ? "rare" : "song", discovery?.rare ? "⭐" : "💿");
 }
 
 function registerGenreDiscovery(genre, songTitle="") {
