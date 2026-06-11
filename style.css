@@ -1734,3 +1734,111 @@ button.stage-slot.selected {
 .booking-modal .modal-copy p{margin:6px 0;}
 .songcraft-summary span,.training-summary span{white-space:pre-line;}
 @media (max-width: 640px){.turn-toast{top:58px;padding:8px 10px}.turn-toast b{font-size:.85rem}.turn-toast span{font-size:.75rem}.dice-title-btn{width:46px;min-width:46px}.candidate-turn{font-size:1.25rem}.stage-actions button{font-size:.68rem;padding:5px 7px}}
+
+/* v0.3.3 requested polish */
+.modal-backdrop { place-items: center !important; align-items: center !important; }
+.event-modal { max-width: 560px; }
+.event-modal.warn .modal-actions {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.event-modal.warn .modal-actions button {
+  min-height: 48px;
+  width: 100%;
+  font-size: 1rem;
+}
+.turn-toast {
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: 24px;
+  padding: 20px 26px;
+  min-width: min(420px, 86vw);
+  text-align: center;
+  background: rgba(10,14,22,.96);
+  border-color: rgba(255,206,92,.55);
+}
+.turn-toast b { font-size: clamp(2rem, 10vw, 3.6rem) !important; line-height: 1; }
+.turn-toast span { font-size: clamp(.9rem, 3.6vw, 1.2rem) !important; max-width: 80vw; }
+@keyframes turnToast{0%{opacity:0;transform:translate(-50%,-45%) scale(.96)}12%,78%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-55%) scale(.97)}}
+.floatingHomeBtn {
+  left: max(12px, env(safe-area-inset-left));
+  right: auto;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  width: 58px;
+  height: 58px;
+  border-radius: 999px;
+  padding: 0;
+  font-size: 1.55rem;
+  display: grid;
+  place-items: center;
+}
+.live-progress-fill.realtime {
+  transform: none !important;
+  animation: none !important;
+  transition: width .45s ease;
+}
+.live-current-telop {
+  margin: 14px 0;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255,206,92,.10);
+  border: 1px solid rgba(255,206,92,.36);
+  font-size: 1.02rem;
+  line-height: 1.55;
+}
+.live-telop-list.compact p {
+  opacity: .7;
+  font-size: .82rem;
+  padding: 7px 9px;
+}
+.live-telop-list.compact p.active {
+  opacity: 1;
+  border-left-color: rgba(255,80,120,.9);
+  color: var(--text);
+  background: rgba(255,255,255,.08);
+}
+.popup-bars { margin-top: 10px; display: grid; gap: 6px; }
+.popup-bars .result-bar { margin: 0; }
+.member-detail-panel {
+  margin: 12px 0;
+  padding: 10px;
+  border: 1px solid rgba(117,191,255,.25);
+  border-radius: 16px;
+  background: rgba(117,191,255,.06);
+}
+.training-gain-list {
+  display: grid;
+  gap: 5px;
+  margin: 10px 0;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(117,191,255,.30);
+  background: rgba(117,191,255,.07);
+}
+.training-gain-list b { color: var(--blue); }
+.training-gain-list span { color: var(--muted); font-size: .86rem; }
+.booking-detail-box {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.055);
+  margin: 8px 0;
+}
+.booking-detail-box b { color: var(--accent); }
+.candidate-turn { font-size: 1.55rem !important; line-height: 1.05; }
+.slim-stats .compact-stat b { font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) {
+  .event-modal, .live-result-modal, .action-result-modal, .live-progress-modal {
+    width: min(94vw, 560px) !important;
+    border-radius: 20px !important;
+  }
+  .event-modal { grid-template-columns: 46px 1fr; }
+  .turn-toast { padding: 18px 18px; }
+  .floatingHomeBtn { width: 54px; height: 54px; font-size: 1.45rem; }
+}

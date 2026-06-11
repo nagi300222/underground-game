@@ -1,10 +1,10 @@
 /*
-  アンダーグラウンド（仮） v0.3.2 prototype
+  アンダーグラウンド（仮） v0.3.3 prototype
   - 1ファイル内の DATA を差し替えるだけでキャラ・曲・サポート候補を変更できます。
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
 
-const VERSION = "v0.3.2";
+const VERSION = "v0.3.3";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -548,7 +548,7 @@ function initials(name) { return String(name).replace(/[（(].*?[）)]/g, "").sl
 const DISCOVERY_KEY = "underground_v014_discovered_subgenres"; // v0.2.4でも継続利用
 const SAVE_KEY = "underground_v020_save";
 const AUTOSAVE_KEY = "underground_v020_autosave";
-const SAVE_VERSION = "v0.3.2";
+const SAVE_VERSION = "v0.3.3";
 function loadDiscoveredSubGenres() {
   try { return JSON.parse(localStorage.getItem(DISCOVERY_KEY) || "{}"); } catch (e) { return {}; }
 }
@@ -776,6 +776,8 @@ function closeLiveResultModal() {
     const ev = state.postLiveStory;
     state.postLiveStory = null;
     state.activePopup = { title:ev.title, body:ev.body, type:"event", icon:ev.icon || "🕴️" };
+  } else if (Array.isArray(state.popupQueue) && state.popupQueue.length) {
+    state.activePopup = state.popupQueue.shift();
   }
   render();
 }
@@ -790,6 +792,19 @@ function showLiveResultAfterProgress() {
   state.liveResultModal = state.pendingLiveResultModal;
   state.pendingLiveResultModal = null;
   render();
+}
+function scheduleLiveProgressTimer() {
+  if (window.__liveProgressTimer) clearTimeout(window.__liveProgressTimer);
+  if (!state.liveProgressModal) return;
+  window.__liveProgressTimer = setTimeout(() => {
+    if (!state.liveProgressModal) return;
+    state.liveProgressModal.index = (state.liveProgressModal.index || 0) + 1;
+    if (state.liveProgressModal.index >= (state.liveProgressModal.steps || []).length) {
+      showLiveResultAfterProgress();
+    } else {
+      render();
+    }
+  }, 1000);
 }
 function makeLiveProgressModal(result, setlist) {
   const icons = [];
@@ -917,7 +932,7 @@ function render() {
     <div class="app-shell">
       <div class="hero">
         <div>
-          <h1>アンダーグラウンド（仮） v0.3.2</h1>
+          <h1>アンダーグラウンド（仮） v0.3.3</h1>
           <p>イントロ・チュートリアル・イベント/ライブ演出強化版。</p>
         </div>
         <div class="hero-actions"><button class="jumpTabBtn ghost-btn schedule-head-btn" data-view="schedule">予定</button><button id="refreshAppBtn" class="ghost-btn update-btn">最新版</button><button id="saveBtn" class="ghost-btn">セーブ</button><button id="loadBtn" class="ghost-btn">ロード</button><button id="deleteSaveBtn" class="ghost-btn danger">セーブ削除</button><button id="restartMiniBtn" class="ghost-btn">最初から</button></div>
@@ -932,12 +947,13 @@ function render() {
     </div>
   `;
   bindEvents();
+  scheduleLiveProgressTimer();
   autoSaveGame();
 }
 
 function renderFloatingHomeButton(liveMode=false) {
   if ((state.view || "home") === "home" || liveMode) return "";
-  return `<button class="floatingHomeBtn jumpTabBtn" data-view="home">🏠 ホーム</button>`;
+  return `<button class="floatingHomeBtn jumpTabBtn" data-view="home" aria-label="ホームへ戻る">🏠</button>`;
 }
 
 function renderNav(liveMode=false) {
@@ -1016,7 +1032,7 @@ function renderSavePanel() {
 function renderPwaPanel() {
   return `<div class="pwa-panel">
     <b>スマホ確認</b>
-    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.2は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
+    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.3は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
   </div>`;
 }
 
@@ -1866,7 +1882,16 @@ function resultBar(label, value) {
 
 function bindEvents() {
   document.querySelectorAll(".command-card").forEach(btn => btn.addEventListener("click", () => handleCommandClick(btn.dataset.command)));
-  document.querySelectorAll(".tabBtn:not(:disabled), .jumpTabBtn").forEach(btn => btn.addEventListener("click", () => { const v = btn.dataset.view || "home"; if (v !== "home" && showTutorialBlocked(v === "command" ? "command" : "other")) return; state.view = v; render(); }));
+  document.querySelectorAll(".tabBtn:not(:disabled), .jumpTabBtn").forEach(btn => btn.addEventListener("click", () => {
+    const v = btn.dataset.view || "home";
+    if (v !== "home" && showTutorialBlocked(v === "command" ? "command" : "other")) return;
+    state.view = v;
+    if (v === "schedule" && state.scheduleTutorialStage === "needSchedule") {
+      state.scheduleTutorialStage = "done";
+      showEventPopup("スケジュール帳", "今後のライブの予定を組もう。\n出たいライブ候補をタップすると、会場費・キャパ・準備要求を確認して予約できる。", "event", "📅");
+    }
+    render();
+  }));
   const joinBtn = document.getElementById("joinApplicantBtn");
   if (joinBtn) joinBtn.addEventListener("click", joinApplicant);
   const skipBtn = document.getElementById("skipApplicantBtn");
@@ -2406,7 +2431,18 @@ function advanceDraft(d, type, member) {
   } else {
     const next = d.lyricsDone ? "作曲" : "作詞";
     const done = d.lyricsDone ? "作詞" : "作曲";
-    showEventPopup(`${done} 50％完成！`, `${done}の方向性が見えてきた。\n次は${next}をしよう！`, "song", d.lyricsDone ? "✍️" : "🎼");
+    const bars = [{ label: done, value: val(score) }];
+    const bonus = [];
+    if (kw.matchedTheme) bonus.push("テーマ相性○");
+    if (kw.tags?.length) bonus.push(`キーワード:${kw.tags.slice(0,2).join("・")}`);
+    if (arrState.status === "有効") bonus.push(`アレンジ有効:${d.arrange}`);
+    if (arrState.status === "不完全") bonus.push(`アレンジ不完全:${d.arrange}`);
+    const halfBody = `「${d.titleHint}」
+${done}完成度：${val(score)}%
+ジャンル：${genreDisplay(d)}
+${bonus.length ? "ボーナス：" + bonus.join(" / ") + "\n" : ""}次は${next}をしよう！`;
+    state.lastSongcraftResult = { title:`${done} 50％完成！`, body:halfBody };
+    showEventPopup(`${done} 50％完成！`, halfBody, "song", d.lyricsDone ? "✍️" : "🎼", { bars });
   }
 }
 
@@ -2457,7 +2493,13 @@ function finishDraft(draftId) {
 ボーナス：${bonusLines.length ? bonusLines.join(" / ") : "なし"}`;
   state.lastSongcraftResult = { title:"新曲100％完成！", body:resultBody };
   log(`新曲「${song.title}」が完成！ ジャンル:${genreDisplay(song)} / タグ:${song.tags.join("・")}`, "song");
-  showEventPopup("新曲完成！", resultBody, discovery?.rare ? "rare" : "song", discovery?.rare ? "⭐" : "💿");
+  showEventPopup("新曲完成！", resultBody, discovery?.rare ? "rare" : "song", discovery?.rare ? "⭐" : "💿", { bars:[
+    { label:"歌詞", value:val(song.lyrics) },
+    { label:"演奏", value:val(song.performance) },
+    { label:"テンポ", value:val(song.tempo) },
+    { label:"キャッチー", value:val(song.catchy) },
+    { label:"流行", value:val(song.trend) }
+  ] });
 }
 
 function registerGenreDiscovery(genre, songTitle="") {
@@ -2483,7 +2525,7 @@ function boostSong(type, member, songId) {
     state.lastSongcraftResult = { title:"曲強化：歌詞", body:`「${s.title}」
 歌詞+${val(amount)} / キャッチー少しUP / 認知度+1` };
     log(`${s.title}の歌詞を磨いた。歌詞+${val(amount)}。`);
-    showEventPopup("曲強化完了", state.lastSongcraftResult.body, "song", "🔧");
+    showEventPopup("曲強化完了", state.lastSongcraftResult.body, "song", "🔧", { bars:[{label:"歌詞", value:val(s.lyrics)}, {label:"キャッチー", value:val(s.catchy)}, {label:"認知度", value:val(s.recognition)}] });
   } else {
     s.performance = clamp(s.performance + amount, 0, 99);
     s.tempo = clamp(s.tempo + amount * 0.25, 0, 99);
@@ -2492,7 +2534,7 @@ function boostSong(type, member, songId) {
     state.lastSongcraftResult = { title:"曲強化：作曲", body:`「${s.title}」
 演奏+${val(amount)} / テンポ少しUP / 流行微増` };
     log(`${s.title}の作曲・アレンジを磨いた。演奏+${val(amount)}。`);
-    showEventPopup("曲強化完了", state.lastSongcraftResult.body, "song", "🔧");
+    showEventPopup("曲強化完了", state.lastSongcraftResult.body, "song", "🔧", { bars:[{label:"演奏", value:val(s.performance)}, {label:"テンポ", value:val(s.tempo)}, {label:"流行", value:val(s.trend)}] });
   }
 }
 
@@ -2538,6 +2580,7 @@ function performLive() {
   const vocalist = activeMembers().find(m => m.id === vocalistId) || state.player;
   const chorus = activeMembers().find(m => m.id === chorusId) || null;
   const result = calculateLive(setlist, supports, merch, positions, vocalist, chorus);
+  state.deferPopupsUntilAfterLive = true;
   applyLiveResult(result, setlist, supports, merch);
   state.pendingLiveResultModal = makeLiveResultModal(result, setlist);
   state.liveProgressModal = makeLiveProgressModal(result, setlist);
