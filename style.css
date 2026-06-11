@@ -1944,3 +1944,117 @@ button.stage-slot.selected {
   border-color: rgba(255,119,119,.42);
   background: rgba(255,119,119,.10);
 }
+
+
+/* v0.3.7: スケジュール予約ボタン・ライブ準備カード式UI */
+.liveCandidateBtn.schedule-event {
+  min-height: 112px;
+  padding: 12px;
+}
+.liveCandidateBtn .candidate-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+.liveCandidateBtn .candidate-meta em {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  white-space: nowrap;
+  font-style: normal;
+}
+.liveCandidateBtn .fee-pill {
+  min-width: 82px;
+  max-width: 104px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,206,92,.34);
+  background: rgba(255,206,92,.10);
+  color: var(--accent);
+  font-weight: 800;
+  font-size: .82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.setlist-help { margin: 0 0 8px; color: var(--muted); }
+.setlist-card-list { display: grid; gap: 9px; }
+.live-song-slot {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  gap: 9px;
+  align-items: center;
+  padding: 9px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 15px;
+  background: rgba(0,0,0,.18);
+}
+.slot-num {
+  display: grid;
+  place-items: center;
+  min-height: 48px;
+  border-radius: 13px;
+  border: 1px solid rgba(117,191,255,.28);
+  background: rgba(117,191,255,.10);
+}
+.slot-num b { font-size: 1.2rem; line-height: 1; color: var(--blue); }
+.slot-num span { font-size: .68rem; color: var(--muted); }
+.slot-song-main b, .slot-song-main small { display: block; }
+.slot-song-main small { color: var(--muted); font-size: .8rem; }
+.slot-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.slot-actions, .picker-actions { display: grid; gap: 6px; min-width: 92px; }
+.slot-actions button, .picker-actions button { padding: 7px 9px; border-radius: 10px; font-size: .78rem; }
+.position-row { grid-template-columns: 38px minmax(0,1fr) minmax(112px, 150px) auto; }
+.openMemberDetailBtn { padding: 7px 9px; border-radius: 10px; font-size: .78rem; }
+.live-picker-modal, .detail-modal {
+  width: min(94vw, 760px);
+  max-height: 88vh;
+  overflow: auto;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(36,36,50,.98), rgba(17,17,26,.98));
+  box-shadow: 0 24px 80px rgba(0,0,0,.55);
+  padding: 16px;
+}
+.picker-song-list { display: grid; gap: 10px; margin: 12px 0; }
+.picker-song-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 16px;
+  background: rgba(0,0,0,.18);
+  padding: 10px;
+}
+.picker-song-card.selected {
+  border-color: rgba(255,206,92,.50);
+  background: rgba(255,206,92,.08);
+}
+.picker-song-card b, .picker-song-card small { display:block; }
+.picker-song-card small { color: var(--muted); }
+.closeLivePickerBtn { width: 100%; }
+.detail-modal .song, .detail-modal .member { margin: 12px 0; }
+@media (max-width: 640px) {
+  .live-candidate-list { grid-template-columns: 1fr; }
+  .liveCandidateBtn .candidate-meta { align-items: flex-start; }
+  .liveCandidateBtn .fee-pill { min-width: 86px; max-width: 96px; font-size: .78rem; }
+  .live-song-slot { grid-template-columns: 42px 1fr; }
+  .slot-actions { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .position-row { grid-template-columns: 34px minmax(0,1fr); }
+  .position-row select, .position-row .openMemberDetailBtn { grid-column: 2; width: 100%; }
+  .picker-song-card { grid-template-columns: 1fr; }
+  .picker-actions { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+.booking-modal .modal-actions button {
+  width: 100%;
+  min-width: 0;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .booking-modal .modal-actions {
+    grid-template-columns: 1fr;
+  }
+}
