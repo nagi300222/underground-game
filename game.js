@@ -1,10 +1,10 @@
 /*
-  アンダーグラウンド（仮） v0.3.4 prototype
+  アンダーグラウンド（仮） v0.3.5 prototype
   - 1ファイル内の DATA を差し替えるだけでキャラ・曲・サポート候補を変更できます。
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
 
-const VERSION = "v0.3.4";
+const VERSION = "v0.3.5";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -548,7 +548,7 @@ function initials(name) { return String(name).replace(/[（(].*?[）)]/g, "").sl
 const DISCOVERY_KEY = "underground_v014_discovered_subgenres"; // v0.2.4でも継続利用
 const SAVE_KEY = "underground_v020_save";
 const AUTOSAVE_KEY = "underground_v020_autosave";
-const SAVE_VERSION = "v0.3.4";
+const SAVE_VERSION = "v0.3.5";
 function loadDiscoveredSubGenres() {
   try { return JSON.parse(localStorage.getItem(DISCOVERY_KEY) || "{}"); } catch (e) { return {}; }
 }
@@ -710,6 +710,7 @@ function createInitialState() {
     liveProgressModal: null,
     pendingLiveResultModal: null,
     liveResultModal: null,
+    pendingEndingAfterLive: false,
     lastLogType: "info",
     telopFlash: 0,
     installHintDismissed: false
@@ -767,20 +768,37 @@ function log(msg, type="info") {
   state.telopFlash = Date.now();
 }
 function showEventPopup(title, body, type="info", icon="🎸", payload={}) {
-  state.activePopup = { title, body, type, icon, ...(payload || {}) };
+  const popup = { title, body, type, icon, ...(payload || {}) };
+  // ライブ演出中に通常ポップアップを出すと画面が重なるため、ライブ結果OK後に順番表示する。
+  if (state.deferPopupsUntilAfterLive || state.liveProgressModal || state.pendingLiveResultModal || state.liveResultModal) {
+    state.popupQueue = state.popupQueue || [];
+    state.popupQueue.push(popup);
+    return;
+  }
+  state.activePopup = popup;
 }
 function closeActivePopup() {
   state.activePopup = null;
+  if (Array.isArray(state.popupQueue) && state.popupQueue.length) {
+    state.activePopup = state.popupQueue.shift();
+  } else if (state.pendingEndingAfterLive) {
+    state.pendingEndingAfterLive = false;
+    state.ended = true;
+  }
   render();
 }
 function closeLiveResultModal() {
   state.liveResultModal = null;
+  state.deferPopupsUntilAfterLive = false;
   if (state.postLiveStory) {
     const ev = state.postLiveStory;
     state.postLiveStory = null;
     state.activePopup = { title:ev.title, body:ev.body, type:"event", icon:ev.icon || "🕴️" };
   } else if (Array.isArray(state.popupQueue) && state.popupQueue.length) {
     state.activePopup = state.popupQueue.shift();
+  } else if (state.pendingEndingAfterLive) {
+    state.pendingEndingAfterLive = false;
+    state.ended = true;
   }
   render();
 }
@@ -809,11 +827,12 @@ function finishPendingTurnAdvance() {
   state.turn = pending.nextTurn;
   state.view = "home";
   scheduleNextLive();
-  state.turnNotice = { turn: state.turn, next: state.nextLiveTurn, label: currentLiveName(), remain: turnsUntilNextLive() };
+  state.turnNotice = { turn: state.turn, next: state.nextLiveTurn, label: currentLiveName(), remain: turnsUntilNextLive(), createdAt: Date.now() };
   state.songcraftUsedThisTurn = false;
   render();
 }
 function showLiveResultAfterProgress() {
+  if (window.__liveProgressTimer) clearTimeout(window.__liveProgressTimer);
   state.liveProgressModal = null;
   state.liveResultModal = state.pendingLiveResultModal;
   state.pendingLiveResultModal = null;
@@ -830,7 +849,20 @@ function scheduleLiveProgressTimer() {
     } else {
       render();
     }
-  }, 2000);
+  }, 1850);
+}
+function clearTurnNotice() {
+  if (window.__turnNoticeTimer) clearTimeout(window.__turnNoticeTimer);
+  state.turnNotice = null;
+}
+function scheduleTurnNoticeTimer() {
+  if (window.__turnNoticeTimer) clearTimeout(window.__turnNoticeTimer);
+  if (!state.turnNotice) return;
+  window.__turnNoticeTimer = setTimeout(() => {
+    if (!state.turnNotice) return;
+    state.turnNotice = null;
+    render();
+  }, 2600);
 }
 function makeLiveProgressModal(result, setlist) {
   const baseIcons = [];
@@ -876,6 +908,9 @@ function normalizeState() {
   if (typeof state.turnNotice === "undefined") state.turnNotice = null;
   if (typeof state.liveProgressModal === "undefined") state.liveProgressModal = null;
   if (typeof state.pendingLiveResultModal === "undefined") state.pendingLiveResultModal = null;
+  if (typeof state.pendingEndingAfterLive === "undefined") state.pendingEndingAfterLive = false;
+  if (typeof state.deferPopupsUntilAfterLive === "undefined") state.deferPopupsUntilAfterLive = false;
+  if (state.turnNotice && (!state.turnNotice.createdAt || Date.now() - state.turnNotice.createdAt > 3200)) state.turnNotice = null;
   if (!state.discoveredGenres) state.discoveredGenres = {};
   if (!state.band) state.band = {};
   if (typeof state.band.name === "undefined") state.band.name = "";
@@ -969,8 +1004,8 @@ function render() {
     <div class="app-shell">
       <div class="hero">
         <div>
-          <h1>アンダーグラウンド（仮） v0.3.4</h1>
-          <p>イントロ・チュートリアル・イベント/ライブ演出強化版。</p>
+          <h1>アンダーグラウンド（仮） v0.3.5</h1>
+          <p>ターン開始表示・ガレージ導線・ライブ結果遷移修正版。</p>
         </div>
         <div class="hero-actions"><button class="jumpTabBtn ghost-btn schedule-head-btn" data-view="schedule">予定</button><button id="refreshAppBtn" class="ghost-btn update-btn">最新版</button><button id="saveBtn" class="ghost-btn">セーブ</button><button id="loadBtn" class="ghost-btn">ロード</button><button id="deleteSaveBtn" class="ghost-btn danger">セーブ削除</button><button id="restartMiniBtn" class="ghost-btn">最初から</button></div>
       </div>
@@ -985,6 +1020,7 @@ function render() {
   `;
   bindEvents();
   scheduleLiveProgressTimer();
+  scheduleTurnNoticeTimer();
   autoSaveGame();
 }
 
@@ -1071,7 +1107,7 @@ function renderSavePanel() {
 function renderPwaPanel() {
   return `<div class="pwa-panel">
     <b>スマホ確認</b>
-    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.4は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
+    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.5は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
   </div>`;
 }
 
@@ -1299,7 +1335,7 @@ function renderSongEditor() {
   const ed = editorData();
   const used = state.songcraftUsedThisTurn;
   if (used) {
-    return `<div class="garage-closed"><div class="section-title"><h2>曲エディタ</h2><span class="badge bad">本日閉鎖</span></div><div class="garage-door">GARAGE CLOSED</div><p><small>このターンの作詞・作曲は終了。次ターンにまたガレージを開けられます。</small></p>${state.lastSongcraftResult ? `<div class="editor-summary mini"><b>直近の制作</b><span>${escapeHtml(state.lastSongcraftResult.title || "曲作り")}</span><span>${escapeHtml(state.lastSongcraftResult.body || "")}</span></div>` : ""}</div>`;
+    return `<div class="garage-closed"><div class="section-title"><h2>曲エディタ</h2><span class="badge bad">本日閉鎖</span></div><div class="garage-door">GARAGE CLOSED</div><p><small>このターンの作詞・作曲は終了。次ターンにまたガレージを開けられます。</small></p>${state.lastSongcraftResult ? `<div class="editor-summary mini"><b>直近の制作</b><span>${escapeHtml(state.lastSongcraftResult.title || "曲作り")}</span><span>${escapeHtml(state.lastSongcraftResult.body || "")}</span></div>` : ""}<button class="jumpTabBtn big-action garage-home-btn" data-view="home">ホームに戻る</button></div>`;
   }
   if (ed.step === "closed") {
     return `<div class="section-title"><h2>曲エディタ</h2><span class="badge good">今ターン未実行</span></div><p><small>新曲作成・曲強化・未完成曲の続きはここから進めます。</small></p><button class="songEditorChoiceBtn big-action" data-action="editor:menu">曲エディタを開く</button>`;
@@ -1887,13 +1923,48 @@ function renderLiveProgressOverlay() {
   const idx = clamp(l.index || 0, 0, Math.max(0, steps.length - 1));
   const current = steps[idx] || { line:"ライブ開始！", icon:"🔥", event:"会場が温まってきた" };
   const pct = steps.length ? Math.round((idx + 1) / steps.length * 100) : 100;
+  const prevPct = steps.length ? Math.round(idx / steps.length * 100) : 0;
   return `<div class="modal-backdrop result-backdrop live-only-backdrop">
     <div class="live-progress-modal realtime-live-modal">
       <div class="result-header"><span>LIVE STAGE</span><b>${escapeHtml(l.title)}</b><em>${idx + 1}/${steps.length || 5}</em></div>
-      <div class="live-progress-bar"><div class="live-progress-fill realtime" style="width:${pct}%"></div><span>${pct}%</span></div>
+      <div class="live-progress-bar"><div class="live-progress-fill realtime" style="--from:${prevPct}%;--to:${pct}%;width:${pct}%"></div><span>${pct}%</span></div>
       <div class="live-current-telop"><b>${escapeHtml(current.line)}</b></div>
       <div class="live-icons"><div><b>${escapeHtml(current.icon)}</b><span>${escapeHtml(current.event)}</span></div></div>
       <div class="live-telop-list compact">${steps.slice(0, idx + 1).map((x, i) => `<p class="${i === idx ? "active" : ""}">${escapeHtml(x.line)} / ${escapeHtml(x.icon)} ${escapeHtml(x.event)}</p>`).join("")}</div>
+      <button class="liveProgressNextBtn ghost-btn live-skip-btn">結果へ進む</button>
+    </div>
+  </div>`;
+}
+function renderLiveResultOverlay() {
+  const r = state.liveResultModal || {};
+  const gains = r.gains || {};
+  return `<div class="modal-backdrop result-backdrop">
+    <div class="live-result-modal rank-${escapeHtml(r.rank || "C")}">
+      <div class="rank-burst">${escapeHtml(r.rank || "-")}</div>
+      <div class="result-header"><span>LIVE RESULT</span><b>${escapeHtml(r.title || "ライブ結果")}</b><em>${escapeHtml(r.venue || "ライブハウス")}</em></div>
+      <div class="result-score"><b>${val(r.total || 0)}</b><span>総合評価</span></div>
+      <div class="result-bars">
+        ${resultBar("演奏", val(r.performance || 0))}
+        ${resultBar("表現", val(r.expression || 0))}
+        ${resultBar("熱量", val(r.heat || 0))}
+        ${resultBar("戦略", val(r.strategy || 0))}
+        ${resultBar("安定", val(r.stability || 0))}
+      </div>
+      <div class="result-summary-grid">
+        <div><b>集客</b><span>${val(r.attendees || 0)}人</span></div>
+        <div><b>利益</b><span>${Number(gains.funds || r.profit || 0).toLocaleString()}円</span></div>
+        <div><b>ファン</b><span>+${val(gains.fans || 0)}</span></div>
+        <div><b>知名度</b><span>+${val(gains.fame || 0)}</span></div>
+        <div><b>業界評価</b><span>+${val(gains.industry || 0)}</span></div>
+        <div><b>コア人気</b><span>+${val(gains.core || 0)}</span></div>
+      </div>
+      <div class="result-setlist"><b>SET LIST</b>${(r.songs || []).map((name, i) => `<span>${i + 1}. ${escapeHtml(name)}</span>`).join("")}</div>
+      <div class="result-notes">
+        <p>アドリブ：${escapeHtml(r.adlib || "なし")}</p>
+        <p>同一曲：${escapeHtml(r.repeatText || "なし")}</p>
+        ${r.coreEvent ? `<p>完璧ではないが、コアなファンに強く刺さった。</p>` : ""}
+      </div>
+      <button class="liveResultCloseBtn big-action">OK</button>
     </div>
   </div>`;
 }
@@ -1915,6 +1986,7 @@ function bindEvents() {
   document.querySelectorAll(".command-card").forEach(btn => btn.addEventListener("click", () => handleCommandClick(btn.dataset.command)));
   document.querySelectorAll(".tabBtn:not(:disabled), .jumpTabBtn").forEach(btn => btn.addEventListener("click", () => {
     const v = btn.dataset.view || "home";
+    if (state.turnNotice) clearTurnNotice();
     if (v !== "home" && showTutorialBlocked(v === "command" ? "command" : v === "schedule" ? "schedule" : v === "songs" ? "song" : "other")) return;
     state.view = v;
     if (v === "schedule" && state.scheduleTutorialStage === "needSchedule") {
@@ -2626,7 +2698,7 @@ function performLive() {
     state.popupQueue.push({ title:"スケジュール解放", body:"次からは自分でライブ予定を組む。\nまずはスケジュール帳を開いて、出たいライブを探そう。", type:"event", icon:"📅" });
   }
   if (state.turn === 30) {
-    state.ended = true;
+    state.pendingEndingAfterLive = true;
   } else {
     state.turn += 1;
     state.view = "home";

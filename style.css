@@ -1882,3 +1882,40 @@ button.stage-slot.selected {
 .event-modal .popup-bars {
   margin-top: 12px;
 }
+
+
+/* v0.3.5: turn notice / garage / live flow fixes */
+.garage-home-btn {
+  margin-top: 14px;
+  width: 100%;
+}
+.live-progress-fill.realtime {
+  transition: none !important;
+  animation: liveFillGrow 1.55s ease-out both !important;
+}
+@keyframes liveFillGrow {
+  from { width: var(--from, 0%); }
+  to { width: var(--to, 100%); }
+}
+.realtime-live-modal {
+  overflow: hidden;
+}
+.live-current-telop,
+.live-icons,
+.live-telop-list.compact p.active {
+  animation: liveStepIn .32s ease-out both;
+}
+@keyframes liveStepIn {
+  from { opacity: 0; transform: translateY(8px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.live-skip-btn {
+  width: 100%;
+  margin-top: 12px;
+  min-height: 44px;
+  border-color: rgba(255,206,92,.34);
+}
+.live-result-modal .big-action {
+  width: 100%;
+  margin-top: 12px;
+}
