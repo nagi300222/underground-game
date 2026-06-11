@@ -1,4 +1,4 @@
-underground_game_v0.3.3
+underground_game_v0.3.4
 
 fix/update:
 - 作詞作曲せずに行動した時の確認ポップアップのボタン幅・配置を調整。

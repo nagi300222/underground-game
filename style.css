@@ -1842,3 +1842,43 @@ button.stage-slot.selected {
   .turn-toast { padding: 18px 18px; }
   .floatingHomeBtn { width: 54px; height: 54px; font-size: 1.45rem; }
 }
+
+/* v0.3.4 final polish */
+.floatingHomeBtn {
+  background: linear-gradient(135deg, #facc15, #fb7185) !important;
+  color: #0f172a !important;
+  border: 2px solid rgba(255,255,255,.85) !important;
+  box-shadow: 0 16px 40px rgba(0,0,0,.55), 0 0 0 4px rgba(250,204,21,.18) !important;
+  opacity: 1 !important;
+}
+.floatingHomeBtn:hover,
+.floatingHomeBtn:active {
+  opacity: 1 !important;
+  transform: translateY(-1px) scale(1.03);
+}
+.confirm-wide {
+  width: 100%;
+}
+.confirm-wide button {
+  width: 100%;
+  min-height: 52px;
+  white-space: normal;
+}
+.live-only-backdrop {
+  z-index: 140 !important;
+}
+.realtime-live-modal {
+  max-height: 88vh;
+  overflow: auto;
+}
+.live-progress-fill.realtime {
+  min-width: 8%;
+}
+.training-gain-list span {
+  display: block;
+  padding: 3px 0;
+}
+.songcraft-summary .popup-bars,
+.event-modal .popup-bars {
+  margin-top: 12px;
+}
