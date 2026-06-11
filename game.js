@@ -1,10 +1,10 @@
 /*
-  アンダーグラウンド（仮） v0.3.6 prototype
+  アンダーグラウンド（仮） v0.3.7 prototype
   - 1ファイル内の DATA を差し替えるだけでキャラ・曲・サポート候補を変更できます。
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
 
-const VERSION = "v0.3.6";
+const VERSION = "v0.3.7";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -548,7 +548,7 @@ function initials(name) { return String(name).replace(/[（(].*?[）)]/g, "").sl
 const DISCOVERY_KEY = "underground_v014_discovered_subgenres"; // v0.2.4でも継続利用
 const SAVE_KEY = "underground_v020_save";
 const AUTOSAVE_KEY = "underground_v020_autosave";
-const SAVE_VERSION = "v0.3.6";
+const SAVE_VERSION = "v0.3.7";
 function loadDiscoveredSubGenres() {
   try { return JSON.parse(localStorage.getItem(DISCOVERY_KEY) || "{}"); } catch (e) { return {}; }
 }
@@ -704,6 +704,13 @@ function createInitialState() {
     activePopup: null,
     pendingNoSongcraftCommand: null,
     pendingBooking: null,
+    livePrepSetlist: null,
+    livePrepPositions: {},
+    livePrepChorus: "none",
+    livePrepSupportIds: [],
+    livePrepMerch: "none",
+    livePrepPickerSlot: null,
+    detailModal: null,
     lastSongcraftResult: null,
     turnNotice: null,
     actionResultModal: null,
@@ -946,6 +953,13 @@ function normalizeState() {
   if (typeof state.playerExtraInstrumentsUnlocked === "undefined") state.playerExtraInstrumentsUnlocked = false;
   if (typeof state.actionResultModal === "undefined") state.actionResultModal = null;
   if (typeof state.pendingBooking === "undefined") state.pendingBooking = null;
+  if (typeof state.livePrepSetlist === "undefined") state.livePrepSetlist = null;
+  if (!state.livePrepPositions || typeof state.livePrepPositions !== "object") state.livePrepPositions = {};
+  if (!Array.isArray(state.livePrepSupportIds)) state.livePrepSupportIds = [];
+  if (typeof state.livePrepChorus === "undefined") state.livePrepChorus = "none";
+  if (typeof state.livePrepMerch === "undefined") state.livePrepMerch = "none";
+  if (typeof state.livePrepPickerSlot === "undefined") state.livePrepPickerSlot = null;
+  if (typeof state.detailModal === "undefined") state.detailModal = null;
   if (typeof state.lastSongcraftResult === "undefined") state.lastSongcraftResult = null;
   if (typeof state.turnNotice === "undefined") state.turnNotice = null;
   if (typeof state.liveProgressModal === "undefined") state.liveProgressModal = null;
@@ -1067,8 +1081,8 @@ function render() {
     <div class="app-shell">
       <div class="hero">
         <div>
-          <h1>アンダーグラウンド（仮） v0.3.6</h1>
-          <p>ライブ演出停止点・不足目標ポップ・警告表示追加版。</p>
+          <h1>アンダーグラウンド（仮） v0.3.7</h1>
+          <p>ライブ準備UI改善・カード式セトリ選択版。</p>
         </div>
         <div class="hero-actions"><button class="jumpTabBtn ghost-btn schedule-head-btn" data-view="schedule">予定</button><button id="refreshAppBtn" class="ghost-btn update-btn">最新版</button><button id="saveBtn" class="ghost-btn">セーブ</button><button id="loadBtn" class="ghost-btn">ロード</button><button id="deleteSaveBtn" class="ghost-btn danger">セーブ削除</button><button id="restartMiniBtn" class="ghost-btn">最初から</button></div>
       </div>
@@ -1082,6 +1096,7 @@ function render() {
     </div>
   `;
   bindEvents();
+  alignScheduleScrollToCurrentTurn();
   scheduleLiveProgressTimer();
   scheduleTurnNoticeTimer();
   autoSaveGame();
@@ -1090,6 +1105,20 @@ function render() {
 function renderFloatingHomeButton(liveMode=false) {
   if ((state.view || "home") === "home" || liveMode) return "";
   return `<button class="floatingHomeBtn jumpTabBtn" data-view="home" aria-label="ホームへ戻る">🏠</button>`;
+}
+
+function alignScheduleScrollToCurrentTurn() {
+  const scrollers = document.querySelectorAll(".schedule-scroll");
+  if (!scrollers.length) return;
+  const currentTurn = String(state.turn || 1);
+  scrollers.forEach(scroller => {
+    const cell = scroller.querySelector(`[data-turn="${currentTurn}"]`) || scroller.querySelector(".turn-cell.now");
+    if (!cell) return;
+    requestAnimationFrame(() => {
+      const target = Math.max(0, cell.offsetLeft - Math.round(scroller.clientWidth * 0.32));
+      scroller.scrollLeft = target;
+    });
+  });
 }
 
 function renderNav(liveMode=false) {
@@ -1170,7 +1199,7 @@ function renderSavePanel() {
 function renderPwaPanel() {
   return `<div class="pwa-panel">
     <b>スマホ確認</b>
-    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.6は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
+    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.7は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
   </div>`;
 }
 
@@ -1210,7 +1239,7 @@ function renderLiveCandidate(c) {
   return `<button class="liveCandidateBtn schedule-event candidate ${cls}" data-turn="${c.turn}" data-venue="${v.id}">
     <strong class="candidate-turn">${c.turn}ターン</strong>
     <b>${v.name}</b>
-    <span>キャパ${v.capacity} / 会場費${v.fee.toLocaleString()}円</span>
+    <span class="candidate-meta"><em>キャパ${v.capacity}</em><em class="fee-pill">¥${v.fee.toLocaleString()}</em></span>
     <small>要準備${v.prepNeed} / 現在${val(prep)}</small>
     <em>${status}</em>
   </button>`;
@@ -1559,7 +1588,7 @@ function renderTimeline() {
     const cls = i === state.turn ? "now" : i < state.turn ? "done" : live ? (ev.fixed ? "live fixed" : "live booked") : "";
     const label = ev ? (i === 30 ? "FES" : ev.fixed ? "FIX" : "LIVE") : "育成";
     const venue = ev ? venueById(ev.venueId).name : "";
-    cells.push(`<div class="turn-cell ${cls}" title="${escapeHtml(venue)}"><b>${i}</b><span>${label}</span></div>`);
+    cells.push(`<div class="turn-cell ${cls}" data-turn="${i}" title="${escapeHtml(venue)}"><b>${i}</b><span>${label}</span></div>`);
   }
   const next = state.nextLiveTurn ? `${currentLiveName()} あと${turnsUntilNextLive()}T` : "予定なし";
   return `<div class="timeline-wrap schedule-board"><div class="schedule-title compact-title"><b>${state.turn}/${state.maxTurn}ターン</b><span>NEXT：${escapeHtml(next)}</span></div><div class="timeline long schedule-scroll one-line">${cells.join("")}</div></div>`;
@@ -1782,10 +1811,44 @@ function renderDeferred() {
   return `<h2>差し替え用メモ</h2><p><small>省いた候補は、あとで本実装に差し替えやすいように明示しています。</small></p>${Object.entries(DEFERRED_REPLACEMENTS).map(([k,v])=>`<p><span class="badge warn">${k}</span> ${v}</p>`).join("")}`;
 }
 
+function playableSongs() {
+  return [...(state.songs || []), ...(DATA.coverSongs || [])];
+}
+function ensureLivePrepSetlist() {
+  const songs = playableSongs();
+  const firstId = songs[0]?.id || "";
+  const valid = new Set(songs.map(s => s.id));
+  if (!Array.isArray(state.livePrepSetlist)) state.livePrepSetlist = [];
+  state.livePrepSetlist = [0,1,2,3,4].map(i => valid.has(state.livePrepSetlist[i]) ? state.livePrepSetlist[i] : firstId);
+  return state.livePrepSetlist;
+}
+function songById(id) {
+  return playableSongs().find(s => s.id === id) || playableSongs()[0] || null;
+}
+function renderLivePrepSetlist() {
+  const ids = ensureLivePrepSetlist();
+  return `<div class="setlist-card-list">${ids.map((id, idx) => renderLivePrepSongSlot(idx + 1, songById(id))).join("")}</div>`;
+}
+function renderLivePrepSongSlot(slot, song) {
+  const safeId = song?.id || "";
+  return `<div class="live-song-slot" data-slot="${slot}">
+    <input type="hidden" class="setlistSelect" data-slot="${slot}" value="${escapeHtml(safeId)}" />
+    <div class="slot-num"><b>${slot}</b><span>曲目</span></div>
+    <div class="slot-song-main">
+      <b>${escapeHtml(song?.title || "未選択")}${song?.isCover ? "（コピー）" : ""}</b>
+      <small>${escapeHtml(song ? genreDisplay(song) : "曲なし")} / キャッチー${val(song?.catchy || 0)}・演奏${val(song?.performance || 0)}・歌詞${val(song?.lyrics || 0)}</small>
+      <div class="slot-tags">${(song?.tags || []).slice(0, 4).map(t => `<span class="badge">${escapeHtml(t)}</span>`).join("")}</div>
+    </div>
+    <div class="slot-actions">
+      <button class="openSongPickerBtn ghost-btn" data-slot="${slot}">曲を選ぶ</button>
+      <button class="openSongDetailBtn ghost-btn" data-song-id="${escapeHtml(safeId)}">詳細</button>
+    </div>
+  </div>`;
+}
 function renderLivePrep() {
-  const allSongs = [...state.songs, ...DATA.coverSongs];
-  const songOpts = allSongs.map(s => `<option value="${s.id}">${s.title}${s.isCover ? "（コピー）" : ""}</option>`).join("");
-  const supports = DATA.supportOptions.map(s => `<label class="check-card"><input type="checkbox" class="supportCheck" value="${s.id}" /> ${s.name}<br><small>${s.cost.toLocaleString()}円 / ${s.genres.join("・")}</small></label>`).join("");
+  ensureLivePrepSetlist();
+  const selectedSupports = new Set(state.livePrepSupportIds || []);
+  const supports = DATA.supportOptions.map(s => `<label class="check-card"><input type="checkbox" class="supportCheck" value="${s.id}" ${selectedSupports.has(s.id) ? "checked" : ""} /> ${s.name}<br><small>${s.cost.toLocaleString()}円 / ${s.genres.join("・")}</small></label>`).join("");
   const ev = currentLiveEvent();
   const v = venueById(ev.venueId);
   const prep = estimatePrepScore();
@@ -1804,13 +1867,14 @@ function renderLivePrep() {
         </div>
         <div>
           <h3>5曲セトリ</h3>
-          ${[1,2,3,4,5].map(i => `<div class="live-slot"><b>${i}曲目</b><select class="setlistSelect" data-slot="${i}">${songOpts}</select></div>`).join("")}
+          <p class="setlist-help"><small>プルダウンではなく、各枠の「曲を選ぶ」から別メニューで選択します。詳細だけ確認して戻ることもできます。</small></p>
+          ${renderLivePrepSetlist()}
           <h3 style="margin-top:14px;">物販</h3>
           <select id="merchSelect">
-            <option value="none">なし：0円</option>
-            <option value="low">低コスト：3,000円 / ステッカー・缶バッジ</option>
-            <option value="standard">標準：8,000円 / ステッカー・缶バッジ・デモ音源</option>
-            <option value="premium">勝負：15,000円 / タオル・Tシャツ・デモ音源</option>
+            <option value="none" ${state.livePrepMerch === "none" ? "selected" : ""}>なし：0円</option>
+            <option value="low" ${state.livePrepMerch === "low" ? "selected" : ""}>低コスト：3,000円 / ステッカー・缶バッジ</option>
+            <option value="standard" ${state.livePrepMerch === "standard" ? "selected" : ""}>標準：8,000円 / ステッカー・缶バッジ・デモ音源</option>
+            <option value="premium" ${state.livePrepMerch === "premium" ? "selected" : ""}>勝負：15,000円 / タオル・Tシャツ・デモ音源</option>
           </select>
           <p><small>デモ音源は人気が上がるほど単価が大きく上がります。歌詞カード単体はなし。</small></p>
           <button id="performLiveBtn" class="big-action">ライブ本番へ</button>
@@ -1826,7 +1890,8 @@ function renderPositionControls() {
   const locked = state.liveCount === 0;
   const members = activeMembers();
   const rows = members.map((m, idx) => {
-    const defaultInst = locked && m.id === "player" ? "vocal" : (m.mainInstrument || "off");
+    const savedInst = state.livePrepPositions?.[m.id];
+    const defaultInst = locked && m.id === "player" ? "vocal" : (savedInst || m.mainInstrument || "off");
     const disabled = locked && m.id === "player" ? "disabled" : "";
     return `<div class="position-row" data-member="${m.id}">
       <div class="avatar small">${initials(m.name)}</div>
@@ -1834,9 +1899,10 @@ function renderPositionControls() {
       <select class="positionSelect" data-member-id="${m.id}" ${disabled}>
         ${positionOptions(defaultInst)}
       </select>
+      <button class="openMemberDetailBtn ghost-btn" data-member-id="${m.id}">詳細</button>
     </div>`;
   }).join("");
-  const chorusOptions = [`<option value="none">コーラスなし</option>`, ...members.filter(m => m.instruments.chorus || m.instruments.vocal).map(m => `<option value="${m.id}">${m.name}</option>`)].join("");
+  const chorusOptions = [`<option value="none" ${state.livePrepChorus === "none" ? "selected" : ""}>コーラスなし</option>`, ...members.filter(m => m.instruments.chorus || m.instruments.vocal).map(m => `<option value="${m.id}" ${state.livePrepChorus === m.id ? "selected" : ""}>${m.name}</option>`)].join("");
   return `<div class="stage-card">
     ${rows}
     <div class="position-row chorus-line"><div class="avatar small">Cho</div><div><b>コーラス枠</b><small>ボーカルと同じ人は不可</small></div><select id="chorusSelect">${chorusOptions}</select></div>
@@ -1898,12 +1964,64 @@ function maybeTriggerCommandEvent(command) {
   showEventPopup(title, body, "event", icon);
 }
 
+function renderLiveSongPickerOverlay() {
+  const slot = Number(state.livePrepPickerSlot || 1);
+  const currentId = ensureLivePrepSetlist()[slot - 1];
+  const songs = playableSongs();
+  return `<div class="modal-backdrop result-backdrop">
+    <div class="live-picker-modal">
+      <div class="result-header"><span>SETLIST SELECT</span><b>${slot}曲目を選ぶ</b><em>${songs.length}曲</em></div>
+      <div class="picker-song-list">${songs.map(s => `
+        <div class="picker-song-card ${s.id === currentId ? "selected" : ""}">
+          <div>
+            <b>${escapeHtml(s.title)}${s.isCover ? "（コピー）" : ""}</b>
+            <small>${escapeHtml(genreDisplay(s))} / キャッチー${val(s.catchy)}・テンポ${val(s.tempo)}・歌詞${val(s.lyrics)}・演奏${val(s.performance)}</small>
+            <div class="slot-tags">${(s.tags || []).slice(0, 5).map(t => `<span class="badge">${escapeHtml(t)}</span>`).join("")}</div>
+            ${renderSongBars(s)}
+          </div>
+          <div class="picker-actions">
+            <button class="chooseSetlistSongBtn big-action" data-slot="${slot}" data-song-id="${escapeHtml(s.id)}">この曲にする</button>
+            <button class="openSongDetailBtn ghost-btn" data-song-id="${escapeHtml(s.id)}">詳細</button>
+          </div>
+        </div>`).join("")}
+      </div>
+      <button class="closeLivePickerBtn ghost-btn wide-cancel">戻る</button>
+    </div>
+  </div>`;
+}
+function renderDetailModalOverlay() {
+  const d = state.detailModal || {};
+  if (d.type === "member") {
+    const m = allBandPeople().find(x => x.id === d.id) || activeMembers().find(x => x.id === d.id);
+    return `<div class="modal-backdrop result-backdrop">
+      <div class="detail-modal">
+        <div class="result-header"><span>MEMBER DETAIL</span><b>${escapeHtml(m?.name || "メンバー")}</b><em>${escapeHtml(m?.part || "")}</em></div>
+        ${m ? renderMemberCard(m) : `<p>メンバー情報が見つかりません。</p>`}
+        <button class="closeDetailModalBtn big-action">OK</button>
+      </div>
+    </div>`;
+  }
+  if (d.type === "song") {
+    const song = songById(d.id);
+    return `<div class="modal-backdrop result-backdrop">
+      <div class="detail-modal">
+        <div class="result-header"><span>SONG DETAIL</span><b>${escapeHtml(song?.title || "曲")}</b><em>${escapeHtml(song ? genreDisplay(song) : "")}</em></div>
+        ${song ? renderSongCard(song) : `<p>曲情報が見つかりません。</p>`}
+        <button class="closeDetailModalBtn big-action">OK</button>
+      </div>
+    </div>`;
+  }
+  return "";
+}
+
 function renderOverlays() {
   // 進行系の演出を優先し、ポップアップが重なって見えなくなるのを防ぐ。
   if (state.bandNamePrompt) return renderBandNameOverlay();
   if (state.liveProgressModal) return renderLiveProgressOverlay();
   if (state.liveResultModal) return renderLiveResultOverlay();
   if (state.actionResultModal) return renderActionResultOverlay();
+  if (state.detailModal) return renderDetailModalOverlay();
+  if (state.livePrepPickerSlot) return renderLiveSongPickerOverlay();
   if (state.pendingBooking) return renderBookingConfirmOverlay();
   if (state.pendingNoSongcraftCommand) return renderNoSongcraftConfirmOverlay();
   if (state.activePopup) return renderActivePopupOverlay();
@@ -2086,6 +2204,12 @@ function bindEvents() {
   document.querySelectorAll(".popupCloseBtn").forEach(btn => btn.addEventListener("click", closeActivePopup));
   document.querySelectorAll(".actionResultCloseBtn").forEach(btn => btn.addEventListener("click", closeActionResultModal));
   document.querySelectorAll(".liveProgressNextBtn").forEach(btn => btn.addEventListener("click", showLiveResultAfterProgress));
+  document.querySelectorAll(".openSongPickerBtn").forEach(btn => btn.addEventListener("click", () => { state.livePrepPickerSlot = Number(btn.dataset.slot || 1); render(); }));
+  document.querySelectorAll(".chooseSetlistSongBtn").forEach(btn => btn.addEventListener("click", () => { ensureLivePrepSetlist(); const slot = Number(btn.dataset.slot || state.livePrepPickerSlot || 1); state.livePrepSetlist[slot - 1] = btn.dataset.songId; state.livePrepPickerSlot = null; render(); }));
+  document.querySelectorAll(".closeLivePickerBtn").forEach(btn => btn.addEventListener("click", () => { state.livePrepPickerSlot = null; render(); }));
+  document.querySelectorAll(".openSongDetailBtn").forEach(btn => btn.addEventListener("click", () => { state.detailModal = { type:"song", id:btn.dataset.songId }; render(); }));
+  document.querySelectorAll(".openMemberDetailBtn").forEach(btn => btn.addEventListener("click", () => { state.detailModal = { type:"member", id:btn.dataset.memberId }; render(); }));
+  document.querySelectorAll(".closeDetailModalBtn").forEach(btn => btn.addEventListener("click", () => { state.detailModal = null; render(); }));
   const confirmBandNameBtn = document.getElementById("confirmBandNameBtn");
   if (confirmBandNameBtn) confirmBandNameBtn.addEventListener("click", () => { const name = (document.getElementById("bandNameInput")?.value || "").trim() || "名無しの地下バンド"; state.band.name = name; state.bandNamePrompt = false; log(`バンド名を「${name}」に決めた。`); showEventPopup("バンド名決定", `今日からこの名前でライブハウスに出る。\n${name}`, "event", "🏷️"); if (state.pendingTurnAdvance) finishPendingTurnAdvance(); else render(); });
   const confirmNoSongcraftBtn = document.getElementById("confirmNoSongcraftBtn");
@@ -2104,6 +2228,9 @@ function bindEvents() {
   document.querySelectorAll(".selectMemberBtn").forEach(btn => btn.addEventListener("click", () => { state.selectedMemberId = btn.dataset.memberId || "player"; render(); }));
   const noShowBtn = document.getElementById("noShowLiveBtn");
   if (noShowBtn) noShowBtn.addEventListener("click", () => cancelBookedLive(state.turn, true));
+  document.querySelectorAll(".supportCheck").forEach(cb => cb.addEventListener("change", () => { state.livePrepSupportIds = [...document.querySelectorAll(".supportCheck:checked")].map(x => x.value); }));
+  const merchSel = document.getElementById("merchSelect");
+  if (merchSel) merchSel.addEventListener("change", () => { state.livePrepMerch = merchSel.value; });
   document.querySelectorAll(".positionSelect").forEach(sel => sel.addEventListener("change", handlePositionChange));
   const chorusSel = document.getElementById("chorusSelect");
   if (chorusSel) chorusSel.addEventListener("change", enforceChorusRule);
@@ -2160,8 +2287,10 @@ function cancelBookedLive(turn, noShow=false) {
 }
 
 function handlePositionChange(e) {
+  state.livePrepPositions = state.livePrepPositions || {};
+  state.livePrepPositions[e.target.dataset.memberId] = e.target.value;
   if (e.target.value === "vocal") {
-    document.querySelectorAll(".positionSelect").forEach(sel => { if (sel !== e.target && sel.value === "vocal") sel.value = "off"; });
+    document.querySelectorAll(".positionSelect").forEach(sel => { if (sel !== e.target && sel.value === "vocal") { sel.value = "off"; state.livePrepPositions[sel.dataset.memberId] = "off"; } });
   }
   enforceChorusRule();
 }
@@ -2173,6 +2302,7 @@ function enforceChorusRule() {
     chorusSel.value = "none";
     log("ボーカルはコーラスを兼任できないため、コーラスをなしにした。");
   }
+  state.livePrepChorus = chorusSel.value || "none";
 }
 
 function handleCommandClick(command) {
@@ -2735,12 +2865,15 @@ function getPositionMapFromDom() {
 }
 
 function performLive() {
-  const allSongs = [...state.songs, ...DATA.coverSongs];
-  const ids = [...document.querySelectorAll(".setlistSelect")].map(x => x.value);
+  const allSongs = playableSongs();
+  const domIds = [...document.querySelectorAll(".setlistSelect")].map(x => x.value);
+  const ids = domIds.length ? domIds : ensureLivePrepSetlist();
   const setlist = ids.map(id => clone(allSongs.find(s => s.id === id))).filter(Boolean);
   const supportIds = [...document.querySelectorAll(".supportCheck:checked")].map(x => x.value);
+  state.livePrepSupportIds = supportIds;
   const supports = supportIds.map(id => DATA.supportOptions.find(s => s.id === id)).filter(Boolean);
-  const merch = document.getElementById("merchSelect").value;
+  const merch = document.getElementById("merchSelect")?.value || state.livePrepMerch || "none";
+  state.livePrepMerch = merch;
   const { map: positions, vocalistId } = getPositionMapFromDom();
   let chorusId = document.getElementById("chorusSelect")?.value || "none";
   if (chorusId === vocalistId) chorusId = "none";
@@ -2751,6 +2884,8 @@ function performLive() {
   applyLiveResult(result, setlist, supports, merch);
   state.pendingLiveResultModal = makeLiveResultModal(result, setlist);
   state.liveProgressModal = makeLiveProgressModal(result, setlist);
+  state.livePrepPickerSlot = null;
+  state.detailModal = null;
   const firstLive = state.liveCount === 0;
   state.liveResultHistory.push(result);
   state.liveCount += 1;
