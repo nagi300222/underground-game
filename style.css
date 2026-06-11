@@ -1715,3 +1715,22 @@ button.stage-slot.selected {
   .action-result-modal, .live-progress-modal { width:100%; border-radius:18px 18px 0 0; padding:14px; }
   .gain-grid, .live-icons { grid-template-columns:1fr; }
 }
+
+/* v0.3.2 additions */
+.title-input-row{display:flex;gap:8px;align-items:center;width:100%;}
+.title-input-row input{flex:1;min-width:0;}
+.dice-title-btn{width:52px;min-width:52px;font-size:1.25rem;padding:10px 0;}
+.garage-closed{border:1px dashed rgba(255,255,255,.18);border-radius:18px;padding:14px;background:linear-gradient(135deg,rgba(15,23,42,.95),rgba(30,41,59,.86));}
+.garage-door{margin:10px 0;padding:18px;border-radius:14px;text-align:center;letter-spacing:.16em;font-weight:900;color:#f8fafc;background:repeating-linear-gradient(45deg,rgba(148,163,184,.18) 0 8px,rgba(15,23,42,.45) 8px 16px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);}
+.turn-toast{position:fixed;left:50%;top:74px;transform:translateX(-50%);z-index:80;display:flex;gap:12px;align-items:center;max-width:92vw;padding:10px 14px;border-radius:999px;background:rgba(15,23,42,.94);border:1px solid rgba(96,165,250,.45);box-shadow:0 18px 45px rgba(0,0,0,.35);animation:turnToast 3s ease forwards;pointer-events:none;}
+.turn-toast b{color:#facc15;font-size:.95rem;white-space:nowrap;}
+.turn-toast span{font-size:.82rem;color:#e5e7eb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+@keyframes turnToast{0%{opacity:0;transform:translate(-50%,-10px)}12%,78%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-8px)}}
+.stage-slot{display:flex;flex-direction:column;gap:8px;align-items:stretch;}
+.stage-main{display:flex;gap:10px;align-items:center;text-align:left;background:transparent;border:0;color:inherit;width:100%;}
+.stage-actions{display:flex;gap:6px;flex-wrap:wrap;}
+.stage-actions button{font-size:.72rem;padding:6px 8px;border-radius:10px;}
+.candidate-turn{display:block;font-size:1.12rem;color:#facc15;margin-bottom:2px;}
+.booking-modal .modal-copy p{margin:6px 0;}
+.songcraft-summary span,.training-summary span{white-space:pre-line;}
+@media (max-width: 640px){.turn-toast{top:58px;padding:8px 10px}.turn-toast b{font-size:.85rem}.turn-toast span{font-size:.75rem}.dice-title-btn{width:46px;min-width:46px}.candidate-turn{font-size:1.25rem}.stage-actions button{font-size:.68rem;padding:5px 7px}}
