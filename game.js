@@ -1,118 +1,266 @@
 /*
-  アンダーグラウンド（仮） v0.2.7 prototype
+  アンダーグラウンド（仮） v0.2.8 prototype
   - 1ファイル内の DATA を差し替えるだけでキャラ・曲・サポート候補を変更できます。
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
 
-const MAIN_GENRES = ["ロック", "ポップ", "ジャズ", "パンク", "クラシック", "メタル", "ヒップホップ"];
+const VERSION = "v0.2.8";
+
+const MAIN_GENRE_DATA = [
+  { name: "ロック", stage: "early", unlockTurn: 1 },
+  { name: "ポップ", stage: "early", unlockTurn: 1 },
+  { name: "パンク", stage: "early", unlockTurn: 1 },
+  { name: "メタル", stage: "early", unlockTurn: 1 },
+  { name: "ヒップホップ", stage: "middle", unlockTurn: 11 },
+  { name: "ミクスチャー", stage: "middle", unlockTurn: 11 },
+  { name: "エモ", stage: "middle", unlockTurn: 11 },
+  { name: "オルタナ", stage: "middle", unlockTurn: 11 },
+  { name: "エレクトロ", stage: "middle", unlockTurn: 11 },
+  { name: "ジャズ", stage: "late", unlockTurn: 21 },
+  { name: "クラシック", stage: "late", unlockTurn: 21 },
+  { name: "プログレ", stage: "late", unlockTurn: 21 },
+  { name: "シューゲイザー", stage: "late", unlockTurn: 21 },
+  { name: "ポストロック", stage: "late", unlockTurn: 21 }
+];
+const MAIN_GENRES = MAIN_GENRE_DATA.map(g => g.name);
 
 const SUB_GENRES = [
-  { name: "ギターロック", parent: "ロック", unlockTurn: 1 },
-  { name: "オルタナ", parent: "ロック", unlockTurn: 1 },
-  { name: "ネオグランジ", parent: "ロック", unlockTurn: 12 },
-  { name: "ポップロック", parent: "ポップ", unlockTurn: 1 },
-  { name: "シティポップ", parent: "ポップ", unlockTurn: 8 },
-  { name: "ダンスポップ", parent: "ポップ", unlockTurn: 14 },
-  { name: "ジャズポップ", parent: "ジャズ", unlockTurn: 1 },
-  { name: "フュージョン", parent: "ジャズ", unlockTurn: 10 },
-  { name: "青春パンク", parent: "パンク", unlockTurn: 1 },
-  { name: "メロコア", parent: "パンク", unlockTurn: 8 },
-  { name: "ハードコア", parent: "パンク", unlockTurn: 14 },
-  { name: "シンフォニック", parent: "クラシック", unlockTurn: 10 },
-  { name: "室内楽風", parent: "クラシック", unlockTurn: 16 },
-  { name: "ヘヴィメタル", parent: "メタル", unlockTurn: 1 },
-  { name: "メタルコア", parent: "メタル", unlockTurn: 12 },
-  { name: "ラップロック", parent: "ヒップホップ", unlockTurn: 1 },
-  { name: "トラップ", parent: "ヒップホップ", unlockTurn: 8 },
-  { name: "ミクスチャー", parent: "ヒップホップ", unlockTurn: 12 },
-  { name: "ポップパンク", parent: "パンク", unlockTurn: 1 },
-  { name: "ハードロック", parent: "ロック", unlockTurn: 6 },
-  { name: "ジャズラップ", parent: "ヒップホップ", unlockTurn: 10 },
-  { name: "シンフォニックメタル", parent: "メタル", unlockTurn: 12 },
-  { name: "ラップポップ", parent: "ポップ", unlockTurn: 8 }
+  // 前半：ロック / ポップ / パンク / メタルの派生
+  { name: "ギターロック", parent: "ロック", unlockTurn: 1, rarity: "common" },
+  { name: "ハードロック", parent: "ロック", unlockTurn: 1, rarity: "common" },
+  { name: "ガレージロック", parent: "ロック", unlockTurn: 1, rarity: "common" },
+  { name: "オルタナロック", parent: "ロック", unlockTurn: 1, rarity: "common" },
+  { name: "バラードロック", parent: "ロック", unlockTurn: 1, rarity: "common" },
+  { name: "ギターポップ", parent: "ポップ", unlockTurn: 1, rarity: "common" },
+  { name: "パワーポップ", parent: "ポップ", unlockTurn: 1, rarity: "common" },
+  { name: "アニソンロック", parent: "ポップ", unlockTurn: 1, rarity: "common" },
+  { name: "シティポップ", parent: "ポップ", unlockTurn: 1, rarity: "common" },
+  { name: "バラードポップ", parent: "ポップ", unlockTurn: 1, rarity: "common" },
+  { name: "ポップパンク", parent: "パンク", unlockTurn: 1, rarity: "common" },
+  { name: "メロディックパンク", parent: "パンク", unlockTurn: 1, rarity: "common" },
+  { name: "青春パンク", parent: "パンク", unlockTurn: 1, rarity: "common" },
+  { name: "スカパンク", parent: "パンク", unlockTurn: 1, rarity: "common" },
+  { name: "ハードコア", parent: "パンク", unlockTurn: 1, rarity: "common" },
+  { name: "ガレージパンク", parent: "パンク", unlockTurn: 1, rarity: "common" },
+  { name: "ヘヴィメタル", parent: "メタル", unlockTurn: 1, rarity: "common" },
+  { name: "スピードメタル", parent: "メタル", unlockTurn: 1, rarity: "common" },
+  { name: "メロディックメタル", parent: "メタル", unlockTurn: 1, rarity: "common" },
+  { name: "メタルコア", parent: "メタル", unlockTurn: 1, rarity: "common" },
+  { name: "スクリーモ", parent: "メタル", unlockTurn: 1, rarity: "common" },
+  // 前半レア
+  { name: "デジロック", parent: "ロック", unlockTurn: 1, rarity: "rare" },
+  { name: "ダンスロック", parent: "ポップ", unlockTurn: 1, rarity: "rare" },
+  { name: "グランジ", parent: "ロック", unlockTurn: 1, rarity: "rare" },
+  { name: "ポストハードコア", parent: "パンク", unlockTurn: 1, rarity: "rare" },
+  { name: "ニューメタル", parent: "メタル", unlockTurn: 1, rarity: "rare" },
+  // アレンジ限定レア
+  { name: "ピアノロック", parent: "ロック", unlockTurn: 1, rarity: "rare", arrangeOnly: "ピアノ主導" },
+  // 中盤以降の仮枠
+  { name: "ラップロック", parent: "ヒップホップ", unlockTurn: 11, rarity: "common" },
+  { name: "ミクスチャーロック", parent: "ミクスチャー", unlockTurn: 11, rarity: "common" },
+  { name: "エモロック", parent: "エモ", unlockTurn: 11, rarity: "common" },
+  { name: "エレクトロロック", parent: "エレクトロ", unlockTurn: 11, rarity: "common" },
+  { name: "ジャズロック", parent: "ジャズ", unlockTurn: 21, rarity: "common" },
+  { name: "シンフォニックメタル", parent: "クラシック", unlockTurn: 21, rarity: "rare" },
+  { name: "クラシカルロック", parent: "クラシック", unlockTurn: 21, rarity: "common" }
 ];
 
-const DERIVED_GENRE_COMBOS = [
-  { a: "パンク", b: "ポップ", sub: "ポップパンク", note: "明るさと勢いが噛み合う王道派生" },
-  { a: "ロック", b: "ポップ", sub: "ポップロック", note: "キャッチーなロックに寄りやすい" },
-  { a: "ロック", b: "パンク", sub: "ギターロック", note: "荒さとギター感が出やすい" },
-  { a: "ロック", b: "ヒップホップ", sub: "ラップロック", note: "リフとラップの混合を狙える" },
-  { a: "ロック", b: "メタル", sub: "ハードロック", note: "重いロックへ派生しやすい" },
-  { a: "メタル", b: "パンク", sub: "メタルコア", note: "高速感と重さが噛み合う" },
-  { a: "ジャズ", b: "ポップ", sub: "ジャズポップ", note: "大人っぽいポップへ寄りやすい" },
-  { a: "ジャズ", b: "ヒップホップ", sub: "ジャズラップ", note: "グルーヴ重視の派生を狙える" },
-  { a: "クラシック", b: "メタル", sub: "シンフォニックメタル", note: "荘厳さと重さの特殊派生" },
-  { a: "ヒップホップ", b: "ポップ", sub: "ラップポップ", note: "言葉とキャッチーさの派生" }
+const GOOD_MAIN_COMBOS = [
+  "ポップ+ロック", "パンク+ロック", "パンク+ポップ", "パンク+メタル"
 ];
 
-function availableSubGenres() {
-  return SUB_GENRES.filter(g => g.unlockTurn <= (state?.turn || 1));
+const GENRE_COMBO_TABLE = {
+  "ロック+ロック": { favored:["ギターロック","ハードロック","ガレージロック","オルタナロック"], rare:["グランジ"] },
+  "ポップ+ポップ": { favored:["ギターポップ","パワーポップ","バラードポップ","シティポップ"], rare:["ダンスロック"] },
+  "パンク+パンク": { favored:["メロディックパンク","ハードコア","ガレージパンク","青春パンク"], rare:["スカパンク"] },
+  "メタル+メタル": { favored:["ヘヴィメタル","スピードメタル","メロディックメタル","メタルコア"], rare:["スクリーモ"] },
+  "ポップ+ロック": { favored:["ギターポップ","パワーポップ","アニソンロック","バラードロック"], rare:["シティポップ","デジロック"] },
+  "パンク+ロック": { favored:["ガレージロック","オルタナロック","ハードコア","青春パンク"], rare:["グランジ"] },
+  "メタル+ロック": { favored:["ハードロック","ヘヴィメタル","メロディックメタル","スピードメタル"], rare:["ニューメタル"] },
+  "パンク+ポップ": { favored:["ポップパンク","メロディックパンク","青春パンク","スカパンク"], rare:["アニソンロック"] },
+  "メタル+ポップ": { favored:["アニソンロック","メロディックメタル","パワーポップ","ハードロック"], rare:["デジロック"] },
+  "パンク+メタル": { favored:["ハードコア","メタルコア","スクリーモ","スピードメタル"], rare:["ポストハードコア","ニューメタル"] }
+};
+
+const THEMES = ["恋愛", "失恋", "友情", "応援", "日常", "青春", "反抗", "孤独", "自分", "居場所"];
+const MID_THEMES = ["焦燥感", "劣等感", "怒り", "再出発", "生き方", "個性"];
+const LATE_THEMES = ["喪失", "祈り", "破壊", "覚醒", "反権力", "救済"];
+function availableThemes() {
+  return [
+    ...THEMES,
+    ...((state?.turn || 1) >= 11 ? MID_THEMES : []),
+    ...((state?.turn || 1) >= 21 ? LATE_THEMES : [])
+  ];
+}
+
+const KEYWORD_SUGGESTIONS = ["夜", "夢", "雨", "終電", "屋上", "コンビニ", "街", "高架下", "ノイズ", "blue", "run away", "still alive"];
+const KEYWORDS = KEYWORD_SUGGESTIONS;
+const KEYWORD_DICTIONARY = [
+  { word:"夜", tags:["夜","孤独","余韻"], themes:["失恋","孤独"], add:{lyrics:3} },
+  { word:"午前二時", tags:["夜","焦燥感","孤独"], themes:["孤独","焦燥感"], add:{lyrics:4} },
+  { word:"終電", tags:["日常","別れ","余韻"], themes:["失恋","日常"], add:{lyrics:3} },
+  { word:"街", tags:["日常","孤独","居場所"], themes:["日常","居場所","反抗"], add:{lyrics:2} },
+  { word:"コンビニ", tags:["日常","青春"], themes:["日常","青春"], add:{catchy:2} },
+  { word:"高架下", tags:["反抗","青春","バンド感"], themes:["反抗","青春"], add:{performance:2} },
+  { word:"ノイズ", tags:["反抗","爆発力","コア向け"], themes:["反抗","個性"], add:{performance:3} },
+  { word:"雨", tags:["失恋","余韻","透明感"], themes:["失恋","孤独"], add:{lyrics:3} },
+  { word:"blue", tags:["失恋","透明感","夜"], themes:["失恋","孤独"], add:{lyrics:3} },
+  { word:"run away", tags:["逃避","反抗","疾走感"], themes:["反抗","焦燥感"], add:{tempo:3} },
+  { word:"still alive", tags:["希望","自分","救済"], themes:["自分","希望","救済"], add:{lyrics:3} },
+  { word:"爆音", tags:["爆発力","ライブ","反抗"], themes:["反抗"], add:{performance:3} }
+];
+
+const ARRANGES = ["疾走ビート", "轟音ギター", "静かなイントロ", "ツインギター", "シンセ厚め", "ベース主導", "ドラム爆発", "DJミックス", "コーラス重視", "ピアノ主導"];
+const ARRANGE_DATA = {
+  "疾走ビート": { need:{ drum:1 }, boost:["メロディックパンク","青春パンク","ポップパンク","スピードメタル"], rare:["ダンスロック"], effects:"テンポ+ / 疾走感 / 1曲目向き" },
+  "轟音ギター": { need:{ guitar:1 }, boost:["ハードロック","ガレージロック","オルタナロック","ハードコア"], rare:["グランジ"], effects:"演奏+ / 爆発力 / コア人気+" },
+  "静かなイントロ": { need:{}, boost:["バラードロック","バラードポップ","オルタナロック","ギターポップ"], rare:["シティポップ"], effects:"歌詞+ / 余韻 / 3〜5曲目向き" },
+  "ツインギター": { need:{ guitar:2 }, boost:["ギターロック","ハードロック","メロディックメタル","スピードメタル"], rare:["ニューメタル"], effects:"演奏+ / 爆発力+ / 難曲化" },
+  "シンセ厚め": { need:{ key:1 }, boost:["アニソンロック","シティポップ","パワーポップ","バラードポップ"], rare:["デジロック","ダンスロック"], effects:"流行+ / 透明感 / キャッチー+" },
+  "ベース主導": { need:{ bass:1 }, boost:["ガレージロック","オルタナロック","ハードコア","メタルコア"], rare:["グランジ","ニューメタル"], effects:"安定+ / グルーヴ / 戦略点+" },
+  "ドラム爆発": { need:{ drum:1 }, boost:["ハードコア","メタルコア","スクリーモ","スピードメタル"], rare:["ポストハードコア"], effects:"熱量+ / 爆発力 / 疲労+" },
+  "DJミックス": { need:{ dj:1 }, boost:["アニソンロック","パワーポップ","メタルコア","スクリーモ"], rare:["デジロック","ダンスロック","ニューメタル"], effects:"個性+ / 流行+ / ブレやすい" },
+  "コーラス重視": { need:{ chorusSeparate:1 }, boost:["ポップパンク","青春パンク","アニソンロック","バラードポップ"], rare:["スカパンク"], effects:"歌詞+ / キャッチー+ / ラスト向き" },
+  "ピアノ主導": { need:{ key:1 }, boost:["バラードロック","バラードポップ","アニソンロック","メロディックメタル"], rare:["ピアノロック"], effects:"表現点+ / 余韻 / ラスト向き" }
+};
+
+function availableMainGenres() {
+  const turn = state?.turn || 1;
+  return MAIN_GENRE_DATA.filter(g => g.unlockTurn <= turn).map(g => g.name);
+}
+function availableSubGenres(arrange="") {
+  const turn = state?.turn || 1;
+  return SUB_GENRES.filter(g => g.unlockTurn <= turn && (!g.arrangeOnly || g.arrangeOnly === arrange));
 }
 function subParent(subGenre) {
   return (SUB_GENRES.find(g => g.name === subGenre) || {}).parent || "ロック";
 }
-function genreComboKey(a, b) {
-  return [a, b].sort().join("+");
+function genreComboKey(a, b) { return [a, b].sort().join("+"); }
+function comboData(a, b) { return GENRE_COMBO_TABLE[genreComboKey(a, b)] || null; }
+function isGoodMainCombo(a, b) { return a !== b && GOOD_MAIN_COMBOS.includes(genreComboKey(a, b)); }
+function unlockedSubGenreByName(name, arrange="") { return availableSubGenres(arrange).find(sg => sg.name === name) || null; }
+function arrangementData(arrange) { return ARRANGE_DATA[arrange] || { need:{}, boost:[], rare:[], effects:"" }; }
+function memberHasInstrument(member, inst) {
+  if (member.mainInstrument === inst || member.subInstrument === inst) return true;
+  const entry = member.instruments?.[inst];
+  return !!entry && entry.mark !== "×";
 }
-function comboDerivation(a, b) {
-  const key = genreComboKey(a, b);
-  return DERIVED_GENRE_COMBOS.find(c => genreComboKey(c.a, c.b) === key) || null;
+function bandInstrumentCounts() {
+  const counts = { guitar:0, bass:0, drum:0, key:0, dj:0, vocal:0, chorus:0 };
+  activeMembers().forEach(m => {
+    Object.keys(counts).forEach(k => { if (memberHasInstrument(m, k)) counts[k] += 1; });
+  });
+  return counts;
 }
-function unlockedSubGenreByName(name) {
-  return availableSubGenres().find(sg => sg.name === name) || null;
-}
-function possibleDerivedSubGenres(a, b) {
-  const parents = [...new Set([a, b])];
-  const subs = availableSubGenres().filter(sg => parents.includes(sg.parent));
-  const combo = comboDerivation(a, b);
-  if (combo) {
-    const comboSub = unlockedSubGenreByName(combo.sub);
-    if (comboSub && !subs.some(sg => sg.name === comboSub.name)) subs.unshift(comboSub);
+function arrangeStatus(arrange) {
+  const data = arrangementData(arrange);
+  const counts = bandInstrumentCounts();
+  const missing = [];
+  let partial = false;
+  for (const [inst, need] of Object.entries(data.need || {})) {
+    if (inst === "chorusSeparate") {
+      if (counts.vocal >= 1 && counts.chorus >= 2) continue;
+      missing.push("ボーカル以外のコーラス");
+      partial = counts.chorus >= 1;
+      continue;
+    }
+    if ((counts[inst] || 0) >= need) continue;
+    missing.push(`${instrumentLabel(inst)}${need > 1 ? need + "人" : ""}`);
+    if ((counts[inst] || 0) > 0) partial = true;
   }
-  return subs;
+  const status = missing.length === 0 ? "有効" : partial ? "不完全" : "無効";
+  const multiplier = status === "有効" ? 1 : status === "不完全" ? 0.5 : 0;
+  return { status, multiplier, missing, effects:data.effects, boost:data.boost || [], rare:data.rare || [] };
 }
-function genrePlanChance(a, b) {
-  const combo = a !== b ? comboDerivation(a, b) : null;
-  const comboSub = combo ? unlockedSubGenreByName(combo.sub) : null;
-  const hasAnyDerived = possibleDerivedSubGenres(a, b).length > 0;
-  const subChance = comboSub ? 0.5 : hasAnyDerived ? 0.3 : 0;
-  if (a === b) return { mainA: 1 - subChance, mainB: 0, sub: subChance, combo: comboSub ? combo : null };
-  const rest = 1 - subChance;
-  return { mainA: rest / 2, mainB: rest / 2, sub: subChance, combo: comboSub ? combo : null };
+function instrumentLabel(inst) {
+  return ({ guitar:"ギター", bass:"ベース", drum:"ドラム", key:"キーボード/ピアノ", dj:"DJ", vocal:"ボーカル", chorus:"コーラス" })[inst] || inst;
 }
-function genrePlanLabel(a, b) {
+function possibleDerivedSubGenres(a, b, arrange="") {
+  const parents = [...new Set([a, b])];
+  const pool = availableSubGenres(arrange).filter(sg => parents.includes(sg.parent) && sg.rarity !== "rare");
+  const combo = comboData(a, b);
+  const names = [...pool.map(x => x.name), ...(combo?.favored || []), ...arrangementData(arrange).boost || []];
+  return [...new Set(names)].map(n => unlockedSubGenreByName(n, arrange)).filter(Boolean);
+}
+function genrePlanChance(a, b, arrange="") {
+  const hasDerived = possibleDerivedSubGenres(a, b, arrange).length > 0;
+  let subChance = isGoodMainCombo(a,b) ? 0.45 : hasDerived ? 0.25 : 0;
+  let rareChance = hasDerived ? 0.05 : 0;
+  const st = arrange ? arrangeStatus(arrange) : { multiplier:0 };
+  if (arrange && st.multiplier > 0) {
+    subChance += 0.12 * st.multiplier;
+    rareChance += 0.03 * st.multiplier;
+  }
+  const totalDerived = Math.min(0.70, subChance + rareChance);
+  if (subChance + rareChance > totalDerived) {
+    const scale = totalDerived / (subChance + rareChance);
+    subChance *= scale; rareChance *= scale;
+  }
+  const mainChance = Math.max(0, 1 - subChance - rareChance);
+  if (a === b) return { mainA: mainChance, mainB:0, sub:subChance, rare:rareChance, combo:comboData(a,b) };
+  return { mainA: mainChance/2, mainB: mainChance/2, sub:subChance, rare:rareChance, combo:comboData(a,b) };
+}
+function genrePlanLabel(a, b, arrange="") {
   if (!a || !b) return "ジャンル未選択";
-  const chance = genrePlanChance(a, b);
+  const chance = genrePlanChance(a, b, arrange);
   const pct = n => `${Math.round(n * 100)}%`;
-  const comboText = chance.combo ? ` / 狙い派生:${chance.combo.sub}` : "";
+  const arr = arrange ? ` / ${arrangeStatus(arrange).status}` : "";
   return a === b
-    ? `${a}→${b}：${a} ${pct(chance.mainA)} / 派生 ${pct(chance.sub)}${comboText}`
-    : `${a}→${b}：${a} ${pct(chance.mainA)} / ${b} ${pct(chance.mainB)} / 派生 ${pct(chance.sub)}${comboText}`;
+    ? `${a}→${b}：${a} ${pct(chance.mainA)} / サブ ${pct(chance.sub)} / レア ${pct(chance.rare)}${arr}`
+    : `${a}→${b}：${a} ${pct(chance.mainA)} / ${b} ${pct(chance.mainB)} / サブ ${pct(chance.sub)} / レア ${pct(chance.rare)}${arr}`;
 }
-function resolveSongGenrePair(a, b) {
-  const chance = genrePlanChance(a, b);
+function weightedPick(names, arrange="") {
+  const weights = names.map(n => {
+    const st = arrange ? arrangeStatus(arrange) : { boost:[], rare:[], multiplier:0 };
+    let w = 1;
+    if (st.boost.includes(n)) w += 3 * st.multiplier;
+    if (st.rare.includes(n)) w += 5 * st.multiplier;
+    return Math.max(0.1, w);
+  });
+  const total = weights.reduce((a,b)=>a+b,0);
+  let roll = Math.random() * total;
+  for (let i=0;i<names.length;i++) { roll -= weights[i]; if (roll <= 0) return names[i]; }
+  return names[0];
+}
+function resolveSongGenrePair(a, b, arrange="") {
+  const chance = genrePlanChance(a, b, arrange);
   const roll = Math.random();
-  const derivedSubs = possibleDerivedSubGenres(a, b);
-  if (chance.sub > 0 && roll < chance.sub && derivedSubs.length) {
-    const combo = chance.combo;
-    const chosen = combo ? unlockedSubGenreByName(combo.sub) : derivedSubs[rand(0, derivedSubs.length - 1)];
-    return {
-      mainGenre: chosen.parent,
-      subGenre: chosen.name,
-      sourceMainGenres: [a, b],
-      rollType: combo ? "combo-sub" : "derived-sub",
-      chanceText: genrePlanLabel(a, b)
-    };
+  const combo = comboData(a, b);
+  const arr = arrangementData(arrange);
+  const commonNames = [...new Set([...(combo?.favored || []), ...possibleDerivedSubGenres(a,b,arrange).map(x=>x.name), ...(arr.boost || [])])]
+    .filter(n => unlockedSubGenreByName(n, arrange) && unlockedSubGenreByName(n, arrange).rarity !== "rare");
+  const rareNames = [...new Set([...(combo?.rare || []), ...(arr.rare || [])])]
+    .filter(n => unlockedSubGenreByName(n, arrange));
+  if (roll < chance.rare && rareNames.length) {
+    const picked = weightedPick(rareNames, arrange);
+    const chosen = unlockedSubGenreByName(picked, arrange);
+    return { mainGenre: chosen.parent, subGenre: chosen.name, sourceMainGenres:[a,b], rollType:"rare-sub", chanceText:genrePlanLabel(a,b,arrange) };
+  }
+  if (roll < chance.rare + chance.sub && commonNames.length) {
+    const picked = weightedPick(commonNames, arrange);
+    const chosen = unlockedSubGenreByName(picked, arrange);
+    return { mainGenre: chosen.parent, subGenre: chosen.name, sourceMainGenres:[a,b], rollType:"derived-sub", chanceText:genrePlanLabel(a,b,arrange) };
   }
   let mainGenre = a;
   if (a !== b) mainGenre = Math.random() < 0.5 ? a : b;
-  return { mainGenre, subGenre: "", sourceMainGenres: [a, b], rollType: "main", chanceText: genrePlanLabel(a, b) };
+  return { mainGenre, subGenre:"", sourceMainGenres:[a,b], rollType:"main", chanceText:genrePlanLabel(a,b,arrange) };
 }
 function genreDisplay(song) {
   const main = song.mainGenre || subParent(song.subGenre || song.genre);
   const sub = song.subGenre || "";
   return sub && sub !== main ? `${main} / ${sub}` : main;
 }
+function analyzeKeywordText(text, theme="") {
+  const raw = String(text || "").trim();
+  const lower = raw.toLowerCase();
+  const hits = KEYWORD_DICTIONARY.filter(k => lower.includes(k.word.toLowerCase()));
+  const tags = [...new Set(hits.flatMap(h => h.tags || []))];
+  const matchedTheme = hits.some(h => (h.themes || []).includes(theme));
+  const unknown = raw && hits.length === 0;
+  if (unknown) tags.push("個性", "コア向け");
+  return { raw, hits, tags, matchedTheme, unknown };
+}
+
 
 
 
@@ -132,13 +280,6 @@ function fixedLiveEvent(turn, id, label, fixed=true) {
   return { turn, venueId:id, label, fixed, booked:true, cancelled:false, name:label, capacity:v.capacity, fee:v.fee, prepNeed:v.prepNeed };
 }
 
-const THEMES = ["初期衝動", "片思い", "別れ", "夜", "夢", "焦り", "劣等感", "友情", "反抗", "帰り道", "ライブハウス", "朝焼け"];
-const KEYWORDS = [
-  "コンビニ前", "午前二時", "終電", "屋上", "雨上がり", "破れたチケット", "アンプのノイズ", "空き缶", "古いスタジオ",
-  "blue", "night", "run away", "no reason", "last scene", "daybreak", "under light", "broken heart", "still alive", "never fade"
-];
-const ARRANGES = ["疾走ビート", "轟音ギター", "静かなイントロ", "ツインギター", "シンセ厚め", "ベース主導", "ドラム爆発", "DJミックス", "コーラス重視"];
-
 const DATA = {
   player: {
     id: "player",
@@ -148,7 +289,7 @@ const DATA = {
     subInstrument: "guitar",
     mainGenre: "パンク",
     secondMainGenres: ["ロック", "ポップ"],
-    subGenres: ["青春パンク", "メロコア", "オルタナ"],
+    subGenres: ["青春パンク", "メロディックパンク", "オルタナロック"],
     stats: { stamina: 40, technique: 35, knowledge: 35, sense: 50, mental: 45, teamwork: 40, rhythm: 35, charisma: 45 },
     instruments: {
       vocal: { mark: "◎", lv: 45, cap: 80, potentialCap: 90, growth: 1.1 },
@@ -165,7 +306,7 @@ const DATA = {
       mainInstrument: "guitar",
       mainGenre: "パンク",
       secondMainGenres: ["ロック", "ポップ"],
-      subGenres: ["青春パンク", "メロコア", "オルタナ"],
+      subGenres: ["青春パンク", "メロディックパンク", "オルタナロック"],
       weakMainGenres: ["ヒップホップ", "クラシック"],
       weakSubGenres: ["ミクスチャー", "シンフォニック"],
       stats: { stamina: 42, technique: 34, knowledge: 30, sense: 60, mental: 44, teamwork: 34, rhythm: 38, charisma: 62 },
@@ -185,9 +326,9 @@ const DATA = {
       mainInstrument: "guitar",
       mainGenre: "ロック",
       secondMainGenres: ["パンク"],
-      subGenres: ["ギターロック", "オルタナ", "ネオグランジ"],
+      subGenres: ["ギターロック", "オルタナロック", "グランジ"],
       weakMainGenres: ["ポップ"],
-      weakSubGenres: ["ダンスポップ"],
+      weakSubGenres: ["ダンスロック"],
       stats: { stamina: 42, technique: 64, knowledge: 58, sense: 52, mental: 45, teamwork: 38, rhythm: 46, charisma: 30 },
       instruments: {
         guitar: { mark: "◎", lv: 65, cap: 90, potentialCap: 95, growth: 1.15 },
@@ -205,7 +346,7 @@ const DATA = {
       mainInstrument: "bass",
       mainGenre: "ポップ",
       secondMainGenres: ["ロック", "ヒップホップ"],
-      subGenres: ["ポップロック", "シティポップ", "メロコア"],
+      subGenres: ["ギターポップ", "シティポップ", "メロディックパンク"],
       weakMainGenres: ["メタル"],
       weakSubGenres: ["ハードコア", "メタルコア"],
       stats: { stamina: 62, technique: 48, knowledge: 44, sense: 42, mental: 64, teamwork: 68, rhythm: 58, charisma: 32 },
@@ -225,7 +366,7 @@ const DATA = {
       mainInstrument: "drum",
       mainGenre: "パンク",
       secondMainGenres: ["ロック", "メタル"],
-      subGenres: ["青春パンク", "メロコア", "ハードコア"],
+      subGenres: ["青春パンク", "メロディックパンク", "ハードコア"],
       weakMainGenres: ["クラシック"],
       weakSubGenres: ["室内楽風", "シティポップ"],
       stats: { stamina: 66, technique: 46, knowledge: 28, sense: 44, mental: 46, teamwork: 42, rhythm: 68, charisma: 48 },
@@ -246,7 +387,7 @@ const DATA = {
       mainInstrument: "key",
       mainGenre: "ポップ",
       secondMainGenres: ["ジャズ", "ロック"],
-      subGenres: ["シティポップ", "ジャズポップ", "オルタナ"],
+      subGenres: ["シティポップ", "ジャズロック", "オルタナロック"],
       weakMainGenres: ["メタル"],
       weakSubGenres: ["ハードコア", "メタルコア"],
       stats: { stamina: 32, technique: 44, knowledge: 60, sense: 65, mental: 38, teamwork: 46, rhythm: 42, charisma: 40 },
@@ -284,15 +425,15 @@ const DATA = {
   coverSongs: [
     { id: "cover_01", title: "コピー曲：定番ロック", isCover: true, catchy: 42, tempo: 40, mainGenre: "ロック", subGenre: "ギターロック", genre: "ギターロック", recognition: 42, lyrics: 30, performance: 42, trend: 32, tags: ["定番", "客受け"] },
     { id: "cover_02", title: "コピー曲：疾走パンク", isCover: true, catchy: 38, tempo: 48, mainGenre: "パンク", subGenre: "青春パンク", genre: "青春パンク", recognition: 36, lyrics: 26, performance: 39, trend: 30, tags: ["疾走感", "爆発力"] },
-    { id: "cover_03", title: "コピー曲：夜のオルタナ", isCover: true, catchy: 30, tempo: 25, mainGenre: "ロック", subGenre: "オルタナ", genre: "オルタナ", recognition: 34, lyrics: 42, performance: 35, trend: 30, tags: ["エモさ", "余韻"] },
-    { id: "cover_04", title: "コピー曲：フェス向けポップ", isCover: true, catchy: 48, tempo: 38, mainGenre: "ポップ", subGenre: "ポップロック", genre: "ポップロック", recognition: 46, lyrics: 28, performance: 36, trend: 45, tags: ["定番", "客受け"] },
+    { id: "cover_03", title: "コピー曲：夜のオルタナロック", isCover: true, catchy: 30, tempo: 25, mainGenre: "ロック", subGenre: "オルタナロック", genre: "オルタナロック", recognition: 34, lyrics: 42, performance: 35, trend: 30, tags: ["エモさ", "余韻"] },
+    { id: "cover_04", title: "コピー曲：フェス向けギターポップ", isCover: true, catchy: 48, tempo: 38, mainGenre: "ポップ", subGenre: "ギターポップ", genre: "ギターポップ", recognition: 46, lyrics: 28, performance: 36, trend: 45, tags: ["定番", "客受け"] },
     { id: "cover_05", title: "コピー曲：重低音ラップロック", isCover: true, catchy: 34, tempo: 43, mainGenre: "ヒップホップ", subGenre: "ラップロック", genre: "ラップロック", recognition: 32, lyrics: 24, performance: 40, trend: 38, tags: ["個性", "爆発力"] }
   ],
   supportOptions: [
-    { id: "sup_guitar", name: "サポートギター", instrument: "guitar", cost: 5000, score: 8, genres: ["ロック", "ギターロック", "オルタナ", "メロコア"] },
-    { id: "sup_bass", name: "サポートベース", instrument: "bass", cost: 5000, score: 8, genres: ["ポップ", "ポップロック", "メロコア", "ミクスチャー"] },
-    { id: "sup_drum", name: "サポートドラム", instrument: "drum", cost: 8000, score: 11, genres: ["パンク", "青春パンク", "メロコア", "ハードコア"] },
-    { id: "sup_key", name: "サポートキーボード", instrument: "key", cost: 7000, score: 10, genres: ["ポップ", "シティポップ", "ジャズポップ", "クラシック"] },
+    { id: "sup_guitar", name: "サポートギター", instrument: "guitar", cost: 5000, score: 8, genres: ["ロック", "ギターロック", "オルタナロック", "メロディックパンク"] },
+    { id: "sup_bass", name: "サポートベース", instrument: "bass", cost: 5000, score: 8, genres: ["ポップ", "ギターポップ", "メロディックパンク", "ミクスチャー"] },
+    { id: "sup_drum", name: "サポートドラム", instrument: "drum", cost: 8000, score: 11, genres: ["パンク", "青春パンク", "メロディックパンク", "ハードコア"] },
+    { id: "sup_key", name: "サポートキーボード", instrument: "key", cost: 7000, score: 10, genres: ["ポップ", "シティポップ", "ジャズロック", "クラシック"] },
     { id: "sup_dj", name: "サポートDJ", instrument: "dj", cost: 9000, score: 12, genres: ["ヒップホップ", "ラップロック", "トラップ", "ミクスチャー"] },
     { id: "sup_other", name: "その他楽器サポート", instrument: "other", cost: 6000, score: 7, genres: ["ジャズ", "クラシック", "ポップ", "ロック"] }
   ]};
@@ -301,21 +442,21 @@ const DATA = {
 DATA.candidateCharacters.push(
   {
     id: "ranka", name: "ランカ（仮）", part: "Vo", mainInstrument: "vocal", mainGenre: "ポップ", secondMainGenres: ["ジャズ", "ロック"],
-    subGenres: ["シティポップ", "ジャズポップ", "ポップロック"], weakMainGenres: ["メタル"], weakSubGenres: ["ハードコア", "メタルコア"],
+    subGenres: ["シティポップ", "ジャズロック", "ギターポップ"], weakMainGenres: ["メタル"], weakSubGenres: ["ハードコア", "メタルコア"],
     stats: { stamina: 38, technique: 36, knowledge: 44, sense: 62, mental: 42, teamwork: 48, rhythm: 38, charisma: 68 },
     instruments: { vocal:{mark:"◎",lv:64,cap:88,potentialCap:96,growth:1.15}, chorus:{mark:"◎",lv:62,cap:88,potentialCap:96,growth:1.1}, key:{mark:"△",lv:24,cap:52,potentialCap:72,growth:.75} },
     joinDifficulty: "中", replaceNote: "ポップ寄りボーカル枠。仮キャラ。"
   },
   {
     id: "gaku", name: "ガク（仮）", part: "Gt/Vo", mainInstrument: "guitar", mainGenre: "メタル", secondMainGenres: ["ロック", "パンク"],
-    subGenres: ["ヘヴィメタル", "メタルコア", "ハードコア"], weakMainGenres: ["ポップ"], weakSubGenres: ["シティポップ", "ダンスポップ"],
+    subGenres: ["ヘヴィメタル", "メタルコア", "ハードコア"], weakMainGenres: ["ポップ"], weakSubGenres: ["シティポップ", "ダンスロック"],
     stats: { stamina: 58, technique: 66, knowledge: 46, sense: 42, mental: 48, teamwork: 32, rhythm: 54, charisma: 42 },
     instruments: { guitar:{mark:"◎",lv:70,cap:92,potentialCap:98,growth:1.15}, vocal:{mark:"△",lv:32,cap:58,potentialCap:75,growth:.8}, bass:{mark:"○",lv:44,cap:76,potentialCap:88,growth:.95}, chorus:{mark:"△",lv:28,cap:54,potentialCap:66,growth:.7} },
     joinDifficulty: "中〜高", replaceNote: "メタル・技巧派ギター枠。仮キャラ。"
   },
   {
     id: "toma", name: "トーマ（仮）", part: "Ba", mainInstrument: "bass", mainGenre: "ジャズ", secondMainGenres: ["ポップ", "ヒップホップ"],
-    subGenres: ["フュージョン", "ジャズポップ", "ミクスチャー"], weakMainGenres: ["メタル"], weakSubGenres: ["メタルコア"],
+    subGenres: ["フュージョン", "ジャズロック", "ミクスチャー"], weakMainGenres: ["メタル"], weakSubGenres: ["メタルコア"],
     stats: { stamina: 50, technique: 60, knowledge: 66, sense: 54, mental: 55, teamwork: 56, rhythm: 64, charisma: 28 },
     instruments: { bass:{mark:"◎",lv:68,cap:92,potentialCap:98,growth:1.12}, key:{mark:"○",lv:42,cap:72,potentialCap:84,growth:.95}, guitar:{mark:"△",lv:24,cap:52,potentialCap:70,growth:.7}, chorus:{mark:"△",lv:24,cap:50,potentialCap:62,growth:.7} },
     joinDifficulty: "中", replaceNote: "ジャズ・理論派ベース枠。仮キャラ。"
@@ -336,7 +477,7 @@ DATA.candidateCharacters.push(
   },
   {
     id: "ren", name: "レン（仮）", part: "MC/DJ", mainInstrument: "dj", mainGenre: "ヒップホップ", secondMainGenres: ["ポップ", "ロック"],
-    subGenres: ["トラップ", "ラップロック", "ダンスポップ"], weakMainGenres: ["クラシック"], weakSubGenres: ["室内楽風"],
+    subGenres: ["トラップ", "ラップロック", "ダンスロック"], weakMainGenres: ["クラシック"], weakSubGenres: ["室内楽風"],
     stats: { stamina: 44, technique: 48, knowledge: 46, sense: 64, mental: 52, teamwork: 30, rhythm: 70, charisma: 72 },
     instruments: { dj:{mark:"◎",lv:74,cap:92,potentialCap:99,growth:1.12}, vocal:{mark:"○",lv:50,cap:76,potentialCap:90,growth:.95}, chorus:{mark:"○",lv:44,cap:72,potentialCap:84,growth:.9}, bass:{mark:"△",lv:24,cap:52,potentialCap:78,growth:.72, hiddenUpgrade:true} },
     joinDifficulty: "高", replaceNote: "ヒップホップ・MC/DJ枠。仮キャラ。"
@@ -391,7 +532,7 @@ function initials(name) { return String(name).replace(/[（(].*?[）)]/g, "").sl
 const DISCOVERY_KEY = "underground_v014_discovered_subgenres"; // v0.2.4でも継続利用
 const SAVE_KEY = "underground_v020_save";
 const AUTOSAVE_KEY = "underground_v020_autosave";
-const SAVE_VERSION = "v0.2.7";
+const SAVE_VERSION = "v0.2.8";
 function loadDiscoveredSubGenres() {
   try { return JSON.parse(localStorage.getItem(DISCOVERY_KEY) || "{}"); } catch (e) { return {}; }
 }
@@ -535,6 +676,7 @@ function createInitialState() {
     liveResultHistory: [],
     saveNotice: "",
     activePopup: null,
+    pendingNoSongcraftCommand: null,
     liveResultModal: null,
     lastLogType: "info",
     telopFlash: 0,
@@ -610,6 +752,7 @@ function firstLine(text) {
 function normalizeState() {
   if (!state.songEditor) state.songEditor = { step: "closed" };
   if (typeof state.fesInfoKnown !== "boolean") state.fesInfoKnown = false;
+  if (typeof state.pendingNoSongcraftCommand === "undefined") state.pendingNoSongcraftCommand = null;
   if (!state.view) state.view = "home";
 }
 
@@ -621,8 +764,8 @@ function render() {
     <div class="app-shell">
       <div class="hero">
         <div>
-          <h1>アンダーグラウンド（仮） v0.2.7</h1>
-          <p>メインジャンル単体作曲＋サブジャンル任意化版。</p>
+          <h1>アンダーグラウンド（仮） v0.2.8</h1>
+          <p>ジャンル派生・アレンジ条件・曲作り確認ポップアップ版。</p>
         </div>
         <div class="hero-actions"><button class="jumpTabBtn ghost-btn schedule-head-btn" data-view="schedule">予定</button><button id="refreshAppBtn" class="ghost-btn update-btn">最新版</button><button id="saveBtn" class="ghost-btn">セーブ</button><button id="loadBtn" class="ghost-btn">ロード</button><button id="deleteSaveBtn" class="ghost-btn danger">セーブ削除</button><button id="restartMiniBtn" class="ghost-btn">最初から</button></div>
       </div>
@@ -709,7 +852,7 @@ function renderSavePanel() {
 function renderPwaPanel() {
   return `<div class="pwa-panel">
     <b>スマホ確認</b>
-    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.2.7は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
+    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.2.8は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
   </div>`;
 }
 
@@ -918,6 +1061,25 @@ function editorData() { if (!state.songEditor) state.songEditor = { step:"menu" 
 function choiceButton(label, action, extra="", small="") {
   return `<button class="songEditorChoiceBtn choice-card" data-action="${action}" ${extra}>${label}${small ? `<small>${small}</small>` : ""}</button>`;
 }
+
+function keywordPlainSummary(text, theme="") {
+  const a = analyzeKeywordText(text, theme);
+  const tags = a.tags.length ? a.tags.slice(0,4).join("・") : "個性";
+  const hit = a.hits.length ? `検出:${a.hits.map(h=>h.word).join("/")}` : "未登録";
+  return `${hit} / ${tags}${a.matchedTheme ? " / テーマ相性○" : ""}`;
+}
+function keywordPreview(text, theme="") {
+  const a = analyzeKeywordText(text, theme);
+  return `<div class="editor-summary mini"><b>キーワード判定</b><span>${escapeHtml(keywordPlainSummary(text, theme))}</span>${a.unknown ? `<span>未登録ワードは「個性」「コア向け」に寄ります。</span>` : ""}</div>`;
+}
+function arrangeChoiceButton(name) {
+  const st = arrangeStatus(name);
+  const data = arrangementData(name);
+  const tone = st.status === "有効" ? "good" : st.status === "不完全" ? "warn" : "bad";
+  const need = Object.keys(data.need || {}).length ? `必要:${st.missing.length ? st.missing.join("/") : "条件OK"}` : "条件なし";
+  const rare = (data.rare || []).length ? `レア:${data.rare.join("/")}` : "";
+  return choiceButton(`<b>${name}</b><span class="badge ${tone}">${st.status}</span>`, `new:arrange:${name}`, "", `${need} / ${data.effects}${rare ? " / " + rare : ""}`);
+}
 function renderSongEditor() {
   const ed = editorData();
   const used = state.songcraftUsedThisTurn;
@@ -949,11 +1111,14 @@ function renderSongEditorStep(ed) {
     return `<div class="editor-form"><label>曲名</label><input id="editorSongTitle" value="${escapeHtml(ed.title || "")}" placeholder="例：午前二時のノイズ" /><button class="songEditorNextBtn big-action" data-action="new:titleNext">次へ</button>${editorBackButton()}</div>`;
   }
   if (ed.step === "newType") return `<div class="choice-grid">${choiceButton("<b>作詞から作る</b>", "new:type:lyrics", "", "歌詞・言葉・テーマ重視")}${choiceButton("<b>作曲から作る</b>", "new:type:music", "", "リフ・構成・演奏重視")}</div>${editorBackButton()}`;
-  if (ed.step === "newMain1") return `<p><small>メインジャンルを2つ選びます。例：パンク→ポップなら、パンク/ポップ/派生サブジャンルの抽選になります。</small></p><div class="choice-grid genre-choice">${MAIN_GENRES.map(g=>choiceButton(`<b>${g}</b>`, `new:main1:${g}`, "", "1つ目の方向性")).join("")}</div>${editorBackButton()}`;
-  if (ed.step === "newMain2") return `<p><small>2つ目の方向性を選択。同じものを選ぶと、そのメインジャンル狙いになります。</small></p><div class="editor-summary mini"><b>1つ目</b><span>${ed.mainGenreA || "-"}</span></div><div class="choice-grid genre-choice">${MAIN_GENRES.map(g=>choiceButton(`<b>${g}</b>`, `new:main2:${g}`, "", genrePlanLabel(ed.mainGenreA || g, g))).join("")}</div>${editorBackButton()}`;
-  if (ed.step === "newTheme") return `<div class="choice-grid">${THEMES.map(x=>choiceButton(`<b>${x}</b>`, `new:theme:${x}`)).join("")}</div>${editorBackButton()}`;
-  if (ed.step === "newKeyword") return `<div class="choice-grid">${KEYWORDS.map(x=>choiceButton(`<b>${x}</b>`, `new:keyword:${x}`)).join("")}</div>${editorBackButton()}`;
-  if (ed.step === "newArrange") return `<div class="choice-grid">${ARRANGES.map(x=>choiceButton(`<b>${x}</b>`, `new:arrange:${x}`)).join("")}</div>${editorBackButton()}`;
+  if (ed.step === "newMain1") return `<p><small>メインジャンルを2つ選びます。例：パンク→ポップなら、パンク/ポップ/派生サブジャンルの抽選になります。</small></p><div class="choice-grid genre-choice">${availableMainGenres().map(g=>choiceButton(`<b>${g}</b>`, `new:main1:${g}`, "", "1つ目の方向性")).join("")}</div>${editorBackButton()}`;
+  if (ed.step === "newMain2") return `<p><small>2つ目の方向性を選択。同じものを選ぶと、そのメインジャンル狙いになります。</small></p><div class="editor-summary mini"><b>1つ目</b><span>${ed.mainGenreA || "-"}</span></div><div class="choice-grid genre-choice">${availableMainGenres().map(g=>choiceButton(`<b>${g}</b>`, `new:main2:${g}`, "", genrePlanLabel(ed.mainGenreA || g, g))).join("")}</div>${editorBackButton()}`;
+  if (ed.step === "newTheme") return `<div class="choice-grid compact-choice-grid">${availableThemes().map(x=>choiceButton(`<b>${x}</b>`, `new:theme:${x}`)).join("")}</div>${editorBackButton()}`;
+  if (ed.step === "newKeyword") {
+    const preview = ed.keyword ? keywordPreview(ed.keyword, ed.theme) : "単語を入力するか、候補を押してください。未登録ワードも個性として扱われます。";
+    return `<div class="editor-form keyword-form"><label>キーワード自由入力</label><input id="editorKeywordInput" value="${escapeHtml(ed.keyword || "")}" placeholder="例：午前二時のコンビニ前" /><button class="songEditorNextBtn big-action" data-action="new:keywordInputNext">このキーワードで進む</button><div class="keyword-preview">${preview}</div><p><small>候補</small></p><div class="choice-grid compact-choice-grid">${KEYWORD_SUGGESTIONS.map(x=>choiceButton(`<b>${x}</b>`, `new:keyword:${x}`)).join("")}</div>${editorBackButton()}</div>`;
+  }
+  if (ed.step === "newArrange") return `<p><small>アレンジは必要楽器が足りないと不完全/無効になります。サブジャンル派生率にも影響します。</small></p><div class="choice-grid compact-choice-grid arrange-choice">${ARRANGES.map(x=>arrangeChoiceButton(x)).join("")}</div>${editorBackButton()}`;
   if (ed.step === "newMember") return `<p><small>担当メンバーを選ぶと制作を実行します。</small></p><div class="choice-grid member-choice">${activeMembers().map(m=>choiceButton(`<b>${m.name}</b>`, `new:member:${m.id}`, "", `${m.part} / 得意:${m.mainGenre}`)).join("")}</div>${editorSummary(ed)}${editorBackButton()}`;
   if (ed.step === "boostSong") return `<div class="choice-grid song-choice">${state.songs.map(song=>choiceButton(`<b>${escapeHtml(song.title)}</b>`, `boost:song:${song.id}`, "", genreDisplay(song))).join("")}</div>${editorBackButton()}`;
   if (ed.step === "boostType") return `<div class="choice-grid">${choiceButton("<b>歌詞を強化</b>", "boost:type:lyrics", "", "歌詞・キャッチー・認知度")}${choiceButton("<b>作曲を強化</b>", "boost:type:music", "", "演奏・テンポ・流行")}</div>${editorBackButton()}`;
@@ -968,7 +1133,7 @@ function renderSongEditorStep(ed) {
   return editorBackButton();
 }
 function editorSummary(ed) {
-  return `<div class="editor-summary"><b>制作内容</b><span>曲名：${escapeHtml(ed.title || "未入力")}</span><span>カテゴリ：${ed.type === "lyrics" ? "作詞" : "作曲"}</span><span>ジャンル狙い：${ed.mainGenreA || "-"} → ${ed.mainGenreB || "-"}</span><span>確率：${ed.mainGenreA && ed.mainGenreB ? genrePlanLabel(ed.mainGenreA, ed.mainGenreB) : "-"}</span><span>テーマ：${ed.theme || "-"}</span><span>キーワード：${ed.keyword || "-"}</span><span>アレンジ：${ed.arrange || "-"}</span></div>`;
+  return `<div class="editor-summary"><b>制作内容</b><span>曲名：${escapeHtml(ed.title || "未入力")}</span><span>カテゴリ：${ed.type === "lyrics" ? "作詞" : "作曲"}</span><span>ジャンル狙い：${ed.mainGenreA || "-"} → ${ed.mainGenreB || "-"}</span><span>確率：${ed.mainGenreA && ed.mainGenreB ? genrePlanLabel(ed.mainGenreA, ed.mainGenreB, ed.arrange || "") : "-"}</span><span>テーマ：${ed.theme || "-"}</span><span>キーワード：${ed.keyword || "-"}</span><span>判定：${ed.keyword ? keywordPlainSummary(ed.keyword, ed.theme) : "-"}</span><span>アレンジ：${ed.arrange || "-"} ${ed.arrange ? "(" + arrangeStatus(ed.arrange).status + ")" : ""}</span></div>`;
 }
 function stepSongEditorBack(ed) {
   const backMap = {
@@ -1007,6 +1172,7 @@ function handleSongEditorAction(action) {
   if ((m = action.match(/^new:main1:(.+)$/))) { ed.mainGenreA = m[1]; ed.step = "newMain2"; render(); return; }
   if ((m = action.match(/^new:main2:(.+)$/))) { ed.mainGenreB = m[1]; ed.step = "newTheme"; render(); return; }
   if ((m = action.match(/^new:theme:(.+)$/))) { ed.theme = m[1]; ed.step = "newKeyword"; render(); return; }
+  if (action === "new:keywordInputNext") { ed.keyword = (document.getElementById("editorKeywordInput")?.value || "").trim() || KEYWORD_SUGGESTIONS[rand(0, KEYWORD_SUGGESTIONS.length-1)]; ed.step = "newArrange"; render(); return; }
   if ((m = action.match(/^new:keyword:(.+)$/))) { ed.keyword = m[1]; ed.step = "newArrange"; render(); return; }
   if ((m = action.match(/^new:arrange:(.+)$/))) { ed.arrange = m[1]; ed.step = "newMember"; render(); return; }
   if ((m = action.match(/^new:member:(.+)$/))) {
@@ -1424,6 +1590,13 @@ function renderOverlays() {
       <button class="popupCloseBtn big-action">OK</button>
     </div>
   </div>` : "";
+  const confirm = state.pendingNoSongcraftCommand ? `<div class="modal-backdrop">
+    <div class="event-modal warn">
+      <div class="modal-icon">🎼</div>
+      <div class="modal-copy"><h2>作詞作曲せずに進める？</h2><p>このターンは曲を作らずに終わります。よければ行動を実行します。</p></div>
+      <div class="modal-actions"><button id="confirmNoSongcraftBtn" class="big-action">このまま行動する</button><button id="cancelNoSongcraftBtn" class="ghost-btn">曲作りへ戻る</button></div>
+    </div>
+  </div>` : "";
   const r = state.liveResultModal;
   const live = r ? `<div class="modal-backdrop result-backdrop">
     <div class="live-result-modal rank-${r.rank}">
@@ -1452,7 +1625,7 @@ function renderOverlays() {
       <button class="liveResultCloseBtn big-action">次へ</button>
     </div>
   </div>` : "";
-  return popup + live;
+  return popup + confirm + live;
 }
 function resultBar(label, value) {
   const pct = clamp(value / 2.2, 0, 100);
@@ -1487,6 +1660,10 @@ function bindEvents() {
   if (deleteSaveBtn) deleteSaveBtn.addEventListener("click", deleteSave);
   ["refreshAppBtn", "pwaRefreshBtn"].forEach(id => { const btn = document.getElementById(id); if (btn) btn.addEventListener("click", reloadLatestVersion); });
   document.querySelectorAll(".popupCloseBtn").forEach(btn => btn.addEventListener("click", closeActivePopup));
+  const confirmNoSongcraftBtn = document.getElementById("confirmNoSongcraftBtn");
+  if (confirmNoSongcraftBtn) confirmNoSongcraftBtn.addEventListener("click", confirmNoSongcraftCommand);
+  const cancelNoSongcraftBtn = document.getElementById("cancelNoSongcraftBtn");
+  if (cancelNoSongcraftBtn) cancelNoSongcraftBtn.addEventListener("click", () => { state.pendingNoSongcraftCommand = null; state.view = "songs"; if (!state.songEditor || state.songEditor.step === "closed") state.songEditor = { step:"menu" }; render(); });
   document.querySelectorAll(".liveResultCloseBtn").forEach(btn => btn.addEventListener("click", closeLiveResultModal));
   const bookLiveBtn = document.getElementById("bookLiveBtn");
   if (bookLiveBtn) bookLiveBtn.addEventListener("click", () => bookLiveFromHome());
@@ -1566,6 +1743,19 @@ function enforceChorusRule() {
 }
 
 function handleCommandClick(command) {
+  if (!state.songcraftUsedThisTurn) {
+    state.pendingNoSongcraftCommand = command;
+    render();
+    return;
+  }
+  runCommandTurn(command);
+}
+function confirmNoSongcraftCommand() {
+  const command = state.pendingNoSongcraftCommand;
+  state.pendingNoSongcraftCommand = null;
+  if (command) runCommandTurn(command);
+}
+function runCommandTurn(command) {
   executeCommand(command);
   maybeTriggerCommandEvent(command);
   postTurnMaintenance(command);
@@ -1831,7 +2021,7 @@ function createDraftAndAdvance(type, member, mainGenreA, mainGenreB, theme, keyw
   if (!draft) {
     const a = mainGenreA || MAIN_GENRES[0];
     const b = mainGenreB || a;
-    const resolved = resolveSongGenrePair(a, b);
+    const resolved = resolveSongGenrePair(a, b, arrange);
     draft = {
       id: `draft_${Date.now()}_${rand(100,999)}`,
       titleHint,
@@ -1863,7 +2053,13 @@ function advanceDraft(d, type, member) {
   if (type === "lyrics" && d.lyricsDone) { log(`「${d.titleHint}」の作詞はすでに完了している。未作成の作曲を選んでください。`); return; }
   if (type === "music" && d.musicDone) { log(`「${d.titleHint}」の作曲はすでに完了している。未作成の作詞を選んでください。`); return; }
   const base = type === "lyrics" ? derivedLyrics(member) : derivedMusic(member);
-  const score = clamp(base + genreFit(member, d.mainGenre || subParent(d.genre), d.subGenre || d.genre) + rand(-12, 18) - state.band.fatigue * 0.08, 10, 99);
+  const kw = analyzeKeywordText(d.keyword, d.theme);
+  const arrState = arrangeStatus(d.arrange || "");
+  const arrangeBonus = (arrState.status === "有効" ? 5 : arrState.status === "不完全" ? 2 : -4);
+  const keywordBonus = (kw.matchedTheme ? 4 : 0) + (kw.unknown ? 1 : Math.min(4, kw.hits.length * 2));
+  const score = clamp(base + genreFit(member, d.mainGenre || subParent(d.genre), d.subGenre || d.genre) + arrangeBonus + keywordBonus + rand(-12, 18) - state.band.fatigue * 0.08, 10, 99);
+  if (kw.tags?.length) d.tags.push(...kw.tags.slice(0, 3));
+  if (arrState.status === "無効" && !d.tags.includes("未完成感")) d.tags.push("未完成感");
   if (type === "lyrics") {
     d.lyricsDone = true;
     d.lyricsScore = Math.max(d.lyricsScore, score);
@@ -1903,15 +2099,15 @@ function finishDraft(draftId) {
     id: `song_${Date.now()}`,
     title: d.titleHint,
     isCover: false,
-    catchy: clamp(35 + avgScore * 0.35 + rand(-8, 8), 0, 99),
-    tempo: clamp(8 + d.musicScore * 0.45 + (d.arrange.includes("疾走") ? 8 : 0) + rand(-4, 6), 0, 99),
+    catchy: clamp(35 + avgScore * 0.35 + (analyzeKeywordText(d.keyword,d.theme).tags.includes("青春") ? 3 : 0) + rand(-8, 8), 0, 99),
+    tempo: clamp(8 + d.musicScore * 0.45 + (d.arrange.includes("疾走") ? 8 : 0) + (d.arrange.includes("ドラム") ? 4 : 0) + rand(-4, 6), 0, 99),
     mainGenre: d.mainGenre || subParent(d.subGenre || d.genre),
     subGenre: d.subGenre || "",
     genre: d.subGenre || d.mainGenre || d.genre,
     recognition: 0,
     lyrics: clamp(5 + d.lyricsScore * 0.65 + rand(-4, 6), 0, 99),
     performance: clamp(5 + d.musicScore * 0.65 + rand(-4, 6), 0, 99),
-    trend: clamp(10 + rand(0, 22), 0, 99),
+    trend: clamp(10 + (d.arrange.includes("シンセ") || d.arrange.includes("DJ") ? 8 : 0) + rand(0, 22), 0, 99),
     tags: [...new Set(d.tags.length ? d.tags : ["新曲"])],
     standardPoints: 0,
     representativePoints: 0

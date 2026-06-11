@@ -1589,3 +1589,41 @@ button.stage-slot.selected {
   .liveCandidateBtn.schedule-event { min-height: 88px; }
   .schedule-event small, .schedule-event em { font-size: .68rem; }
 }
+
+/* v0.2.8 曲作りUI調整 */
+.compact-choice-grid,
+.genre-choice,
+.arrange-choice {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.compact-choice-grid .choice-card,
+.genre-choice .choice-card,
+.arrange-choice .choice-card {
+  min-height: 58px;
+  padding: 8px;
+}
+.compact-choice-grid .choice-card b,
+.genre-choice .choice-card b,
+.arrange-choice .choice-card b { font-size: .88rem; }
+.compact-choice-grid .choice-card small,
+.genre-choice .choice-card small,
+.arrange-choice .choice-card small { font-size: .62rem; }
+.keyword-form input { font-size: 16px; }
+.keyword-preview { margin-top: 6px; }
+.modal-actions { display:grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.choice-card .badge { justify-self: start; margin-top: 2px; }
+@media (max-width: 520px) {
+  .compact-choice-grid,
+  .genre-choice,
+  .arrange-choice { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .compact-choice-grid .choice-card,
+  .genre-choice .choice-card,
+  .arrange-choice .choice-card { min-height: 52px; padding: 6px; }
+  .compact-choice-grid .choice-card b,
+  .genre-choice .choice-card b,
+  .arrange-choice .choice-card b { font-size: .76rem; }
+  .compact-choice-grid .choice-card small,
+  .genre-choice .choice-card small,
+  .arrange-choice .choice-card small { font-size: .54rem; line-height: 1.15; }
+  .modal-actions { grid-template-columns: 1fr; }
+}
