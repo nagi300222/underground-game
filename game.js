@@ -1,10 +1,10 @@
 /*
-  アンダーグラウンド（仮） v0.3.5 prototype
+  アンダーグラウンド（仮） v0.3.6 prototype
   - 1ファイル内の DATA を差し替えるだけでキャラ・曲・サポート候補を変更できます。
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
 
-const VERSION = "v0.3.5";
+const VERSION = "v0.3.6";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -548,7 +548,7 @@ function initials(name) { return String(name).replace(/[（(].*?[）)]/g, "").sl
 const DISCOVERY_KEY = "underground_v014_discovered_subgenres"; // v0.2.4でも継続利用
 const SAVE_KEY = "underground_v020_save";
 const AUTOSAVE_KEY = "underground_v020_autosave";
-const SAVE_VERSION = "v0.3.5";
+const SAVE_VERSION = "v0.3.6";
 function loadDiscoveredSubGenres() {
   try { return JSON.parse(localStorage.getItem(DISCOVERY_KEY) || "{}"); } catch (e) { return {}; }
 }
@@ -711,6 +711,9 @@ function createInitialState() {
     pendingLiveResultModal: null,
     liveResultModal: null,
     pendingEndingAfterLive: false,
+    deferPopupsUntilAfterLive: false,
+    popupQueue: [],
+    lastNoLivePlanWarnTurn: 0,
     lastLogType: "info",
     telopFlash: 0,
     installHintDismissed: false
@@ -840,13 +843,19 @@ function showLiveResultAfterProgress() {
 }
 function scheduleLiveProgressTimer() {
   if (window.__liveProgressTimer) clearTimeout(window.__liveProgressTimer);
-  if (!state.liveProgressModal) return;
+  const l = state.liveProgressModal;
+  if (!l || l.complete) return;
   window.__liveProgressTimer = setTimeout(() => {
     if (!state.liveProgressModal) return;
-    state.liveProgressModal.index = (state.liveProgressModal.index || 0) + 1;
-    if (state.liveProgressModal.index >= (state.liveProgressModal.steps || []).length) {
-      showLiveResultAfterProgress();
+    const live = state.liveProgressModal;
+    const maxIdx = Math.max(0, (live.steps || []).length - 1);
+    const nextIndex = (live.index || 0) + 1;
+    if (nextIndex > maxIdx) {
+      live.index = maxIdx;
+      live.complete = true;
+      render();
     } else {
+      live.index = nextIndex;
       render();
     }
   }, 1850);
@@ -865,29 +874,62 @@ function scheduleTurnNoticeTimer() {
   }, 2600);
 }
 function makeLiveProgressModal(result, setlist) {
-  const baseIcons = [];
-  if (result.adlib?.text && result.adlib.text !== "なし") baseIcons.push({ icon:"⚡", text:`アドリブ${result.adlib.text}` });
-  if (result.repeatInfo?.hasRepeats) baseIcons.push({ icon: result.repeatInfo.boom ? "🎤" : "⚠️", text: result.repeatInfo.boom ? "再演が刺さった" : "再演が裏目" });
-  if (result.total >= 80) baseIcons.push({ icon:"⭐", text:"奇跡の一体感" });
-  if (state.band.fatigue > 60) baseIcons.push({ icon:"💧", text:"疲労が見える" });
-  if (!baseIcons.length) baseIcons.push({ icon:"🔥", text:"客席が温まってきた" });
-  const steps = setlist.map((s, i) => {
-    const icon = baseIcons[i % baseIcons.length];
+  const steps = setlist.map((song, i) => {
+    const slot = i + 1;
+    const repeat = repeatImpactForSlot(result.repeatInfo, slot);
+    const mood = liveSongMood(song, slot, result.rank, result);
     return {
-      slot: i + 1,
-      line: liveSongLine(s, i + 1, result.rank),
-      icon: icon.icon,
-      event: icon.text
+      slot,
+      line: liveSongLine(song, slot, result.rank, result, repeat),
+      icon: repeat ? repeat.icon : mood.icon,
+      event: repeat ? repeat.text : mood.text,
+      impact: repeat ? "repeat" : mood.kind
     };
   });
-  return { title: currentLiveName(), rank: result.rank, total: val(result.total), steps, index:0 };
+  return { title: currentLiveName(), rank: result.rank, total: val(result.total), steps, index:0, complete:false };
 }
-function liveSongLine(song, slot, rank) {
-  if (slot === 1) return `1曲目『${song.title}』 客席の視線をつかみにいく。`;
-  if (slot === 5) return `5曲目『${song.title}』 最後のサビに今日の全部を乗せた。`;
-  if (["S","A"].includes(rank)) return `${slot}曲目『${song.title}』 会場の熱が少しずつ上がっていく。`;
-  if (["D","E"].includes(rank)) return `${slot}曲目『${song.title}』 荒さもあるが、前へ進もうとしている。`;
-  return `${slot}曲目『${song.title}』 バンドの色が見え始めた。`;
+function repeatImpactForSlot(repeatInfo, slot) {
+  const hit = (repeatInfo?.repeats || []).find(r => r.idx === slot - 1);
+  if (!hit) return null;
+  if (repeatInfo.boom) {
+    return { icon:"🎤", text:`${slot}曲目の再演が刺さった`, detail:`同じ曲の${hit.occurrence}回目が、逆に客席の合唱を生んだ。` };
+  }
+  return { icon:"⚠️", text:`${slot}曲目の再演が裏目`, detail:`同じ曲の${hit.occurrence}回目で、客席の集中が少し切れた。` };
+}
+function liveSongLine(song, slot, rank, result, repeat) {
+  if (repeat) return `${slot}曲目『${song.title}』 ${repeat.detail}`;
+  const tagLine = liveTagLine(song, slot);
+  if (tagLine) return `${slot}曲目『${song.title}』 ${tagLine}`;
+  const lines = {
+    1: "幕開け。客席の視線を一気につかみにいく。",
+    2: "曲順が良く、前の熱を受けてフロアが少し前に出た。",
+    3: "中盤の山場。歌詞と演奏の芯が見え始める。",
+    4: "ラスト前の一曲。少し空気を変えて、次の爆発を作る。",
+    5: "締めの一曲。最後のサビに今日の全部を乗せた。"
+  };
+  if (["S","A"].includes(rank) && slot >= 3) return `${slot}曲目『${song.title}』 会場の熱がもう一段上がった。`;
+  if (["D","E"].includes(rank) && slot >= 3) return `${slot}曲目『${song.title}』 荒さはあるが、必死さはちゃんと届いている。`;
+  return `${slot}曲目『${song.title}』 ${lines[slot] || "バンドの色が見え始めた。"}`;
+}
+function liveTagLine(song, slot) {
+  const tags = song.tags || [];
+  if (slot === 1 && tags.includes("初手向き")) return "一発目向きの勢いで、入口の空気を作った。";
+  if (slot === 2 && tags.includes("疾走感")) return "疾走感がつながって、二曲目から足元が揺れ始めた。";
+  if (slot === 3 && tags.includes("エモさ")) return "中盤で感情が刺さり、静かな拍手が厚くなる。";
+  if (slot === 4 && tags.includes("余韻")) return "余韻を残して、最後の曲への期待を作った。";
+  if (slot === 5 && (tags.includes("爆発力") || tags.includes("代表曲候補"))) return "ラストに置いたことで、曲の爆発力が一番きれいに出た。";
+  if (song.genre?.includes("パンク")) return "荒削りな勢いが、地下のライブハウスに似合っている。";
+  if (song.genre?.includes("ポップ")) return "メロディの分かりやすさで、初見の客も少し乗ってきた。";
+  if (song.genre?.includes("メタル")) return "重いリフで、前列の空気が一気に濃くなる。";
+  return "";
+}
+function liveSongMood(song, slot, rank, result) {
+  if (slot === 1) return { icon:"🔥", text:"開幕の熱", kind:"opener" };
+  if (slot === 2) return { icon:"👏", text:"曲順が良くて盛り上がった", kind:"flow" };
+  if (slot === 3) return { icon:"💡", text:"歌詞が届き始めた", kind:"middle" };
+  if (slot === 4) return { icon:"🌙", text:"空気を変えた", kind:"bridge" };
+  if (slot === 5) return { icon: result.total >= 70 ? "⭐" : "🔥", text:"ラストで押し切った", kind:"finale" };
+  return { icon:"🔥", text:"客席が温まってきた", kind:"normal" };
 }
 function firstLine(text) {
   return String(text || "").split("\n").find(Boolean) || "地下から始まる。";
@@ -910,6 +952,8 @@ function normalizeState() {
   if (typeof state.pendingLiveResultModal === "undefined") state.pendingLiveResultModal = null;
   if (typeof state.pendingEndingAfterLive === "undefined") state.pendingEndingAfterLive = false;
   if (typeof state.deferPopupsUntilAfterLive === "undefined") state.deferPopupsUntilAfterLive = false;
+  if (!Array.isArray(state.popupQueue)) state.popupQueue = [];
+  if (typeof state.lastNoLivePlanWarnTurn === "undefined") state.lastNoLivePlanWarnTurn = 0;
   if (state.turnNotice && (!state.turnNotice.createdAt || Date.now() - state.turnNotice.createdAt > 3200)) state.turnNotice = null;
   if (!state.discoveredGenres) state.discoveredGenres = {};
   if (!state.band) state.band = {};
@@ -964,7 +1008,26 @@ function maybeTriggerStoryEvents() {
       type:"rare",
       icon:"📄"
     };
+    return;
   }
+  if (shouldWarnNoLivePlan()) {
+    state.lastNoLivePlanWarnTurn = state.turn;
+    state.activePopup = {
+      title:"ライブ予定なし",
+      body:"ライブの予定をいれないとな……\n7ターン後までに本番がない。スケジュール帳で出演できるライブを探そう。",
+      type:"warn",
+      icon:"📅"
+    };
+  }
+}
+
+function shouldWarnNoLivePlan() {
+  if (!canBookSchedules() || isLiveTurn() || state.turn >= state.maxTurn) return false;
+  if (state.scheduleTutorialStage === "needSchedule") return false;
+  if (state.lastNoLivePlanWarnTurn === state.turn) return false;
+  refreshLiveSchedule();
+  const hasNearLive = (state.liveEvents || []).some(e => !e.cancelled && e.turn > state.turn && e.turn <= state.turn + 7);
+  return !hasNearLive;
 }
 
 function completeSongcraftTutorial() {
@@ -1004,8 +1067,8 @@ function render() {
     <div class="app-shell">
       <div class="hero">
         <div>
-          <h1>アンダーグラウンド（仮） v0.3.5</h1>
-          <p>ターン開始表示・ガレージ導線・ライブ結果遷移修正版。</p>
+          <h1>アンダーグラウンド（仮） v0.3.6</h1>
+          <p>ライブ演出停止点・不足目標ポップ・警告表示追加版。</p>
         </div>
         <div class="hero-actions"><button class="jumpTabBtn ghost-btn schedule-head-btn" data-view="schedule">予定</button><button id="refreshAppBtn" class="ghost-btn update-btn">最新版</button><button id="saveBtn" class="ghost-btn">セーブ</button><button id="loadBtn" class="ghost-btn">ロード</button><button id="deleteSaveBtn" class="ghost-btn danger">セーブ削除</button><button id="restartMiniBtn" class="ghost-btn">最初から</button></div>
       </div>
@@ -1107,7 +1170,7 @@ function renderSavePanel() {
 function renderPwaPanel() {
   return `<div class="pwa-panel">
     <b>スマホ確認</b>
-    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.5は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
+    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.6は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
   </div>`;
 }
 
@@ -1510,14 +1573,14 @@ function renderTelop() {
 function renderTopStats() {
   const b = state.band;
   const stats = [
-    { k:"資金", label:`¥${shortMoney(b.funds)}`, meter:null },
+    { k:"資金", label:`¥${shortMoney(b.funds)}`, meter:null, alert:b.funds < 0 },
     { k:"ファン", label:`${Math.round(b.fans)}人`, meter:null },
     { k:"知名度", label:Math.round(b.fame), meter:b.fame },
     { k:"業界評価", label:Math.round(b.industry), meter:b.industry },
-    { k:"疲労", label:`${Math.round(b.fatigue)}%`, meter:b.fatigue },
+    { k:"疲労", label:`${Math.round(b.fatigue)}%`, meter:b.fatigue, alert:b.fatigue > 80 },
     { k:"編成", label:`${activeMembers().length}/${state.memberCap}人`, meter:null }
   ];
-  return `<div class="success-dashboard compact-dashboard"><div class="compact-stat-strip slim-stats">${stats.map(x=>`<div class="stat success-stat compact-stat"><span>${x.k}</span><b>${x.label}</b>${x.meter !== null ? renderTinyMeter(x.k, x.meter) : ""}</div>`).join("")}</div></div>`;
+  return `<div class="success-dashboard compact-dashboard"><div class="compact-stat-strip slim-stats">${stats.map(x=>`<div class="stat success-stat compact-stat ${x.alert ? "danger-stat" : ""}"><span>${x.k}</span><b>${x.label}</b>${x.meter !== null ? renderTinyMeter(x.k, x.meter) : ""}</div>`).join("")}</div></div>`;
 }
 function shortMoney(n) {
   const num = Number(n) || 0;
@@ -1924,14 +1987,15 @@ function renderLiveProgressOverlay() {
   const current = steps[idx] || { line:"ライブ開始！", icon:"🔥", event:"会場が温まってきた" };
   const pct = steps.length ? Math.round((idx + 1) / steps.length * 100) : 100;
   const prevPct = steps.length ? Math.round(idx / steps.length * 100) : 0;
+  const complete = !!l.complete;
   return `<div class="modal-backdrop result-backdrop live-only-backdrop">
-    <div class="live-progress-modal realtime-live-modal">
-      <div class="result-header"><span>LIVE STAGE</span><b>${escapeHtml(l.title)}</b><em>${idx + 1}/${steps.length || 5}</em></div>
+    <div class="live-progress-modal realtime-live-modal ${complete ? "live-complete" : ""}">
+      <div class="result-header"><span>${complete ? "LIVE COMPLETE" : "LIVE STAGE"}</span><b>${escapeHtml(l.title)}</b><em>${idx + 1}/${steps.length || 5}</em></div>
       <div class="live-progress-bar"><div class="live-progress-fill realtime" style="--from:${prevPct}%;--to:${pct}%;width:${pct}%"></div><span>${pct}%</span></div>
-      <div class="live-current-telop"><b>${escapeHtml(current.line)}</b></div>
+      <div class="live-current-telop"><b>${escapeHtml(current.line)}</b>${complete ? `<small>ライブ完了。結果を見る準備ができた。</small>` : ""}</div>
       <div class="live-icons"><div><b>${escapeHtml(current.icon)}</b><span>${escapeHtml(current.event)}</span></div></div>
-      <div class="live-telop-list compact">${steps.slice(0, idx + 1).map((x, i) => `<p class="${i === idx ? "active" : ""}">${escapeHtml(x.line)} / ${escapeHtml(x.icon)} ${escapeHtml(x.event)}</p>`).join("")}</div>
-      <button class="liveProgressNextBtn ghost-btn live-skip-btn">結果へ進む</button>
+      <div class="live-telop-list compact">${steps.slice(0, idx + 1).map((x, i) => `<p class="${i === idx ? "active" : ""} ${x.impact ? "impact-" + escapeHtml(x.impact) : ""}">${escapeHtml(x.line)} / ${escapeHtml(x.icon)} ${escapeHtml(x.event)}</p>`).join("")}</div>
+      <button class="liveProgressNextBtn ${complete ? "big-action" : "ghost-btn"} live-skip-btn">${complete ? "結果を見る" : "演出をスキップして結果へ"}</button>
     </div>
   </div>`;
 }
@@ -2697,6 +2761,10 @@ function performLive() {
     state.popupQueue.push({ title:"新しい可能性", body:"主人公「ボーカル以外にも道があるかな……」\n主人公がボーカル以外の楽器も担当可能になった。", type:"event", icon:"🎸" });
     state.popupQueue.push({ title:"スケジュール解放", body:"次からは自分でライブ予定を組む。\nまずはスケジュール帳を開いて、出たいライブを探そう。", type:"event", icon:"📅" });
   }
+  else if (state.turn < state.maxTurn) {
+    state.popupQueue = state.popupQueue || [];
+    state.popupQueue.push(buildFesShortagePopup(result));
+  }
   if (state.turn === 30) {
     state.pendingEndingAfterLive = true;
   } else {
@@ -2705,6 +2773,27 @@ function performLive() {
     scheduleNextLive();
   }
   render();
+}
+
+function buildFesShortagePopup(lastResult=null) {
+  const lines = fesShortageLines(lastResult);
+  const body = lines.length
+    ? `UNDER FES出演まで、まだ足りないものがある。\n\n${lines.map(x => `・${x}`).join("\n")}`
+    : "UNDER FES出演の最低ラインはかなり近い。\n次のライブでB評価以上を安定して出せれば、オファーが見えてくる。";
+  return { title:"目標までの不足", body, type:lines.length ? "warn" : "rare", icon:lines.length ? "📋" : "⭐" };
+}
+function fesShortageLines(lastResult=null) {
+  const b = state.band;
+  const originalCount = state.songs.filter(song => !song.isCover).length;
+  const lines = [];
+  if (originalCount < 5) lines.push(`オリジナル曲 あと${5 - originalCount}曲`);
+  if (b.fans < 60) lines.push(`ファン あと${60 - Math.round(b.fans)}人`);
+  if (b.fame < 60) lines.push(`知名度 あと${60 - Math.round(b.fame)}`);
+  if (b.industry < 55) lines.push(`業界評価 あと${55 - Math.round(b.industry)}`);
+  if (lastResult && !["S","A","B"].includes(lastResult.rank)) lines.push(`直近ライブ評価 B以上が必要（今回は${lastResult.rank}）`);
+  if (b.fatigue > 80) lines.push(`疲労が高すぎる（${Math.round(b.fatigue)}%。休憩推奨）`);
+  if (b.funds < 0) lines.push("資金がマイナス（バイト・小さめ会場で立て直し）");
+  return lines;
 }
 
 function calculateLive(setlist, supports, merch, positions, vocalist, chorus) {

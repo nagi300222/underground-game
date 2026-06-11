@@ -1884,7 +1884,7 @@ button.stage-slot.selected {
 }
 
 
-/* v0.3.5: turn notice / garage / live flow fixes */
+/* v0.3.6: live complete stop / warnings / shortage popups */
 .garage-home-btn {
   margin-top: 14px;
   width: 100%;
@@ -1918,4 +1918,29 @@ button.stage-slot.selected {
 .live-result-modal .big-action {
   width: 100%;
   margin-top: 12px;
+}
+
+/* v0.3.6 alerts and live flow */
+.compact-stat.danger-stat {
+  border-color: rgba(255,119,119,.72);
+  background: linear-gradient(180deg, rgba(255,119,119,.22), rgba(48,16,24,.86));
+  box-shadow: 0 0 0 1px rgba(255,119,119,.14), 0 8px 20px rgba(255,77,77,.12);
+}
+.compact-stat.danger-stat span,
+.compact-stat.danger-stat b {
+  color: var(--danger);
+}
+.live-progress-modal.live-complete {
+  border-color: rgba(255,206,92,.55);
+  box-shadow: 0 24px 80px rgba(0,0,0,.48), 0 0 0 1px rgba(255,206,92,.16);
+}
+.live-current-telop small {
+  display:block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-weight: 700;
+}
+.live-telop-list p.impact-repeat {
+  border-color: rgba(255,119,119,.42);
+  background: rgba(255,119,119,.10);
 }
