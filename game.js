@@ -4,7 +4,7 @@
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
 
-const VERSION = "v0.3.14";
+const VERSION = "v0.3.15";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -859,7 +859,7 @@ const SAVE_SLOT_COUNT = 2;
 const SAVE_SLOT_PREFIX = "underground_v0310_slot_";
 const AUTOSAVE_SLOT_PREFIX = "underground_v0310_autoslot_";
 const CURRENT_SLOT_KEY = "underground_v0310_current_slot";
-const SAVE_VERSION = "v0.3.14";
+const SAVE_VERSION = "v0.3.15";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -1693,7 +1693,7 @@ function render() {
       <div class="hero">
         <div>
           <h1>アンダーグラウンド（仮） ${VERSION}</h1>
-          <p>物販数量UI調整・スクロール保持版。</p>
+          <p>物販ダイヤル式数量UI版。</p>
         </div>
         <div class="hero-actions"><button class="jumpTabBtn ghost-btn schedule-head-btn" data-view="schedule">予定</button><button id="refreshAppBtn" class="ghost-btn update-btn">最新版</button><button id="saveBtn" class="ghost-btn">セーブ</button><button id="loadBtn" class="ghost-btn">ロード</button><button id="titleBtn" class="ghost-btn">タイトルへ</button></div>
       </div>
@@ -2568,12 +2568,28 @@ function normalizeMerchOrders(raw=null) {
   }
   return out;
 }
+function merchDigitsFromValue(value) {
+  const n = clamp(Math.floor(Number(value || 0)), 0, 999);
+  return {
+    hundreds: Math.floor(n / 100) % 10,
+    tens: Math.floor(n / 10) % 10,
+    ones: n % 10
+  };
+}
+function merchValueFromDigits(id) {
+  const pick = place => Number(document.querySelector(`.merchDigitSelect[data-merch-id="${id}"][data-place="${place}"]`)?.value || 0);
+  return clamp(pick("hundreds") * 100 + pick("tens") * 10 + pick("ones"), 0, 999);
+}
+function renderMerchDigitSelect(id, place, digit, label) {
+  const opts = Array.from({length:10}, (_, i) => `<option value="${i}" ${i === digit ? "selected" : ""}>${i}</option>`).join("");
+  return `<label class="merch-dial-wheel"><span>${label}</span><select class="merchDigitSelect" data-merch-id="${id}" data-place="${place}" aria-label="${label}の位">${opts}</select></label>`;
+}
 function collectMerchOrdersFromDom() {
   const out = {};
   MERCH_ITEMS.forEach(item => {
     const el = document.querySelector(`.merchQtyInput[data-merch-id="${item.id}"]`);
-    const range = document.querySelector(`.merchQtyRange[data-merch-id="${item.id}"]`);
-    out[item.id] = clamp(Math.floor(Number(el?.value ?? range?.value ?? 0)), 0, 999);
+    const digitEl = document.querySelector(`.merchDigitSelect[data-merch-id="${item.id}"]`);
+    out[item.id] = digitEl ? merchValueFromDigits(item.id) : clamp(Math.floor(Number(el?.value ?? 0)), 0, 999);
   });
   return out;
 }
@@ -2584,15 +2600,16 @@ function maxMerchOrderForVenue(venue) {
 function syncMerchQtyDom(id, value) {
   const v = clamp(Math.floor(Number(value || 0)), 0, 999);
   const input = document.querySelector(`.merchQtyInput[data-merch-id="${id}"]`);
-  const range = document.querySelector(`.merchQtyRange[data-merch-id="${id}"]`);
   const out = document.querySelector(`.merchQtyValue[data-merch-id="${id}"]`);
+  const digits = merchDigitsFromValue(v);
   if (input) input.value = String(v);
-  if (range) {
-    const max = Number(range.max || 0);
-    if (v > max) range.max = String(v);
-    range.value = String(Math.min(v, Number(range.max || v)));
-  }
-  if (out) out.textContent = String(v);
+  document.querySelectorAll(`.merchDigitSelect[data-merch-id="${id}"]`).forEach(sel => {
+    const place = sel.dataset.place;
+    if (place === "hundreds") sel.value = String(digits.hundreds);
+    if (place === "tens") sel.value = String(digits.tens);
+    if (place === "ones") sel.value = String(digits.ones);
+  });
+  if (out) out.textContent = String(v).padStart(3, "0");
 }
 function updateMerchPrepSummaryDom() {
   const orders = collectMerchOrdersFromDom();
@@ -2650,8 +2667,8 @@ function renderMerchPrepControls(venue, audience) {
       const qty = orders[item.id] || 0;
       const fit = merchAudienceFit(item, label) * merchCapacityFit(item, cap);
       const fitLabel = fit >= 1.25 ? "かなり売れやすい" : fit >= 1.08 ? "売れやすい" : fit >= .9 ? "普通" : "売れにくい";
-      const rangeMax = Math.max(maxOrder, qty, 20);
-      return `<div class="merch-item-card"><div><b>${escapeHtml(item.name)}</b><small>仕入${item.cost.toLocaleString()}円 → 売値${item.price.toLocaleString()}円</small><small>最適客層：${item.best.join(" / ")}</small><small>${escapeHtml(item.desc)}</small><span class="badge ${fit >= 1.08 ? "good" : fit < .9 ? "bad" : ""}">${fitLabel}</span></div><div class="merch-qty-control"><div class="merch-qty-main"><button class="merchQtyStepBtn" data-merch-id="${item.id}" data-delta="-1" type="button" aria-label="${escapeHtml(item.name)}を1個減らす">−</button><output class="merchQtyValue" data-merch-id="${item.id}">${qty}</output><button class="merchQtyStepBtn" data-merch-id="${item.id}" data-delta="1" type="button" aria-label="${escapeHtml(item.name)}を1個増やす">＋</button></div><input class="merchQtyRange" data-merch-id="${item.id}" type="range" min="0" max="${rangeMax}" step="1" value="${Math.min(qty, rangeMax)}" /><input class="merchQtyInput" data-merch-id="${item.id}" type="number" inputmode="numeric" min="0" max="999" step="1" value="${qty}" aria-label="${escapeHtml(item.name)}の仕入れ数" /></div></div>`;
+      const digits = merchDigitsFromValue(qty);
+      return `<div class="merch-item-card"><div><b>${escapeHtml(item.name)}</b><small>仕入${item.cost.toLocaleString()}円 → 売値${item.price.toLocaleString()}円</small><small>最適客層：${item.best.join(" / ")}</small><small>${escapeHtml(item.desc)}</small><span class="badge ${fit >= 1.08 ? "good" : fit < .9 ? "bad" : ""}">${fitLabel}</span></div><div class="merch-qty-control merch-dial-control"><div class="merch-dial-readout"><span>仕入れ数</span><output class="merchQtyValue" data-merch-id="${item.id}">${String(qty).padStart(3, "0")}</output><span>個</span></div><div class="merch-dial-lock">${renderMerchDigitSelect(item.id, "hundreds", digits.hundreds, "百")}${renderMerchDigitSelect(item.id, "tens", digits.tens, "十")}${renderMerchDigitSelect(item.id, "ones", digits.ones, "一")}</div><div class="merch-dial-step"><button class="merchQtyStepBtn" data-merch-id="${item.id}" data-delta="-1" type="button" aria-label="${escapeHtml(item.name)}を1個減らす">−1</button><button class="merchQtyStepBtn" data-merch-id="${item.id}" data-delta="1" type="button" aria-label="${escapeHtml(item.name)}を1個増やす">＋1</button></div><input class="merchQtyInput" data-merch-id="${item.id}" type="hidden" value="${qty}" /></div></div>`;
     }).join("")}</div>
   </div>`;
 }
@@ -3019,9 +3036,9 @@ function bindEvents() {
     inp.addEventListener("input", update);
     inp.addEventListener("change", update);
   });
-  document.querySelectorAll(".merchQtyRange").forEach(range => range.addEventListener("input", () => {
-    const id = range.dataset.merchId;
-    syncMerchQtyDom(id, range.value);
+  document.querySelectorAll(".merchDigitSelect").forEach(sel => sel.addEventListener("change", () => {
+    const id = sel.dataset.merchId;
+    syncMerchQtyDom(id, merchValueFromDigits(id));
     updateMerchPrepSummaryDom();
   }));
   document.querySelectorAll(".merchQtyStepBtn").forEach(btn => btn.addEventListener("click", (ev) => {

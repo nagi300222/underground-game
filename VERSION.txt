@@ -1,3 +1,1 @@
-underground_game_v0.3.14
-
-物販数量UI調整・スクロール保持版。
+underground_game_v0.3.15
