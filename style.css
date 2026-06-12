@@ -676,7 +676,7 @@ button.stage-slot.selected {
 }
 @media (max-width: 760px) {
   .schedule-booker { grid-template-columns: 1fr; }
-  .schedule-scroll { grid-template-columns: repeat(30, 58px); }
+  .schedule-scroll { grid-template-columns: repeat(50, 58px); }
 }
 
 
@@ -1946,7 +1946,7 @@ button.stage-slot.selected {
 }
 
 
-/* v0.3.7: スケジュール予約ボタン・ライブ準備カード式UI */
+/* v0.3.8: スケジュール予約ボタン・ライブ準備カード式UI */
 .liveCandidateBtn.schedule-event {
   min-height: 112px;
   padding: 12px;
@@ -2057,4 +2057,91 @@ button.stage-slot.selected {
   .booking-modal .modal-actions {
     grid-template-columns: 1fr;
   }
+}
+
+
+.page-home-btn {
+  width: 100%;
+  margin: 0 0 12px;
+  min-height: 46px;
+  border-radius: 14px;
+  font-weight: 900;
+}
+.skill-panel { margin-top: 12px; }
+.skill-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px; border:1px solid rgba(255,255,255,.10); border-radius:14px; margin-bottom:8px; background:rgba(255,255,255,.04); }
+.skill-row small { flex-basis:100%; color:var(--muted); }
+.skill-row.locked { opacity:.68; }
+.skill-row.owned { border-color:rgba(96,165,250,.55); background:rgba(96,165,250,.08); }
+.badge.rare { background:rgba(250,204,21,.16); border-color:rgba(250,204,21,.42); color:#fde68a; }
+.audience-info { border-color:rgba(96,165,250,.35); }
+html, body, button, input, select { touch-action: manipulation; }
+.schedule-scroll, .timeline { touch-action: pan-x pan-y; }
+
+/* v0.3.10: sticky hover/focusの黄色枠を抑制。スマホで最後に押したボタンが誘導表示に見えないようにする。 */
+button:focus, button:active, select:focus, input:focus { outline: none; }
+button:focus-visible, select:focus-visible, input:focus-visible {
+  outline: 2px solid rgba(117,191,255,.72);
+  outline-offset: 2px;
+  border-color: rgba(117,191,255,.72);
+}
+@media (hover: none), (pointer: coarse) {
+  button:hover { transform: none; filter: none; border-color: var(--line); }
+  .compact-member:hover, .manage-card:hover, .stage-slot:hover, .reserve-card:hover, .member:hover {
+    border-color: var(--line);
+    box-shadow: none;
+    transform: none;
+  }
+}
+.tabBtn.active {
+  border-color: rgba(117,191,255,.72) !important;
+  background: linear-gradient(180deg, rgba(117,191,255,.22), rgba(36,36,50,.96)) !important;
+  box-shadow: 0 0 0 3px rgba(117,191,255,.10) !important;
+}
+button.stage-slot.selected {
+  outline: 2px solid rgba(117,191,255,.72) !important;
+  background: linear-gradient(180deg, rgba(117,191,255,.15), rgba(36,36,50,.96)) !important;
+}
+
+.title-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: radial-gradient(circle at 25% 0%, rgba(255,206,92,.18), transparent 38%), radial-gradient(circle at 80% 20%, rgba(117,191,255,.14), transparent 40%), #0b0b10;
+}
+.title-card {
+  width: min(560px, 94vw);
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 26px;
+  padding: 24px;
+  background: rgba(20,20,29,.92);
+  box-shadow: 0 28px 90px rgba(0,0,0,.55);
+  display: grid;
+  gap: 12px;
+}
+.title-card.wide { width: min(860px, 96vw); }
+.title-card h1 { margin: 0; font-size: clamp(2rem, 6vw, 4rem); line-height: 1.04; }
+.title-card p { margin: 0; color: var(--muted); }
+.title-actions { display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top: 8px; }
+.big-action.secondary { background: linear-gradient(180deg, rgba(117,191,255,.24), rgba(36,36,50,.96)); }
+.slot-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px; margin-top:10px; }
+.slot-grid.compact { grid-template-columns: repeat(2, minmax(0,1fr)); }
+.slot-select-card, .slot-card {
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 16px;
+  padding: 12px;
+  background: rgba(0,0,0,.18);
+  display:grid;
+  gap:8px;
+}
+.slot-card { padding: 0; border: 0; background: transparent; }
+.slot-card b, .slot-card span, .slot-card small { display:block; }
+.slot-card span { font-weight:800; color: var(--text); }
+.slot-card small { color: var(--muted); }
+.slot-select-card.empty { opacity: .82; }
+.slot-modal { width: min(860px, 94vw); }
+.ending-actions { margin-top: 14px; }
+@media (max-width: 640px) {
+  .title-actions, .slot-grid, .slot-grid.compact { grid-template-columns: 1fr; }
+  .title-card { padding: 18px; border-radius: 20px; }
 }
