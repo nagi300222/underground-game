@@ -2171,3 +2171,21 @@ button.stage-slot.selected {
   .position-mini-stats span { font-size:.62rem; padding:2px 5px; }
   .event-modal .modal-actions, .booking-modal .modal-actions, .event-modal .modal-actions.confirm-wide { grid-template-columns:1fr; }
 }
+
+
+/* v0.3.12: setlist / merch / mobile stability */
+html, body { overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+body { touch-action: pan-x pan-y; }
+.schedule-panel, .schedule-screen, .live-candidate-list, .schedule-list-x { touch-action: pan-x pan-y; }
+.setlist-song-context { margin-top:6px; padding:6px 8px; border-radius:10px; background:rgba(255,206,92,.08); color:var(--muted); }
+.merch-qty-stepper { display:grid; grid-template-columns:1fr 1.2fr 1fr; gap:4px; align-items:center; }
+.merch-qty-stepper button { min-height:38px; padding:6px 4px; border-radius:10px; font-weight:800; }
+.merch-qty-stepper input { min-height:38px; }
+.applicant-list { display:grid; gap:10px; }
+.applicant-card .row button { min-height:44px; }
+#resetSetlistBtn { margin-bottom:8px; width:100%; }
+
+@media (max-width: 700px) {
+  input, select, textarea, button { font-size:16px; }
+  .schedule-event, .liveCandidateBtn { -webkit-tap-highlight-color: transparent; }
+}

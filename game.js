@@ -1,10 +1,10 @@
 /*
-  アンダーグラウンド（仮） v0.3.10 prototype
+  アンダーグラウンド（仮） v0.3.12 prototype
   - 1ファイル内の DATA を差し替えるだけでキャラ・曲・サポート候補を変更できます。
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
 
-const VERSION = "v0.3.11";
+const VERSION = "v0.3.13";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -60,6 +60,7 @@ const SUB_GENRES = [
   { name: "ミクスチャーロック", parent: "ミクスチャー", unlockTurn: 11, rarity: "common" },
   { name: "エモロック", parent: "エモ", unlockTurn: 11, rarity: "common" },
   { name: "エレクトロロック", parent: "エレクトロ", unlockTurn: 11, rarity: "common" },
+  { name: "トラップ", parent: "ヒップホップ", unlockTurn: 11, rarity: "common" },
   { name: "ジャズロック", parent: "ジャズ", unlockTurn: 21, rarity: "common" },
   { name: "シンフォニックメタル", parent: "クラシック", unlockTurn: 21, rarity: "rare" },
   { name: "クラシカルロック", parent: "クラシック", unlockTurn: 21, rarity: "common" }
@@ -206,12 +207,12 @@ function possibleDerivedSubGenres(a, b, arrange="") {
 }
 function genrePlanChance(a, b, arrange="") {
   const hasDerived = possibleDerivedSubGenres(a, b, arrange).length > 0;
-  let subChance = isGoodMainCombo(a,b) ? 0.45 : hasDerived ? 0.25 : 0;
-  let rareChance = hasDerived ? 0.05 : 0;
+  let subChance = isGoodMainCombo(a,b) ? 0.52 : hasDerived ? 0.34 : 0;
+  let rareChance = hasDerived ? 0.06 : 0;
   const st = arrange ? arrangeStatus(arrange) : { multiplier:0 };
   if (arrange && st.multiplier > 0) {
-    subChance += 0.12 * st.multiplier;
-    rareChance += 0.03 * st.multiplier;
+    subChance += 0.16 * st.multiplier;
+    rareChance += 0.04 * st.multiplier;
   }
   const totalDerived = Math.min(0.70, subChance + rareChance);
   if (subChance + rareChance > totalDerived) {
@@ -252,7 +253,7 @@ function resolveSongGenrePair(a, b, arrange="") {
   const commonNames = [...new Set([...(combo?.favored || []), ...possibleDerivedSubGenres(a,b,arrange).map(x=>x.name), ...(arr.boost || [])])]
     .filter(n => unlockedSubGenreByName(n, arrange) && unlockedSubGenreByName(n, arrange).rarity !== "rare");
   const rareNames = [...new Set([...(combo?.rare || []), ...(arr.rare || [])])]
-    .filter(n => unlockedSubGenreByName(n, arrange));
+    .filter(n => { const sg = unlockedSubGenreByName(n, arrange); return sg && sg.rarity === "rare"; });
   if (roll < chance.rare && rareNames.length) {
     const picked = weightedPick(rareNames, arrange);
     const chosen = unlockedSubGenreByName(picked, arrange);
@@ -747,6 +748,51 @@ DATA.candidateCharacters.push(
 );
 
 
+// v0.3.13: ギターボーカル / ベースボーカル補完キャラ。
+DATA.candidateCharacters.push(
+  {
+    id: "asahi_gtvo",
+    name: "アサヒ（仮）",
+    part: "Gt/Vo",
+    mainInstrument: "guitar",
+    mainGenre: "オルタナ",
+    secondMainGenres: ["ロック", "エモ"],
+    subGenres: ["オルタナロック", "ギターロック", "エモロック"],
+    weakMainGenres: ["メタル", "クラシック"],
+    weakSubGenres: ["スクリーモ", "シンフォニックメタル"],
+    stats: { stamina: 48, technique: 56, knowledge: 44, sense: 62, mental: 42, teamwork: 46, rhythm: 50, charisma: 58 },
+    instruments: {
+      guitar: { mark:"◎", lv:68, cap:90, potentialCap:98, growth:1.12 },
+      vocal: { mark:"○", lv:54, cap:82, potentialCap:94, growth:1.0 },
+      chorus: { mark:"○", lv:50, cap:78, potentialCap:90, growth:.95 },
+      bass: { mark:"△", lv:26, cap:54, potentialCap:72, growth:.72 }
+    },
+    joinDifficulty: "中",
+    replaceNote: "補完追加。ギターボーカル枠。オルタナ/エモ寄りで、表現と曲作りに強い。"
+  },
+  {
+    id: "naki_bavo",
+    name: "ナキ（仮）",
+    part: "Ba/Vo",
+    mainInstrument: "bass",
+    mainGenre: "シューゲイザー",
+    secondMainGenres: ["エモ", "ポップ"],
+    subGenres: ["エモロック", "ポストロック", "ギターポップ"],
+    weakMainGenres: ["ハードコア", "メタル"],
+    weakSubGenres: ["スピードメタル", "スクリーモ"],
+    stats: { stamina: 52, technique: 50, knowledge: 58, sense: 66, mental: 54, teamwork: 62, rhythm: 64, charisma: 46 },
+    instruments: {
+      bass: { mark:"◎", lv:70, cap:92, potentialCap:99, growth:1.12 },
+      vocal: { mark:"○", lv:52, cap:80, potentialCap:92, growth:.98 },
+      chorus: { mark:"◎", lv:60, cap:88, potentialCap:96, growth:1.05 },
+      key: { mark:"△", lv:30, cap:58, potentialCap:78, growth:.75 }
+    },
+    joinDifficulty: "中〜高",
+    replaceNote: "補完追加。ベースボーカル枠。シューゲイザー/エモ寄りで、余韻と安定感に強い。"
+  }
+);
+
+
 normalizeInitialData();
 
 function normalizeInitialData() {
@@ -813,7 +859,7 @@ const SAVE_SLOT_COUNT = 2;
 const SAVE_SLOT_PREFIX = "underground_v0310_slot_";
 const AUTOSAVE_SLOT_PREFIX = "underground_v0310_autoslot_";
 const CURRENT_SLOT_KEY = "underground_v0310_current_slot";
-const SAVE_VERSION = "v0.3.11";
+const SAVE_VERSION = "v0.3.13";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -1001,7 +1047,8 @@ function createInitialState() {
     ended: false,
     player,
     members: [],
-    memberCap: 4,
+    memberCap: 999,
+    memberCostExplained: false,
     items: { drink: 0, effecter: 0, usedGear: 0, lightFx: 0 },
     candidates: clone(DATA.candidateCharacters),
     songs: [starterSong],
@@ -1035,6 +1082,9 @@ function createInitialState() {
     supportAffinity: {},
     logs: ["地下のスタジオから、最大50ターンの育成が始まった。初ライブは5ターン目固定。初回ライブ後は、自分でライブスケジュールを予約する方式。予約・キャンセルは残り2ターン以内になると不可。"],
     lastApplicant: null,
+    applicants: [],
+    dismissedApplicantIds: [],
+    promoRecruitTurns: 0,
     liveResultHistory: [],
     setlistHistory: [],
     playerSkills: [],
@@ -1049,6 +1099,7 @@ function createInitialState() {
     livePrepSetlist: null,
     livePrepPositions: {},
     livePrepChorus: "none",
+    livePrepChorusIds: ["none"],
     livePrepSupportIds: [],
     livePrepMerch: "none",
     livePrepMerchOrders: {},
@@ -1095,11 +1146,37 @@ function audienceProfileForVenue(v) {
   return { label:"通常客層", detail:v.note || "会場ごとの色がある。" };
 }
 function canBookSchedules() {
-  return state.turn > 5 || state.liveResultHistory.length > 0;
+  return !state.ended && (state.turn > 5 || state.liveResultHistory.length > 0);
 }
-function activeMembers() { return [state.player, ...state.members.slice(0, Math.max(0, (state.memberCap || 4) - 1))]; }
-function reserveMembers() { return state.members.slice(Math.max(0, (state.memberCap || 4) - 1)); }
+function activeMembers() { return [state.player, ...(state.members || [])]; }
+function reserveMembers() { return []; }
 function officialMembers() { return state.members; }
+function bandSize() { return activeMembers().length; }
+function chorusSlotCount() { return clamp(1 + Math.floor((state.turn || 1) / 10), 1, 6); }
+function normalizeLivePrepChorusIds() {
+  let ids = Array.isArray(state.livePrepChorusIds) ? state.livePrepChorusIds.slice() : [];
+  if (!ids.length && state.livePrepChorus && state.livePrepChorus !== "none") ids = [state.livePrepChorus];
+  const slots = chorusSlotCount();
+  while (ids.length < slots) ids.push("none");
+  state.livePrepChorusIds = ids.slice(0, slots);
+  state.livePrepChorus = state.livePrepChorusIds.find(id => id && id !== "none") || "none";
+  return state.livePrepChorusIds;
+}
+function memberUpkeepCost() {
+  const joined = (state.members || []).length;
+  let cost = 0;
+  for (let i = 1; i <= joined; i++) {
+    const totalBandPeople = i + 1;
+    if (totalBandPeople <= 5) cost += 700;
+    else cost += 700 * Math.pow(2, Math.min(totalBandPeople - 5, 5));
+  }
+  return Math.round(cost);
+}
+function maybeExplainMemberCost() {
+  if (state.memberCostExplained || bandSize() < 4) return;
+  state.memberCostExplained = true;
+  showEventPopup("メンバーが増えた", "4人目が加わり、バンドとしての形が見えてきた。\n今後は最大人数や控えの制限はなく、加入した仲間は全員ライブ準備に出られる。\nただし人数が増えるほど維持費・交通費が増え、6人以上は1人ごとの出費が重くなる。", "event", "👥");
+}
 function allBandPeople() { return [state.player, ...state.members]; }
 function selectedMember() { return allBandPeople().find(m => m.id === state.selectedMemberId) || state.player; }
 function isLiveTurn() { refreshLiveSchedule(); return state.liveSchedule.includes(state.turn); }
@@ -1131,7 +1208,7 @@ function log(msg, type="info") {
 function showEventPopup(title, body, type="info", icon="🎸", payload={}) {
   const popup = { title, body, type, icon, ...(payload || {}) };
   // ライブ演出中に通常ポップアップを出すと画面が重なるため、ライブ結果OK後に順番表示する。
-  if (state.deferPopupsUntilAfterLive || state.liveProgressModal || state.pendingLiveResultModal || state.liveResultModal) {
+  if (state.deferPopupsUntilAfterLive || state.liveProgressModal || state.pendingLiveResultModal || state.liveResultModal || state.activePopup) {
     state.popupQueue = state.popupQueue || [];
     state.popupQueue.push(popup);
     return;
@@ -1283,15 +1360,115 @@ function liveTagLine(song, slot) {
   return "";
 }
 function liveSongMood(song, slot, rank, result) {
-  if (slot === 1) return { icon:"🔥", text:"開幕の熱", kind:"opener" };
-  if (slot === 2) return { icon:"👏", text:"曲順が良くて盛り上がった", kind:"flow" };
-  if (slot === 3) return { icon:"💡", text:"歌詞が届き始めた", kind:"middle" };
-  if (slot === 4) return { icon:"🌙", text:"空気を変えた", kind:"bridge" };
-  if (slot === 5) return { icon: result.total >= 70 ? "⭐" : "🔥", text:"ラストで押し切った", kind:"finale" };
-  return { icon:"🔥", text:"客席が温まってきた", kind:"normal" };
+  const strong = ["S","A"].includes(rank);
+  const weak = ["D","E"].includes(rank);
+  const pools = {
+    1: [
+      { icon:"🔥", text:"開幕の熱", kind:"opener" },
+      { icon:"⚡", text:"一音目で空気が変わった", kind:"opener" },
+      { icon:"👏", text:"手拍子が起き始めた", kind:"opener" }
+    ],
+    2: [
+      { icon:"👏", text:"曲順が良くて盛り上がった", kind:"flow" },
+      { icon:"🔥", text:"二曲目でフロアが前に出た", kind:"flow" },
+      { icon:"💡", text:"前曲から自然につながった", kind:"flow" }
+    ],
+    3: [
+      { icon:"💡", text:"歌詞が届き始めた", kind:"middle" },
+      { icon:"🎤", text:"中盤で声がよく抜けた", kind:"middle" },
+      { icon:"⭐", text:"この日最初の山場になった", kind:"middle" }
+    ],
+    4: [
+      { icon:"🌙", text:"空気を変えた", kind:"bridge" },
+      { icon:"💧", text:"静かな緊張感が出た", kind:"bridge" },
+      { icon:"⚡", text:"ラスト前にもう一段ギアが上がった", kind:"bridge" }
+    ],
+    5: [
+      { icon: result.total >= 70 ? "⭐" : "🔥", text:"ラストで押し切った", kind:"finale" },
+      { icon:"🎤", text:"最後のサビで声が重なった", kind:"finale" },
+      { icon:"💥", text:"締めで一番大きい反応が来た", kind:"finale" }
+    ]
+  };
+  let pool = pools[slot] || [{ icon:"🔥", text:"客席が温まってきた", kind:"normal" }];
+  if (strong) pool = [...pool, { icon:"⭐", text:"客席の反応が明らかに良い", kind:"good" }];
+  if (weak) pool = [...pool, { icon:"⚠️", text:"荒さはあるが熱量で押した", kind:"rough" }];
+  return pool[rand(0, pool.length - 1)];
 }
 function firstLine(text) {
   return String(text || "").split("\n").find(Boolean) || "地下から始まる。";
+}
+
+
+function currentApplicantList() {
+  const list = [];
+  if (state.lastApplicant) list.push(state.lastApplicant);
+  (state.applicants || []).forEach(a => { if (a && !list.some(x => x.id === a.id)) list.push(a); });
+  return list;
+}
+function setApplicantList(list) {
+  state.applicants = (list || []).filter(Boolean);
+  state.lastApplicant = state.applicants[0] || null;
+}
+function personAlreadyKnown(id) {
+  if (!id) return true;
+  if (id === "player") return true;
+  if ((state.members || []).some(m => m.id === id)) return true;
+  if ((state.candidates || []).some(c => c.id === id)) return true;
+  if ((state.dismissedApplicantIds || []).includes(id)) return true;
+  if (currentApplicantList().some(a => a.id === id)) return true;
+  return false;
+}
+function mergeLatestCandidatesIntoState() {
+  if (!state || !Array.isArray(DATA.candidateCharacters)) return;
+  if (!Array.isArray(state.candidates)) state.candidates = [];
+  DATA.candidateCharacters.forEach(c => {
+    if (!personAlreadyKnown(c.id)) state.candidates.push(clone(c));
+  });
+}
+function addApplicantFromCandidates(source="募集") {
+  mergeLatestCandidatesIntoState();
+  if (!state.candidates.length) return null;
+  const idx = pickRecruitCandidateIndex();
+  if (idx < 0) return null;
+  const applicant = state.candidates.splice(idx, 1)[0];
+  const list = currentApplicantList();
+  if (!list.some(a => a.id === applicant.id)) list.push(applicant);
+  setApplicantList(list);
+  log(`${source}：${applicant.name}が連絡してきた。加入させるか選べる。`);
+  return applicant;
+}
+function maybePromoRecruitAfterCommand(command) {
+  if ((state.promoRecruitTurns || 0) <= 0) return null;
+  if (command === "promo") return null;
+  const before = state.promoRecruitTurns;
+  state.promoRecruitTurns = Math.max(0, before - 1);
+  if (Math.random() >= 0.60) {
+    log(`宣伝効果：あと${state.promoRecruitTurns}ターン。今回は新しい連絡はなかった。`);
+    return null;
+  }
+  const applicant = addApplicantFromCandidates("宣伝効果");
+  if (applicant) showEventPopup("宣伝から加入希望！", `宣伝を見た ${applicant.name} から連絡が来た。\n募集結果と重複するため、同じターンに複数人が候補に来ることがある。`, "event", "📱");
+  return applicant;
+}
+function joinApplicantById(id) {
+  const list = currentApplicantList();
+  const idx = list.findIndex(a => a.id === id);
+  if (idx < 0) return;
+  const applicant = list.splice(idx, 1)[0];
+  applicant.joinStatus = Math.random() < 0.45 ? "仮加入" : "本加入";
+  state.members.push(applicant);
+  setApplicantList(list);
+  log(`${applicant.name}が${applicant.joinStatus}として加入した。加入済みメンバーは全員バンド構成に入り、ライブ準備で担当を選べる。`);
+  showEventPopup(applicant.joinStatus === "仮加入" ? "仮加入！" : "新メンバー加入！", `${applicant.name} がバンドに加わった！\n担当：${applicant.part}\n得意：${applicant.mainGenre}\n加入済みメンバーは全員ライブ準備に表示される。`, applicant.joinStatus === "仮加入" ? "event" : "rare", applicant.joinStatus === "仮加入" ? "🤝" : "🎉");
+  maybeExplainMemberCost();
+  render();
+}
+function skipApplicantById(id) {
+  const list = currentApplicantList().filter(a => a.id !== id);
+  state.dismissedApplicantIds = [...new Set([...(state.dismissedApplicantIds || []), id])];
+  setApplicantList(list);
+  log("今回は加入を見送った。");
+  render();
 }
 
 function normalizeState() {
@@ -1301,6 +1478,16 @@ function normalizeState() {
   if (typeof state.fesInfoKnown !== "boolean") state.fesInfoKnown = false;
   if (typeof state.pendingNoSongcraftCommand === "undefined") state.pendingNoSongcraftCommand = null;
   if (typeof state.pendingTurnAdvance === "undefined") state.pendingTurnAdvance = null;
+  if (!Array.isArray(state.applicants)) state.applicants = state.lastApplicant ? [state.lastApplicant] : [];
+  if (!Array.isArray(state.dismissedApplicantIds)) state.dismissedApplicantIds = [];
+  if (typeof state.promoRecruitTurns === "undefined") state.promoRecruitTurns = 0;
+  state.maxTurn = 50;
+  if (Array.isArray(state.liveEvents)) {
+    const final = state.liveEvents.find(e => e.fixed && (e.label || e.name || "").includes("UNDER FES"));
+    if (final) { final.turn = 50; final.venueId = final.venueId || "big_stage"; }
+    else state.liveEvents.push(fixedLiveEvent(50, "big_stage", "UNDER FES選考ライブ", true));
+  }
+  mergeLatestCandidatesIntoState();
   if (!state.scheduleTutorialStage) state.scheduleTutorialStage = "none";
   if (typeof state.playerExtraInstrumentsUnlocked === "undefined") state.playerExtraInstrumentsUnlocked = false;
   if (typeof state.actionResultModal === "undefined") state.actionResultModal = null;
@@ -1339,6 +1526,9 @@ function normalizeState() {
   if (typeof state.activeSaveSlot === "undefined") state.activeSaveSlot = selectedSaveSlot || 1;
   if (typeof state.saveSlotModal === "undefined") state.saveSlotModal = null;
   if (!Array.isArray(state.playerSkills)) state.playerSkills = [];
+  state.memberCap = 999;
+  if (typeof state.memberCostExplained === "undefined") state.memberCostExplained = bandSize() >= 4;
+  normalizeLivePrepChorusIds();
 }
 
 
@@ -1502,7 +1692,7 @@ function render() {
     <div class="app-shell">
       <div class="hero">
         <div>
-          <h1>アンダーグラウンド（仮） v0.3.11</h1>
+          <h1>アンダーグラウンド（仮） v0.3.12</h1>
           <p>ライブ準備UI・物販仕入れ・編成入替調整版。</p>
         </div>
         <div class="hero-actions"><button class="jumpTabBtn ghost-btn schedule-head-btn" data-view="schedule">予定</button><button id="refreshAppBtn" class="ghost-btn update-btn">最新版</button><button id="saveBtn" class="ghost-btn">セーブ</button><button id="loadBtn" class="ghost-btn">ロード</button><button id="titleBtn" class="ghost-btn">タイトルへ</button></div>
@@ -1586,7 +1776,7 @@ function renderHomeScreen() {
         <div class="success-window-title"><span>MENU</span><b>今週やること</b><small>画面を選ぶ</small></div>
         <div class="home-menu-grid">
           ${homeMenuButton("command", "⚡", "今週の行動へ", "練習・休憩・募集など")}
-          ${homeMenuButton("band", "👥", "バンドの編成", "主人公・仲間・控え確認")}
+          ${homeMenuButton("band", "👥", "バンドの編成", "主人公・仲間・スキル確認")}
           ${homeSongMenuButton()}
           ${homeMenuButton("schedule", "📅", "スケジュール帳", canBookSchedules() ? "ライブ予約・キャンセル" : "初ライブ後に解放", !canBookSchedules())}
           ${homeMenuButton("shop", "🛒", "ショップ", "回復・機材・演出アイテム")}
@@ -1620,7 +1810,7 @@ function renderSavePanel() {
 function renderPwaPanel() {
   return `<div class="pwa-panel">
     <b>スマホ確認</b>
-    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.11は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
+    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.12は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
   </div>`;
 }
 
@@ -1644,7 +1834,7 @@ function renderSchedulePanel() {
 }
 function buildLiveCandidates() {
   const turns = [];
-  for (let t = state.turn + 3; t < 30 && turns.length < 6; t++) {
+  for (let t = state.turn + 3; t < (state.maxTurn || 50) && turns.length < 6; t++) {
     if (!liveEventForTurn(t)) turns.push(t);
   }
   const list = [];
@@ -1708,7 +1898,7 @@ function renderCommandDesk() {
         <div class="success-window-title"><span>COMMAND</span><b>今週の行動</b><small>行動カードを押すと1ターン進行</small></div>
         <div class="coach-line"><b>今週のひとこと</b><span>${successAdvice()}</span></div>
         ${renderCommandCards()}
-        ${state.lastApplicant ? renderApplicant() : ""}
+        ${currentApplicantList().length ? renderApplicantList() : ""}
       </div>
       <div class="card">
         <div class="section-title"><h2>作詞・作曲</h2><span class="badge ${state.songcraftUsedThisTurn ? "bad" : "good"}">${state.songcraftUsedThisTurn ? "今ターン実行済み" : "今ターン未実行"}</span></div>
@@ -1725,25 +1915,24 @@ function renderCommandDesk() {
 
 function renderBandScreen() {
   const active = activeMembers();
-  const reserves = reserveMembers();
+  const upkeep = memberUpkeepCost();
   return `
     <div class="grid band-grid">
       <div class="card">
-        <div class="section-title"><h2>バンド編成</h2><span class="badge good">ライブ反映</span></div>
-        <p><small>ここに入っているメンバーだけが画面・ライブ評価・成長に反映されます。</small></p>
+        <div class="section-title"><h2>バンド編成</h2><span class="badge good">全員ライブ準備に反映</span></div>
+        <p><small>最大人数と控えは撤廃。加入した仲間は全員バンド構成に入り、ライブ準備で担当/休みを選べます。</small></p>
         <div class="band-stage">${active.map(renderMemberStageSlot).join("")}</div>
         ${renderBandMenu()}
         <hr class="soft" />
         ${renderPlayerSkillPanel()}
       </div>
       <div class="card">
-        <div class="section-title"><h2>控え</h2><span class="badge warn">長期放置で離脱</span></div>
-        <p><small>控えは数ターン後に報告が入り、そのままだと自然脱退します。前へ/後へで構成へ戻せます。</small></p>
-        ${reserves.length ? reserves.map((m, i) => renderReserveCard(m, i + active.length - 1)).join("") : `<div class="empty-panel">控えメンバーはいません。</div>`}
+        <div class="section-title"><h2>加入候補</h2><span class="badge">募集・宣伝で出現</span></div>
+        ${currentApplicantList().length ? renderApplicantList() : `<p><small>募集・宣伝で候補が出たら、ここに加入選択が表示されます。</small></p>`}
+        <div class="candidate-cloud">${state.candidates.map(c => `<span class="badge">${c.name} / ${c.part}</span>`).join(" ")}</div>
         <hr class="soft" />
-        <div class="section-title"><h2>加入候補</h2><span class="badge">募集で出現</span></div>
-        ${state.lastApplicant ? renderApplicant() : `<p><small>募集コマンドで候補が出たら、ここにも加入選択が表示されます。</small></p>`}
-        <div class="candidate-cloud">${state.candidates.slice(0, 18).map(c => `<span class="badge">${c.name} / ${c.part}</span>`).join(" ")}</div>
+        <div class="section-title"><h2>人数コスト</h2><span class="badge warn">今週目安 ${upkeep.toLocaleString()}円</span></div>
+        <p><small>5人までは通常維持費。6人以上は1人増えるごとに交通費・連絡・機材管理の出費が倍寄りに重くなります。</small></p>
       </div>
     </div>
   `;
@@ -1753,7 +1942,7 @@ function renderMemberStageSlot(m, slotIndex=0) {
   const role = m.id === "player" ? "主人公" : (m.joinStatus || "本加入");
   const active = state.selectedMemberId === m.id ? "selected" : "";
   const memberIndex = slotIndex - 1;
-  const actions = m.id === "player" ? `<small>主人公 / 詳細はカード内表示</small>` : `<div class="stage-actions"><button class="benchMemberBtn" data-index="${memberIndex}">控えへ</button><button class="moveMemberBtn" data-index="${memberIndex}" data-dir="up">前へ</button><button class="moveMemberBtn" data-index="${memberIndex}" data-dir="down">後へ</button><button class="dismissMemberBtn danger" data-index="${memberIndex}">脱退</button></div>`;
+  const actions = m.id === "player" ? `<small>主人公 / 詳細はカード内表示</small>` : `<div class="stage-actions"><button class="moveMemberBtn" data-index="${memberIndex}" data-dir="up">前へ</button><button class="moveMemberBtn" data-index="${memberIndex}" data-dir="down">後へ</button><button class="dismissMemberBtn danger" data-index="${memberIndex}">脱退</button></div>`;
   return `<div class="stage-slot ${active}"><button class="stage-main selectMemberBtn" data-member-id="${m.id}"><div class="avatar">${initials(m.name)}</div><div><b>${m.name}</b><small>${role} / ${m.part}</small><span class="badge warn">${m.mainGenre}</span></div></button>${actions}</div>`;
 }
 
@@ -1762,10 +1951,10 @@ function renderReserveCard(m, memberIndex) {
 }
 
 function renderManageMemberCard(m, idx) {
-  const isActive = activeMembers().some(x => x.id === m.id);
-  return `<div class="manage-card ${isActive ? "active" : "reserve"}">
+  const isActive = true;
+  return `<div class="manage-card active">
     ${renderMemberCard(m)}
-    <div class="member-actions"><span class="badge ${isActive ? "good" : "warn"}">${isActive ? "構成内" : "控え：未反映"}</span><span class="badge">${m.joinStatus || "本加入"}</span><button class="moveMemberBtn" data-index="${idx}" data-dir="up">前へ</button><button class="moveMemberBtn" data-index="${idx}" data-dir="down">後へ</button><button class="dismissMemberBtn danger" data-index="${idx}">脱退</button></div>
+    <div class="member-actions"><span class="badge good">構成内</span><span class="badge">${m.joinStatus || "本加入"}</span><button class="moveMemberBtn" data-index="${idx}" data-dir="up">前へ</button><button class="moveMemberBtn" data-index="${idx}" data-dir="down">後へ</button><button class="dismissMemberBtn danger" data-index="${idx}">脱退</button></div>
   </div>`;
 }
 
@@ -2037,7 +2226,7 @@ function renderTopStats() {
     { k:"知名度", label:Math.round(b.fame), meter:b.fame },
     { k:"業界評価", label:Math.round(b.industry), meter:b.industry },
     { k:"疲労", label:`${Math.round(b.fatigue)}%`, meter:b.fatigue, alert:b.fatigue > 80 },
-    { k:"編成", label:`${activeMembers().length}/${state.memberCap}人`, meter:null }
+    { k:"編成", label:`${bandSize()}人`, meter:null }
   ];
   return `<div class="success-dashboard compact-dashboard"><div class="compact-stat-strip slim-stats">${stats.map(x=>`<div class="stat success-stat compact-stat ${x.alert ? "danger-stat" : ""}"><span>${x.k}</span><b>${x.label}</b>${x.meter !== null ? renderTinyMeter(x.k, x.meter) : ""}</div>`).join("")}</div></div>`;
 }
@@ -2060,7 +2249,7 @@ function renderNormalTurn() {
         <div class="success-window-title"><span>COMMAND</span><b>今週の行動</b><small>行動カードを押すと1ターン進行</small></div>
         <div class="coach-line"><b>今週のひとこと</b><span>${successAdvice()}</span></div>
         ${renderCommandCards()}
-        ${state.lastApplicant ? renderApplicant() : ""}
+        ${currentApplicantList().length ? renderApplicantList() : ""}
       </div>
       <div class="card">
         ${renderSongcraftControls()}
@@ -2151,34 +2340,36 @@ function renderDraftList() {
     </div>`).join("")}</div>`;
 }
 
-function renderApplicant() {
-  const a = state.lastApplicant;
+function renderApplicantList() {
+  const list = currentApplicantList();
+  return `<div class="applicant-list">${list.map(renderApplicantCard).join("")}</div>`;
+}
+function renderApplicantCard(a) {
   return `
     <div class="member applicant-card">
-      <h4>募集結果：${a.name}</h4>
+      <h4>加入候補：${escapeHtml(a.name)}</h4>
       <div class="member-head"><div class="avatar">${initials(a.name)}</div><div class="kv">
-        <b>担当</b><span>${a.part}</span>
-        <b>一番得意ジャンル</b><span>${a.mainGenre}</span>
-        <b>二番目得意</b><span>${(a.secondMainGenres||[]).join(" / ") || "なし"}</span>
-        <b>加入難度</b><span>${a.joinDifficulty}</span>
-        <b>差し替えメモ</b><span>${a.replaceNote}</span>
+        <b>担当</b><span>${escapeHtml(a.part)}</span>
+        <b>一番得意ジャンル</b><span>${escapeHtml(a.mainGenre)}</span>
+        <b>二番目得意</b><span>${(a.secondMainGenres||[]).map(escapeHtml).join(" / ") || "なし"}</span>
+        <b>加入難度</b><span>${escapeHtml(a.joinDifficulty || "中")}</span>
+        <b>メモ</b><span>${escapeHtml(a.replaceNote || "仮キャラ")}</span>
       </div></div>
-      <div class="row" style="margin-top:10px;"><button id="joinApplicantBtn">加入させる</button><button id="skipApplicantBtn">今回は見送る</button></div>
+      <div class="row" style="margin-top:10px;"><button class="joinApplicantBtn" data-applicant-id="${escapeHtml(a.id)}">加入させる</button><button class="skipApplicantBtn" data-applicant-id="${escapeHtml(a.id)}">今回は見送る</button></div>
     </div>
   `;
 }
+function renderApplicant() { return renderApplicantList(); }
+
 
 function renderMembers() {
-  const activeIds = new Set(activeMembers().map(m => m.id));
   const memberRows = state.members.map((m, idx) => {
-    const isActive = activeIds.has(m.id);
-    const reserveInfo = !isActive ? ` / 控え${m.reserveTurns || 0}T${m.reserveWarned ? "・離脱警告" : ""}` : "";
-    return `${renderMemberCard(m)}<div class="member-actions"><span class="badge ${isActive ? "good" : "warn"}">${isActive ? "構成内" : "控え：未反映"}</span><span class="badge">${m.joinStatus || "本加入"}${reserveInfo}</span><button class="moveMemberBtn" data-index="${idx}" data-dir="up">前へ</button><button class="moveMemberBtn" data-index="${idx}" data-dir="down">後へ</button><button class="dismissMemberBtn danger" data-index="${idx}">脱退</button></div>`;
+    return `${renderMemberCard(m)}<div class="member-actions"><span class="badge good">構成内</span><span class="badge">${m.joinStatus || "本加入"}</span><button class="moveMemberBtn" data-index="${idx}" data-dir="up">前へ</button><button class="moveMemberBtn" data-index="${idx}" data-dir="down">後へ</button><button class="dismissMemberBtn danger" data-index="${idx}">脱退</button></div>`;
   }).join("");
   return `
     <h2>メンバー</h2>
-    <p><small>ライブに反映されるのは「バンド構成」に入っているメンバーのみ。控えは数ターン後に離脱の事前報告が出て、そのままだと自然脱退することがあります。</small></p>
-    <h3>現在反映中</h3>
+    <p><small>控えは撤廃。加入済みメンバーは全員バンド構成に入り、ライブ準備で担当/休みを選べます。</small></p>
+    <h3>現在のバンド</h3>
     ${activeMembers().map(renderMemberCard).join("")}
     <h3>メンバー管理</h3>
     ${state.members.length ? memberRows : "<small>まだ仲間はいません。</small>"}
@@ -2225,14 +2416,15 @@ function renderSongBars(s) {
 
 
 function renderBandMenu() {
-  const reserves = reserveMembers().length;
-  return `<div class="band-menu compact-band-menu"><div class="section-title"><h2>バンドの構成</h2><span class="badge warn">反映人数を決める</span></div>
+  const size = bandSize();
+  const upkeep = memberUpkeepCost();
+  const warning = size >= 6 ? "6人以上：出費増" : "5人までは通常維持費";
+  return `<div class="band-menu compact-band-menu"><div class="section-title"><h2>バンドの構成</h2><span class="badge warn">${warning}</span></div>
     <div class="cols">
-      <div><label>バンドの構成</label><select id="memberCapSelect">${[3,4,5,6].map(n=>`<option value="${n}" ${state.memberCap===n?"selected":""}>${n}人</option>`).join("")}</select></div>
-      <div><label>現在の控え</label><div class="input-like">${reserves}人</div></div>
+      <div><label>現在の構成人数</label><div class="input-like">${size}人</div></div>
+      <div><label>今週の維持費目安</label><div class="input-like">¥${upkeep.toLocaleString()}</div></div>
     </div>
-    <button id="applyMemberCapBtn">構成を反映</button>
-    <p><small>人数が多いほどライブやイベントは強くなりますが、維持費・疲労・悪いイベントも増えます。アイテム購入はショップ画面に分離しました。</small></p>
+    <p><small>控えは撤廃。ライブ準備では全員から担当を選べます。人数が多いほど編成の幅は広がりますが、6人以上は1人ごとの出費が重くなります。</small></p>
     <button class="jumpTabBtn" data-view="shop">ショップ / もちものへ</button>
   </div>`;
 }
@@ -2311,12 +2503,13 @@ function renderLivePrep() {
         <div>
           <h3>5曲セトリ</h3>
           <p class="setlist-help"><small>プルダウンではなく、各枠の「曲を選ぶ」から別メニューで選択します。詳細だけ確認して戻ることもできます。</small></p>
+          <button id="resetSetlistBtn" class="ghost-btn wide-cancel">セトリをリセット</button>
           ${renderLivePrepSetlist()}
           <h3 style="margin-top:14px;">物販</h3>
           ${renderMerchPrepControls(v, audience)}
           <button id="performLiveBtn" class="big-action">ライブ本番へ</button>
           ${!currentLiveEvent().fixed ? `<button id="noShowLiveBtn" class="ghost-btn danger wide-cancel">ライブをドタキャンする</button>` : ""}
-          ${state.lastApplicant ? renderApplicant() : ""}
+          ${currentApplicantList().length ? renderApplicantList() : ""}
         </div>
       </div>
     </div>
@@ -2339,10 +2532,16 @@ function renderPositionControls() {
       <button class="openMemberDetailBtn ghost-btn" data-member-id="${m.id}">詳細</button>
     </div>`;
   }).join("");
-  const chorusOptions = [`<option value="none" ${state.livePrepChorus === "none" ? "selected" : ""}>コーラスなし</option>`, ...members.filter(m => m.instruments.chorus || m.instruments.vocal).map(m => `<option value="${m.id}" ${state.livePrepChorus === m.id ? "selected" : ""}>${m.name}</option>`)].join("");
+  const chorusIds = normalizeLivePrepChorusIds();
+  const chorusMembers = members.filter(m => m.instruments.chorus || m.instruments.vocal);
+  const chorusRows = chorusIds.map((selected, i) => {
+    const options = [`<option value="none" ${selected === "none" ? "selected" : ""}>コーラスなし</option>`, ...chorusMembers.map(m => `<option value="${m.id}" ${selected === m.id ? "selected" : ""}>${m.name}</option>`)].join("");
+    return `<div class="position-row chorus-line"><div class="avatar small">Cho${i+1}</div><div><b>コーラス枠${i+1}</b><small>10ターンごとに枠追加 / 最大6人</small></div><select class="chorusSelect" data-slot="${i}">${options}</select></div>`;
+  }).join("");
   return `<div class="stage-card">
     ${rows}
-    <div class="position-row chorus-line"><div class="avatar small">Cho</div><div><b>コーラス枠</b><small>ボーカルと同じ人は不可</small></div><select id="chorusSelect">${chorusOptions}</select></div>
+    <div class="section-title mini-title"><h3>コーラス</h3><span class="badge">${chorusIds.length}/6枠</span></div>
+    ${chorusRows}
   </div>`;
 }
 function positionOptions(selected) {
@@ -2410,11 +2609,11 @@ function renderMerchPrepControls(venue, audience) {
   const cap = venue?.capacity || 80;
   const estimatedCost = sum(MERCH_ITEMS.map(item => item.cost * (orders[item.id] || 0)));
   return `<div class="merch-prep-panel">
-    <div class="merch-prep-summary"><b>仕入れ数を選択</b><span>仕入れ総額 ${estimatedCost.toLocaleString()}円</span><small>売れ残りは仕入れ値の70%で買い取り。キャパ・客層・ライブ評価で売れやすさが変動します。</small></div>
+    <div class="merch-prep-summary"><b>仕入れ数を選択</b><span>仕入れ総額 ${estimatedCost.toLocaleString()}円</span><span>所持金 ${state.band.funds.toLocaleString()}円 / 差額 ${(state.band.funds - estimatedCost).toLocaleString()}円</span><small>売れ残りは仕入れ値の70%で買い取り。キャパ・客層・ライブ評価で売れやすさが変動します。</small></div>
     <div class="merch-item-grid">${MERCH_ITEMS.map(item => {
       const fit = merchAudienceFit(item, label) * merchCapacityFit(item, cap);
       const fitLabel = fit >= 1.25 ? "かなり売れやすい" : fit >= 1.08 ? "売れやすい" : fit >= .9 ? "普通" : "売れにくい";
-      return `<label class="merch-item-card"><div><b>${escapeHtml(item.name)}</b><small>仕入${item.cost.toLocaleString()}円 → 売値${item.price.toLocaleString()}円</small><small>最適客層：${item.best.join(" / ")}</small><small>${escapeHtml(item.desc)}</small><span class="badge ${fit >= 1.08 ? "good" : fit < .9 ? "bad" : ""}">${fitLabel}</span></div><input class="merchQtyInput" data-merch-id="${item.id}" type="number" min="0" max="999" step="1" value="${orders[item.id] || 0}" /></label>`;
+      return `<label class="merch-item-card"><div><b>${escapeHtml(item.name)}</b><small>仕入${item.cost.toLocaleString()}円 → 売値${item.price.toLocaleString()}円</small><small>最適客層：${item.best.join(" / ")}</small><small>${escapeHtml(item.desc)}</small><span class="badge ${fit >= 1.08 ? "good" : fit < .9 ? "bad" : ""}">${fitLabel}</span></div><div class="merch-qty-stepper"><button class="merchQtyStepBtn" data-merch-id="${item.id}" data-delta="-5" type="button">-5</button><input class="merchQtyInput" data-merch-id="${item.id}" type="number" inputmode="numeric" min="0" max="999" step="1" value="${orders[item.id] || 0}" /><button class="merchQtyStepBtn" data-merch-id="${item.id}" data-delta="5" type="button">+5</button></div></label>`;
     }).join("")}</div>
   </div>`;
 }
@@ -2470,6 +2669,16 @@ function maybeTriggerCommandEvent(command) {
   showEventPopup(title, body, "event", icon);
 }
 
+
+function songSetlistContext(song, slot) {
+  const current = ensureLivePrepSetlist();
+  const setSlots = current.map((id, i) => id === song.id ? i + 1 : null).filter(Boolean);
+  const last = [...(state.liveResultHistory || [])].reverse().find(r => Array.isArray(r.setlistIds) && r.setlistIds.includes(song.id));
+  const lastSlot = last ? (last.setlistIds.indexOf(song.id) + 1) + "曲目" : "前回なし";
+  const now = setSlots.length ? `${setSlots.join("・")}曲目セット中` : `${slot}曲目に追加予定`;
+  return `前回:${lastSlot} / 現在:${now}`;
+}
+
 function renderLiveSongPickerOverlay() {
   const slot = Number(state.livePrepPickerSlot || 1);
   const currentId = ensureLivePrepSetlist()[slot - 1];
@@ -2484,6 +2693,7 @@ function renderLiveSongPickerOverlay() {
             <small>${escapeHtml(genreDisplay(s))} / キャッチー${val(s.catchy)}・テンポ${val(s.tempo)}・歌詞${val(s.lyrics)}・演奏${val(s.performance)}</small>
             <div class="slot-tags">${(s.tags || []).slice(0, 5).map(t => `<span class="badge">${escapeHtml(t)}</span>`).join("")}</div>
             ${renderSongBars(s)}
+            <div class="setlist-song-context"><small>${escapeHtml(songSetlistContext(s, slot))}</small></div>
           </div>
           <div class="picker-actions">
             <button class="chooseSetlistSongBtn big-action" data-slot="${slot}" data-song-id="${escapeHtml(s.id)}">この曲にする</button>
@@ -2721,10 +2931,8 @@ function bindEvents() {
     }
     render();
   }));
-  const joinBtn = document.getElementById("joinApplicantBtn");
-  if (joinBtn) joinBtn.addEventListener("click", joinApplicant);
-  const skipBtn = document.getElementById("skipApplicantBtn");
-  if (skipBtn) skipBtn.addEventListener("click", () => { state.lastApplicant = null; log("今回は加入を見送った。"); render(); });
+  document.querySelectorAll(".joinApplicantBtn").forEach(btn => btn.addEventListener("click", () => joinApplicantById(btn.dataset.applicantId)));
+  document.querySelectorAll(".skipApplicantBtn").forEach(btn => btn.addEventListener("click", () => skipApplicantById(btn.dataset.applicantId)));
   const craftBtn = document.getElementById("executeCraftBtn");
   if (craftBtn) craftBtn.addEventListener("click", executeSongcraftFromForm);
   document.querySelectorAll(".draftCraftBtn").forEach(btn => btn.addEventListener("click", () => executeDraftCraft(btn.dataset.draftId, btn.dataset.craftType)));
@@ -2756,6 +2964,8 @@ function bindEvents() {
   document.querySelectorAll(".actionResultCloseBtn").forEach(btn => btn.addEventListener("click", closeActionResultModal));
   document.querySelectorAll(".liveProgressNextBtn").forEach(btn => btn.addEventListener("click", showLiveResultAfterProgress));
   document.querySelectorAll(".moveSetlistBtn:not(:disabled)").forEach(btn => btn.addEventListener("click", () => moveSetlistSlot(Number(btn.dataset.slot), btn.dataset.dir)));
+  const resetSetlistBtn = document.getElementById("resetSetlistBtn");
+  if (resetSetlistBtn) resetSetlistBtn.addEventListener("click", () => { state.livePrepSetlist = null; ensureLivePrepSetlist(); log("セトリを初期状態に戻した。"); render(); });
   document.querySelectorAll(".openSongPickerBtn").forEach(btn => btn.addEventListener("click", () => { state.livePrepPickerSlot = Number(btn.dataset.slot || 1); render(); }));
   document.querySelectorAll(".chooseSetlistSongBtn").forEach(btn => btn.addEventListener("click", () => { ensureLivePrepSetlist(); const slot = Number(btn.dataset.slot || state.livePrepPickerSlot || 1); state.livePrepSetlist[slot - 1] = btn.dataset.songId; state.livePrepPickerSlot = null; render(); }));
   document.querySelectorAll(".closeLivePickerBtn").forEach(btn => btn.addEventListener("click", () => { state.livePrepPickerSlot = null; render(); }));
@@ -2763,6 +2973,13 @@ function bindEvents() {
   document.querySelectorAll(".openMemberDetailBtn").forEach(btn => btn.addEventListener("click", () => { state.detailModal = { type:"member", id:btn.dataset.memberId }; render(); }));
   document.querySelectorAll(".closeDetailModalBtn").forEach(btn => btn.addEventListener("click", () => { state.detailModal = null; render(); }));
   document.querySelectorAll(".merchQtyInput").forEach(inp => inp.addEventListener("change", () => { state.livePrepMerchOrders = collectMerchOrdersFromDom(); render(); }));
+  document.querySelectorAll(".merchQtyStepBtn").forEach(btn => btn.addEventListener("click", () => {
+    state.livePrepMerchOrders = collectMerchOrdersFromDom();
+    const id = btn.dataset.merchId;
+    const delta = Number(btn.dataset.delta || 0);
+    state.livePrepMerchOrders[id] = clamp((state.livePrepMerchOrders[id] || 0) + delta, 0, 999);
+    render();
+  }));
   const confirmBandNameBtn = document.getElementById("confirmBandNameBtn");
   if (confirmBandNameBtn) confirmBandNameBtn.addEventListener("click", () => { const name = (document.getElementById("bandNameInput")?.value || "").trim() || "名無しの地下バンド"; state.band.name = name; state.bandNamePrompt = false; log(`バンド名を「${name}」に決めた。`); showEventPopup("バンド名決定", `今日からこの名前でライブハウスに出る。\n${name}`, "event", "🏷️"); if (state.pendingTurnAdvance) finishPendingTurnAdvance(); else render(); });
   const confirmNoSongcraftBtn = document.getElementById("confirmNoSongcraftBtn");
@@ -2785,8 +3002,7 @@ function bindEvents() {
   const merchSel = document.getElementById("merchSelect");
   if (merchSel) merchSel.addEventListener("change", () => { state.livePrepMerch = merchSel.value; });
   document.querySelectorAll(".positionSelect").forEach(sel => sel.addEventListener("change", handlePositionChange));
-  const chorusSel = document.getElementById("chorusSelect");
-  if (chorusSel) chorusSel.addEventListener("change", enforceChorusRule);
+  document.querySelectorAll(".chorusSelect").forEach(sel => sel.addEventListener("change", enforceChorusRule));
 }
 
 function bookLiveFromHome(turnArg=null, venueArg=null, confirmed=false) {
@@ -2848,14 +3064,22 @@ function handlePositionChange(e) {
   enforceChorusRule();
 }
 function enforceChorusRule() {
-  const chorusSel = document.getElementById("chorusSelect");
-  if (!chorusSel) return;
+  const selects = [...document.querySelectorAll(".chorusSelect")];
+  if (!selects.length) { normalizeLivePrepChorusIds(); return; }
   const vocalistId = getPositionMapFromDom().vocalistId;
-  if (chorusSel.value !== "none" && chorusSel.value === vocalistId) {
-    chorusSel.value = "none";
-    log("ボーカルはコーラスを兼任できないため、コーラスをなしにした。");
-  }
-  state.livePrepChorus = chorusSel.value || "none";
+  const used = new Set();
+  let changed = false;
+  const ids = selects.map(sel => {
+    let value = sel.value || "none";
+    if (value !== "none" && value === vocalistId) { value = "none"; changed = true; }
+    if (value !== "none" && used.has(value)) { value = "none"; changed = true; }
+    if (value !== "none") used.add(value);
+    sel.value = value;
+    return value;
+  });
+  if (changed) log("ボーカル兼任や同じ人の重複コーラスは不可のため、コーラス枠を調整した。");
+  state.livePrepChorusIds = ids.slice(0, chorusSlotCount());
+  state.livePrepChorus = state.livePrepChorusIds.find(id => id && id !== "none") || "none";
 }
 
 function handleCommandClick(command) {
@@ -2877,6 +3101,7 @@ function runCommandTurn(command) {
   state.commandCounts = state.commandCounts || {};
   state.commandCounts[command] = (state.commandCounts[command] || 0) + 1;
   executeCommand(command);
+  const promoApplicant = maybePromoRecruitAfterCommand(command);
   const event = maybeGenerateCommandEvent(command);
   if (command === "practice" && (state.commandCounts.practice || 0) >= 3 && !hasSkill("practice_efficiency")) { state.playerSkills.push("practice_efficiency"); log("スキル獲得：効率練習。練習のステータス上昇が少し上がる。"); }
   postTurnMaintenance(command);
@@ -3034,13 +3259,12 @@ function executeCommand(command) {
   if (command === "recruit") {
     const cost = 3000;
     b.funds -= cost;
-    if (!state.candidates.length) {
+    const applicant = addApplicantFromCandidates("募集");
+    if (!applicant) {
       log("募集したが、新しい候補はもう見つからなかった。 ");
     } else {
-      const idx = pickRecruitCandidateIndex();
-      state.lastApplicant = state.candidates.splice(idx, 1)[0];
       b.fame = clamp(b.fame + 1, 0, 999);
-      log(`${state.lastApplicant.name}が募集を見て連絡してきた。募集費-${cost.toLocaleString()}円。加入させるか選べる。`);
+      log(`${applicant.name}が募集を見て連絡してきた。募集費-${cost.toLocaleString()}円。加入させるか選べる。`);
     }
   }
   if (command === "promo") {
@@ -3048,7 +3272,8 @@ function executeCommand(command) {
     b.funds -= cost;
     b.fame = clamp(b.fame + rand(4,8), 0, 999);
     state.songs.forEach(s => s.recognition = clamp(s.recognition + rand(1,3), 0, 99));
-    log(`宣伝した。知名度と曲の認知度が上がった。宣伝費-${cost.toLocaleString()}円。`);
+    state.promoRecruitTurns = 3;
+    log(`宣伝した。知名度と曲の認知度が上がった。宣伝費-${cost.toLocaleString()}円。3ターンの間、60%で加入希望が来る可能性がある。`);
   }
   if (command === "talk") {
     b.trust = clamp(b.trust + rand(7,12), 0, 100);
@@ -3065,9 +3290,9 @@ function joinApplicant() {
   const applicant = state.lastApplicant;
   applicant.joinStatus = Math.random() < 0.45 ? "仮加入" : "本加入";
   state.members.push(applicant);
-  const active = activeMembers().some(m => m.id === applicant.id);
-  log(`${applicant.name}が${applicant.joinStatus}として加入した。${active ? "バンド構成内なので画面とライブに反映される。" : "構成外なので控え扱い。画面・ライブにはまだ反映されない。"}`);
-  showEventPopup(applicant.joinStatus === "仮加入" ? "仮加入！" : "新メンバー加入！", `${applicant.name} がバンドに加わった！\n担当：${applicant.part}\n得意：${applicant.mainGenre}${active ? "\nバンド構成内に入り、ライブに反映される。" : "\n控え扱い。構成に入れるとライブに反映される。"}`, applicant.joinStatus === "仮加入" ? "event" : "rare", applicant.joinStatus === "仮加入" ? "🤝" : "🎉");
+  log(`${applicant.name}が${applicant.joinStatus}として加入した。加入済みメンバーは全員バンド構成に入り、ライブ準備で担当を選べる。`);
+  showEventPopup(applicant.joinStatus === "仮加入" ? "仮加入！" : "新メンバー加入！", `${applicant.name} がバンドに加わった！\n担当：${applicant.part}\n得意：${applicant.mainGenre}\n加入済みメンバーは全員ライブ準備に表示される。`, applicant.joinStatus === "仮加入" ? "event" : "rare", applicant.joinStatus === "仮加入" ? "🤝" : "🎉");
+  maybeExplainMemberCost();
   state.lastApplicant = null;
   render();
 }
@@ -3083,24 +3308,11 @@ function moveMember(index, dir) {
   render();
 }
 function bringReserveToBand(index) {
-  if (index < 0 || index >= state.members.length) return;
-  const activeLimit = Math.max(0, (state.memberCap || 4) - 1);
-  const insertAt = Math.max(0, activeLimit - 1);
-  const arr = state.members;
-  const [m] = arr.splice(index, 1);
-  arr.splice(insertAt, 0, m);
-  m.reserveTurns = 0;
-  log(`${m.name}をバンド構成に入れた。`);
+  log("控えは撤廃済みです。加入済みメンバーは全員バンド構成に入っています。");
   render();
 }
 function benchMember(index) {
-  if (index < 0 || index >= state.members.length) return;
-  const activeLimit = Math.max(0, (state.memberCap || 4) - 1);
-  const arr = state.members;
-  const [m] = arr.splice(index, 1);
-  arr.splice(activeLimit, 0, m);
-  m.reserveTurns = m.reserveTurns || 0;
-  log(`${m.name}を控えに回した。`);
+  log("控えは撤廃済みです。外したい場合はライブ準備で担当を『ステージ外』にしてください。");
   render();
 }
 function dismissMember(index) {
@@ -3118,16 +3330,8 @@ function dismissMember(index) {
   render();
 }
 function applyMemberCap() {
-  const newCap = Number(document.getElementById("memberCapSelect")?.value || state.memberCap);
-  const old = state.memberCap;
-  if (newCap > old) {
-    const cost = (newCap - old) * 6000;
-    state.band.funds -= cost;
-    log(`バンド構成を${newCap}人に増やした。追加管理費-${cost.toLocaleString()}円。`);
-  } else if (newCap < old) {
-    log(`バンド構成を${newCap}人に下げた。構成外の仲間は控え扱いになり、画面・ライブには反映されない。`);
-  }
-  state.memberCap = newCap;
+  state.memberCap = 999;
+  log("最大人数と控えは撤廃済みです。加入済みメンバーは全員ライブ準備に表示されます。");
   render();
 }
 function buyItem(item) {
@@ -3151,9 +3355,8 @@ function useItem(item) {
 function postTurnMaintenance(command) {
   const b = state.band;
   const activeCount = activeMembers().length;
-  const reserveCount = reserveMembers().length;
-  const upkeep = Math.max(0, activeCount - 1) * 700 + reserveCount * 250;
-  if (upkeep) { b.funds -= upkeep; log(`メンバー維持費・交通費で-${upkeep.toLocaleString()}円。`); }
+  const upkeep = memberUpkeepCost();
+  if (upkeep) { b.funds -= upkeep; log(`メンバー維持費・交通費で-${upkeep.toLocaleString()}円。${activeCount >= 6 ? "大所帯で出費が重くなっている。" : ""}`); }
   processReserveMembers();
   if (b.funds < 0) {
     b.trust = clamp(b.trust - 3, 0, 100);
@@ -3179,35 +3382,11 @@ function postTurnMaintenance(command) {
 
 
 function processReserveMembers() {
-  const activeIds = new Set(activeMembers().map(m => m.id));
-  // 構成内に戻ったメンバーは控え待機カウントをリセット。
-  state.members.forEach(m => {
-    if (activeIds.has(m.id)) {
-      m.reserveTurns = 0;
-      m.reserveWarned = false;
-    }
+  // v0.3.13: 控え撤廃。自然脱退処理は停止。
+  (state.members || []).forEach(m => {
+    m.reserveTurns = 0;
+    m.reserveWarned = false;
   });
-
-  const reserves = state.members.filter(m => !activeIds.has(m.id));
-  for (const m of reserves) {
-    m.reserveTurns = (m.reserveTurns || 0) + 1;
-    if (m.reserveTurns >= 3 && !m.reserveWarned) {
-      m.reserveWarned = true;
-      log(`${m.name}から「このまま控えなら、別のバンドも考えたい」と報告があった。構成に戻すか、話す必要がありそう。`);
-      continue;
-    }
-    if (m.reserveTurns >= 5) {
-      state.members = state.members.filter(x => x.id !== m.id);
-      state.band.trust = clamp(state.band.trust - 5, 0, 100);
-      state.band.fame = clamp(state.band.fame - 1, 0, 999);
-      activeMembers().forEach(mem => {
-        mem.stats.mental = clamp(mem.stats.mental - 1, 1, 99);
-        mem.stats.teamwork = clamp(mem.stats.teamwork - 1, 1, 99);
-      });
-      log(`${m.name}が控えのまま離脱した。信頼度が下がり、バンドの空気も少し重くなった。`);
-      break;
-    }
-  }
 }
 
 function executeSongcraftFromForm() {
@@ -3394,6 +3573,14 @@ function finishDraft(draftId) {
     livePlays: 0,
     mannerism: 0
   };
+  const greatSuccess = Math.random() < 0.10;
+  if (greatSuccess) {
+    ["catchy","tempo","recognition","lyrics","performance","trend"].forEach(k => song[k] = clamp(Math.round((song[k] || 0) * 1.5), 0, 99));
+    song.tags = [...new Set([...(song.tags || []), "定番", "大成功"])];
+    song.standardPoints = Math.max(song.standardPoints || 0, 5);
+    song.mannerism = 0;
+    log(`作詞作曲が大成功！「${song.title}」は完成直後から定番曲になった。ステータスが大きく伸びた。`, "rare");
+  }
   state.songs.push(song);
   updateDirection(song.mainGenre, 5); if (song.subGenre) updateDirection(song.subGenre, 4);
   state.pendingDrafts.splice(idx, 1);
@@ -3402,6 +3589,7 @@ function finishDraft(draftId) {
   if (discovery?.rare) bonusLines.push(`レアジャンル発見：${genreDisplay(song)}`);
   if (song.tags.includes("疾走感")) bonusLines.push("疾走感タグ");
   if (song.tags.includes("エモさ")) bonusLines.push("エモさタグ");
+  if (song.tags.includes("大成功")) bonusLines.push("作詞作曲大成功：定番曲化＋ステータス1.5倍");
   const resultBody = `「${song.title}」
 ジャンル：${genreDisplay(song)}
 ${liveExperienceBonus ? `ライブ経験ボーナス：+${val(liveExperienceBonus)}
@@ -3508,11 +3696,12 @@ function performLive() {
   state.livePrepMerchOrders = merch;
   state.livePrepMerch = Object.values(merch).some(v => v > 0) ? "custom" : "none";
   const { map: positions, vocalistId } = getPositionMapFromDom();
-  let chorusId = document.getElementById("chorusSelect")?.value || "none";
-  if (chorusId === vocalistId) chorusId = "none";
+  enforceChorusRule();
+  const chorusIds = (state.livePrepChorusIds || []).filter(id => id && id !== "none" && id !== vocalistId);
   const vocalist = activeMembers().find(m => m.id === vocalistId) || state.player;
-  const chorus = activeMembers().find(m => m.id === chorusId) || null;
+  const chorus = chorusIds.map(id => activeMembers().find(m => m.id === id)).filter(Boolean);
   const result = calculateLive(setlist, supports, merch, positions, vocalist, chorus);
+  result.setlistIds = setlist.map(s => s.id);
   state.deferPopupsUntilAfterLive = true;
   applyLiveResult(result, setlist, supports, merch);
   state.pendingLiveResultModal = makeLiveResultModal(result, setlist);
@@ -3612,16 +3801,17 @@ function analyzeSetlistBonus(setlist, liveArrange) {
   const hist = setlistHistoryInfo(setlist);
   let repeatPenalty = 0;
   let repeatLabel = "初めての並び";
-  if (hist.exactStreak === 1) { repeatPenalty = 7; repeatLabel = "同じ並び2回目：評価ボーナス低下"; }
-  if (hist.exactStreak >= 2) { repeatPenalty = 20 + (hist.exactStreak - 2) * 5; repeatLabel = "同じ並び3回連続以降：マンネリ減点"; }
-  if (!repeatPenalty && hist.sameSongsRecent) { repeatPenalty = 4; repeatLabel = "同じ曲でも並び替えたので減点は軽め"; }
+  if (hist.exactStreak === 1) { repeatPenalty = 4; repeatLabel = "同じ並び2回目：評価ボーナス少し低下"; }
+  if (hist.exactStreak >= 2) { repeatPenalty = 5 + (hist.exactStreak - 2) * 3; repeatLabel = "同じ並び3回連続以降：マンネリ化抽選あり"; }
+  if (!repeatPenalty && hist.sameSongsRecent) { repeatPenalty = 1; repeatLabel = "同じ曲でも並び替えたので減点はごく軽め"; }
   let songPenalty = 0;
   const staleSongs = [];
+  const streakBase = hist.exactStreak >= 2 ? 0.30 + Math.max(0, hist.exactStreak - 2) * 0.10 : hist.sameSongsRecent ? 0.10 : 0;
   setlist.forEach(song => {
     if (!song || song.isCover || hasTag(song, "定番")) return;
-    const plays = song.livePlays || 0;
-    if (plays >= 2) {
-      const p = Math.min(10, 2 + plays * 2 + (song.mannerism || 0));
+    const chance = clamp(streakBase + (song.mannerism || 0) * 0.03, 0, 0.75);
+    if (chance > 0 && Math.random() < chance) {
+      const p = hist.exactStreak >= 2 ? 6 : 3;
       songPenalty += p;
       staleSongs.push(song.title);
     }
@@ -3661,11 +3851,12 @@ function calculateLive(setlist, supports, merch, positions, vocalist, chorus) {
   const avgKnowledge = avg(performers.map(m => m.stats.knowledge));
   const positionScore = avg(performers.map(m => instrumentSkillFor(m, positions[m.id])));
   const vocalLv = instrumentSkillFor(vocalist, "vocal");
-  const chorusBoost = chorus ? instrumentSkillFor(chorus, "chorus") / 8 : 0;
+  const chorusList = Array.isArray(chorus) ? chorus : (chorus ? [chorus] : []);
+  const chorusBoost = sum(chorusList.map(ch => instrumentSkillFor(ch, "chorus") / 8));
   const instruments = new Set(performers.map(m => positions[m.id]).filter(x => x && x !== "off"));
   supports.forEach(s => instruments.add(s.instrument));
   instruments.add("vocal");
-  if (chorus) instruments.add("chorus");
+  if (chorusList.length) instruments.add("chorus");
 
   const tags = setlist.flatMap(s => s.tags || []);
   const supportScore = sum(supports.map(s => s.score));
@@ -3719,7 +3910,7 @@ function calculateLive(setlist, supports, merch, positions, vocalist, chorus) {
   const coreEvent = shouldCoreFanEvent(rank, expression, heat, tags, coverCount);
   const positionText = performers.map(m => `${m.name}:${instLabel(positions[m.id])}`).join(" / ");
 
-  return { performance, expression, heat, strategy, stability, total, rank, revenue, originalCount, coverCount, adlib: liveArrange, liveArrange, repeatInfo, setlistBonus, coreEvent, supports, merch, venue: venueData, prepScore, venueShortage, vocalistName: vocalist.name, chorusName: chorus ? chorus.name : "なし", positions, performers: performers.map(m => m.id), positionText };
+  return { performance, expression, heat, strategy, stability, total, rank, revenue, originalCount, coverCount, adlib: liveArrange, liveArrange, repeatInfo, setlistBonus, coreEvent, supports, merch, venue: venueData, prepScore, venueShortage, vocalistName: vocalist.name, chorusName: chorusList.length ? chorusList.map(ch => ch.name).join(" / ") : "なし", positions, performers: performers.map(m => m.id), positionText };
 }
 
 function analyzeRepeatSetlist(setlist) {
@@ -3940,7 +4131,7 @@ function growSongAfterLive(liveSong, rank, slot, coreEvent) {
   if (!s) return;
   s.livePlays = (s.livePlays || 0) + 1;
   s.tags = (s.tags || []).filter(t => t !== "新曲");
-  if (!hasTag(s, "定番")) s.mannerism = clamp((s.mannerism || 0) + 1, 0, 12);
+  // マンネリは同一セトリ連続時の抽選で発生。通常ライブ成功だけでは増えない。
   s.recognition = clamp(s.recognition + ({ S:8,A:6,B:4,C:2,D:1,E:0 }[rank] || 0) + (coreEvent ? 2 : 0), 0, 99);
   s.performance = clamp(s.performance + (rank === "E" ? 0 : 1), 0, 99);
   s.standardPoints = (s.standardPoints || 0) + 1 + (["S","A","B"].includes(rank) ? 1 : 0) + ((slot === 1 || slot === 5) && ["S","A","B"].includes(rank) ? 1 : 0);
@@ -3958,6 +4149,25 @@ function growMemberAfterLive(m, rank, role) {
   maybeUnlockHidden(m, "ライブ経験");
 }
 
+function continueAfterEnding() {
+  const oldMax = state.maxTurn || 50;
+  state.ended = false;
+  state.maxTurn = oldMax + 20;
+  state.turn = Math.min((state.turn || oldMax) + 1, state.maxTurn - 3);
+  state.view = "home";
+  state.pendingEndingAfterLive = false;
+  state.scheduleTutorialStage = "done";
+  state.liveEvents = (state.liveEvents || []).filter(e => !e.cancelled);
+  if (!(state.liveEvents || []).some(e => !e.cancelled && e.turn >= state.turn)) {
+    state.liveEvents.push(fixedLiveEvent(Math.min(state.turn + 4, state.maxTurn - 1), "livehouse_m", "延長ライブ", false));
+  }
+  refreshLiveSchedule();
+  scheduleNextLive();
+  log("エンディング後も活動を継続することにした。延長活動が始まり、通常ライブ予約も再開した。", "event");
+  saveGame(false);
+  render();
+}
+
 function renderEnding() {
   const b = state.band;
   const final = state.liveResultHistory[state.liveResultHistory.length - 1];
@@ -3972,7 +4182,7 @@ function renderEnding() {
   if (attention) { title = "UNDER FES 注目枠オファー"; tier = "Aオファー"; body = "資料の端に「注目枠」と書かれていた。まだ誰も知らない。でも、誰かが見つけようとしている。"; }
   if (huge) { title = "UNDER FES 大抜擢オファー"; tier = "Sオファー"; body = "出演決定。それだけじゃない。想定より大きいステージで、と連絡が来た。地下から、少しだけ朝が見えた。"; }
   app.innerHTML = `<div class="app-shell"><div class="hero"><h1>${title}</h1><p>${body}</p></div><div class="grid"><div class="card"><h2>最終結果：${tier}</h2><div class="kv"><b>ファン</b><span>${b.fans}人</span><b>知名度</b><span>${b.fame}</span><b>業界評価</b><span>${b.industry}</span><b>オリジナル曲</b><span>${originals}曲</span><b>資金</b><span>${b.funds.toLocaleString()}円</span><b>最終ライブ</b><span>${final ? final.rank + " / " + val(final.total) : "なし"}</span></div><div class="modal-actions ending-actions"><button id="continueAfterEndingBtn" class="big-action">このまま続ける</button><button id="newAfterEndingBtn" class="ghost-btn">はじめから選ぶ</button></div><small>続ける場合は延長活動として20ターン追加されます。</small></div><div class="card"><h2>ログ</h2><div class="log">${state.logs.slice(0, 90).map(l => `<div class="log-line">${escapeHtml(l)}</div>`).join("")}</div></div></div></div>`;
-  document.getElementById("continueAfterEndingBtn")?.addEventListener("click", () => { state.ended = false; state.maxTurn = (state.maxTurn || 50) + 20; state.turn = Math.min((state.turn || 50) + 1, state.maxTurn); state.view = "home"; state.pendingEndingAfterLive = false; if (!(state.liveEvents || []).some(e => !e.cancelled && e.turn >= state.turn)) { state.liveEvents.push(fixedLiveEvent(Math.min(state.turn + 4, state.maxTurn), "livehouse_m", "延長ライブ", false)); } log("エンディング後も活動を継続することにした。延長活動が始まる。", "event"); scheduleNextLive(); saveGame(false); render(); });
+  document.getElementById("continueAfterEndingBtn")?.addEventListener("click", () => { continueAfterEnding(); });
   document.getElementById("newAfterEndingBtn")?.addEventListener("click", () => { uiMode = "slot-new"; render(); });
 }
 
