@@ -4,7 +4,7 @@
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
 
-const VERSION = "v0.3.13";
+const VERSION = "v0.3.14";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -859,7 +859,7 @@ const SAVE_SLOT_COUNT = 2;
 const SAVE_SLOT_PREFIX = "underground_v0310_slot_";
 const AUTOSAVE_SLOT_PREFIX = "underground_v0310_autoslot_";
 const CURRENT_SLOT_KEY = "underground_v0310_current_slot";
-const SAVE_VERSION = "v0.3.13";
+const SAVE_VERSION = "v0.3.14";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -1692,8 +1692,8 @@ function render() {
     <div class="app-shell">
       <div class="hero">
         <div>
-          <h1>アンダーグラウンド（仮） v0.3.12</h1>
-          <p>ライブ準備UI・物販仕入れ・編成入替調整版。</p>
+          <h1>アンダーグラウンド（仮） ${VERSION}</h1>
+          <p>物販数量UI調整・スクロール保持版。</p>
         </div>
         <div class="hero-actions"><button class="jumpTabBtn ghost-btn schedule-head-btn" data-view="schedule">予定</button><button id="refreshAppBtn" class="ghost-btn update-btn">最新版</button><button id="saveBtn" class="ghost-btn">セーブ</button><button id="loadBtn" class="ghost-btn">ロード</button><button id="titleBtn" class="ghost-btn">タイトルへ</button></div>
       </div>
@@ -2572,9 +2572,43 @@ function collectMerchOrdersFromDom() {
   const out = {};
   MERCH_ITEMS.forEach(item => {
     const el = document.querySelector(`.merchQtyInput[data-merch-id="${item.id}"]`);
-    out[item.id] = clamp(Math.floor(Number(el?.value || 0)), 0, 999);
+    const range = document.querySelector(`.merchQtyRange[data-merch-id="${item.id}"]`);
+    out[item.id] = clamp(Math.floor(Number(el?.value ?? range?.value ?? 0)), 0, 999);
   });
   return out;
+}
+function maxMerchOrderForVenue(venue) {
+  const cap = Number(venue?.capacity || venueById(currentLiveEvent().venueId).capacity || 80);
+  return clamp(Math.ceil(cap * 0.8), 30, 240);
+}
+function syncMerchQtyDom(id, value) {
+  const v = clamp(Math.floor(Number(value || 0)), 0, 999);
+  const input = document.querySelector(`.merchQtyInput[data-merch-id="${id}"]`);
+  const range = document.querySelector(`.merchQtyRange[data-merch-id="${id}"]`);
+  const out = document.querySelector(`.merchQtyValue[data-merch-id="${id}"]`);
+  if (input) input.value = String(v);
+  if (range) {
+    const max = Number(range.max || 0);
+    if (v > max) range.max = String(v);
+    range.value = String(Math.min(v, Number(range.max || v)));
+  }
+  if (out) out.textContent = String(v);
+}
+function updateMerchPrepSummaryDom() {
+  const orders = collectMerchOrdersFromDom();
+  state.livePrepMerchOrders = orders;
+  const estimatedCost = sum(MERCH_ITEMS.map(item => item.cost * (orders[item.id] || 0)));
+  const costEl = document.getElementById("merchEstimatedCost");
+  const fundsEl = document.getElementById("merchCurrentFunds");
+  const diffEl = document.getElementById("merchFundsDiff");
+  if (costEl) costEl.textContent = `仕入れ総額 ${estimatedCost.toLocaleString()}円`;
+  if (fundsEl) fundsEl.textContent = `所持金 ${state.band.funds.toLocaleString()}円`;
+  if (diffEl) {
+    const diff = state.band.funds - estimatedCost;
+    diffEl.textContent = `差額 ${diff.toLocaleString()}円`;
+    diffEl.classList.toggle("bad", diff < 0);
+    diffEl.classList.toggle("good", diff >= 0);
+  }
 }
 function merchAudienceFit(item, audienceLabel) {
   if (!item) return 1;
@@ -2607,13 +2641,17 @@ function renderMerchPrepControls(venue, audience) {
   const orders = normalizeMerchOrders();
   const label = audience?.label || "通常客層";
   const cap = venue?.capacity || 80;
+  const maxOrder = maxMerchOrderForVenue(venue);
   const estimatedCost = sum(MERCH_ITEMS.map(item => item.cost * (orders[item.id] || 0)));
+  const diff = state.band.funds - estimatedCost;
   return `<div class="merch-prep-panel">
-    <div class="merch-prep-summary"><b>仕入れ数を選択</b><span>仕入れ総額 ${estimatedCost.toLocaleString()}円</span><span>所持金 ${state.band.funds.toLocaleString()}円 / 差額 ${(state.band.funds - estimatedCost).toLocaleString()}円</span><small>売れ残りは仕入れ値の70%で買い取り。キャパ・客層・ライブ評価で売れやすさが変動します。</small></div>
+    <div class="merch-prep-summary"><b>仕入れ数を選択</b><span id="merchEstimatedCost">仕入れ総額 ${estimatedCost.toLocaleString()}円</span><span id="merchCurrentFunds">所持金 ${state.band.funds.toLocaleString()}円</span><span id="merchFundsDiff" class="${diff < 0 ? "bad" : "good"}">差額 ${diff.toLocaleString()}円</span><small>売れ残りは仕入れ値の70%で買い取り。キャパ・客層・ライブ評価で売れやすさが変動します。</small></div>
     <div class="merch-item-grid">${MERCH_ITEMS.map(item => {
+      const qty = orders[item.id] || 0;
       const fit = merchAudienceFit(item, label) * merchCapacityFit(item, cap);
       const fitLabel = fit >= 1.25 ? "かなり売れやすい" : fit >= 1.08 ? "売れやすい" : fit >= .9 ? "普通" : "売れにくい";
-      return `<label class="merch-item-card"><div><b>${escapeHtml(item.name)}</b><small>仕入${item.cost.toLocaleString()}円 → 売値${item.price.toLocaleString()}円</small><small>最適客層：${item.best.join(" / ")}</small><small>${escapeHtml(item.desc)}</small><span class="badge ${fit >= 1.08 ? "good" : fit < .9 ? "bad" : ""}">${fitLabel}</span></div><div class="merch-qty-stepper"><button class="merchQtyStepBtn" data-merch-id="${item.id}" data-delta="-5" type="button">-5</button><input class="merchQtyInput" data-merch-id="${item.id}" type="number" inputmode="numeric" min="0" max="999" step="1" value="${orders[item.id] || 0}" /><button class="merchQtyStepBtn" data-merch-id="${item.id}" data-delta="5" type="button">+5</button></div></label>`;
+      const rangeMax = Math.max(maxOrder, qty, 20);
+      return `<div class="merch-item-card"><div><b>${escapeHtml(item.name)}</b><small>仕入${item.cost.toLocaleString()}円 → 売値${item.price.toLocaleString()}円</small><small>最適客層：${item.best.join(" / ")}</small><small>${escapeHtml(item.desc)}</small><span class="badge ${fit >= 1.08 ? "good" : fit < .9 ? "bad" : ""}">${fitLabel}</span></div><div class="merch-qty-control"><div class="merch-qty-main"><button class="merchQtyStepBtn" data-merch-id="${item.id}" data-delta="-1" type="button" aria-label="${escapeHtml(item.name)}を1個減らす">−</button><output class="merchQtyValue" data-merch-id="${item.id}">${qty}</output><button class="merchQtyStepBtn" data-merch-id="${item.id}" data-delta="1" type="button" aria-label="${escapeHtml(item.name)}を1個増やす">＋</button></div><input class="merchQtyRange" data-merch-id="${item.id}" type="range" min="0" max="${rangeMax}" step="1" value="${Math.min(qty, rangeMax)}" /><input class="merchQtyInput" data-merch-id="${item.id}" type="number" inputmode="numeric" min="0" max="999" step="1" value="${qty}" aria-label="${escapeHtml(item.name)}の仕入れ数" /></div></div>`;
     }).join("")}</div>
   </div>`;
 }
@@ -2972,13 +3010,28 @@ function bindEvents() {
   document.querySelectorAll(".openSongDetailBtn").forEach(btn => btn.addEventListener("click", () => { state.detailModal = { type:"song", id:btn.dataset.songId }; render(); }));
   document.querySelectorAll(".openMemberDetailBtn").forEach(btn => btn.addEventListener("click", () => { state.detailModal = { type:"member", id:btn.dataset.memberId }; render(); }));
   document.querySelectorAll(".closeDetailModalBtn").forEach(btn => btn.addEventListener("click", () => { state.detailModal = null; render(); }));
-  document.querySelectorAll(".merchQtyInput").forEach(inp => inp.addEventListener("change", () => { state.livePrepMerchOrders = collectMerchOrdersFromDom(); render(); }));
-  document.querySelectorAll(".merchQtyStepBtn").forEach(btn => btn.addEventListener("click", () => {
-    state.livePrepMerchOrders = collectMerchOrdersFromDom();
+  document.querySelectorAll(".merchQtyInput").forEach(inp => {
+    const update = () => {
+      const id = inp.dataset.merchId;
+      syncMerchQtyDom(id, inp.value);
+      updateMerchPrepSummaryDom();
+    };
+    inp.addEventListener("input", update);
+    inp.addEventListener("change", update);
+  });
+  document.querySelectorAll(".merchQtyRange").forEach(range => range.addEventListener("input", () => {
+    const id = range.dataset.merchId;
+    syncMerchQtyDom(id, range.value);
+    updateMerchPrepSummaryDom();
+  }));
+  document.querySelectorAll(".merchQtyStepBtn").forEach(btn => btn.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
     const id = btn.dataset.merchId;
+    const current = Number(document.querySelector(`.merchQtyInput[data-merch-id="${id}"]`)?.value || 0);
     const delta = Number(btn.dataset.delta || 0);
-    state.livePrepMerchOrders[id] = clamp((state.livePrepMerchOrders[id] || 0) + delta, 0, 999);
-    render();
+    syncMerchQtyDom(id, current + delta);
+    updateMerchPrepSummaryDom();
   }));
   const confirmBandNameBtn = document.getElementById("confirmBandNameBtn");
   if (confirmBandNameBtn) confirmBandNameBtn.addEventListener("click", () => { const name = (document.getElementById("bandNameInput")?.value || "").trim() || "名無しの地下バンド"; state.band.name = name; state.bandNamePrompt = false; log(`バンド名を「${name}」に決めた。`); showEventPopup("バンド名決定", `今日からこの名前でライブハウスに出る。\n${name}`, "event", "🏷️"); if (state.pendingTurnAdvance) finishPendingTurnAdvance(); else render(); });
