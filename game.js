@@ -4,7 +4,7 @@
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
 
-const VERSION = "v0.3.10";
+const VERSION = "v0.3.11";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -292,6 +292,20 @@ const VENUES = [
   { id: "livehouse_m", name: "ネオンホール", capacity: 150, fee: 14000, prepNeed: 42, heatBonus: 7, note: "中箱。準備不足だと空席が目立つ" },
   { id: "warehouse", name: "倉庫イベント", capacity: 230, fee: 22000, prepNeed: 58, heatBonus: 10, note: "大きめ。知名度と曲の認知が欲しい" },
   { id: "big_stage", name: "プレフェス野外ステージ", capacity: 340, fee: 32000, prepNeed: 76, heatBonus: 14, note: "格上会場。誰でも出られるが成功率は低い" }
+];
+
+const MERCH_ITEMS = [
+  { id:"sticker", name:"ステッカー", cost:250, price:300, best:["友人・身内多め", "地下ライブ常連", "初見客多め"], desc:"安くて手に取りやすい。小箱・初見客・序盤向き。" },
+  { id:"badge", name:"缶バッジ", cost:400, price:500, best:["友人・身内多め", "地下ライブ常連"], desc:"常連が買いやすい小物。熱量が高いライブで売れやすい。" },
+  { id:"rubberband", name:"ラバーバンド", cost:550, price:700, best:["地下ライブ常連", "フェス審査・外部客"], desc:"ライブキッズ向き。パンク/ハードコア/メタル系の客層と相性○。" },
+  { id:"towel", name:"タオル", cost:1600, price:2000, best:["初見客多め", "フェス審査・外部客"], desc:"キャパが大きい会場ほど売れやすい定番グッズ。" },
+  { id:"tshirt", name:"Ｔシャツ", cost:2500, price:3000, best:["フェス審査・外部客", "地下ライブ常連"], desc:"高コストだが伸びると強い。中箱以上や人気上昇後向き。" },
+  { id:"totebag", name:"トートバッグ", cost:2000, price:2500, best:["初見客多め", "通常客層"], desc:"ポップ/エモ/シティ寄りの客層で売れやすい。" },
+  { id:"longt", name:"ロングTシャツ", cost:2500, price:3000, best:["地下ライブ常連", "フェス審査・外部客"], desc:"コアファン向き。秋冬・常連・重めジャンルで強い。" },
+  { id:"bucket", name:"バケットハット", cost:3000, price:3500, best:["初見客多め", "フェス審査・外部客"], desc:"流行・フェス客向き。知名度が上がってから強い。" },
+  { id:"coach", name:"コーチジャケット", cost:4000, price:5000, best:["フェス審査・外部客", "地下ライブ常連"], desc:"高額グッズ。キャパ大・コア人気・高評価ライブ向き。" },
+  { id:"demo", name:"デモ音源", cost:1500, price:2000, best:["地下ライブ常連", "友人・身内多め"], desc:"コア人気や代表曲候補があると売れやすい。" },
+  { id:"keyholder", name:"キーホルダー", cost:800, price:1000, best:["友人・身内多め", "初見客多め"], desc:"軽く買いやすい。小箱でも中箱でも安定。" }
 ];
 
 function venueById(id) {
@@ -799,7 +813,7 @@ const SAVE_SLOT_COUNT = 2;
 const SAVE_SLOT_PREFIX = "underground_v0310_slot_";
 const AUTOSAVE_SLOT_PREFIX = "underground_v0310_autoslot_";
 const CURRENT_SLOT_KEY = "underground_v0310_current_slot";
-const SAVE_VERSION = "v0.3.10";
+const SAVE_VERSION = "v0.3.11";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -1037,6 +1051,7 @@ function createInitialState() {
     livePrepChorus: "none",
     livePrepSupportIds: [],
     livePrepMerch: "none",
+    livePrepMerchOrders: {},
     livePrepPickerSlot: null,
     detailModal: null,
     lastSongcraftResult: null,
@@ -1193,7 +1208,8 @@ function scheduleLiveProgressTimer() {
     const live = state.liveProgressModal;
     const maxIdx = Math.max(0, (live.steps || []).length - 1);
     const nextIndex = (live.index || 0) + 1;
-    if (nextIndex > maxIdx) {
+    if (nextIndex >= maxIdx) {
+      // 5曲目を通常表示→完了表示で二重判定しない。
       live.index = maxIdx;
       live.complete = true;
       render();
@@ -1304,6 +1320,7 @@ function normalizeState() {
   if (!Array.isArray(state.livePrepSupportIds)) state.livePrepSupportIds = [];
   if (typeof state.livePrepChorus === "undefined") state.livePrepChorus = "none";
   if (typeof state.livePrepMerch === "undefined") state.livePrepMerch = "none";
+  if (!state.livePrepMerchOrders || typeof state.livePrepMerchOrders !== "object") state.livePrepMerchOrders = {};
   if (typeof state.livePrepPickerSlot === "undefined") state.livePrepPickerSlot = null;
   if (typeof state.detailModal === "undefined") state.detailModal = null;
   if (typeof state.lastSongcraftResult === "undefined") state.lastSongcraftResult = null;
@@ -1485,8 +1502,8 @@ function render() {
     <div class="app-shell">
       <div class="hero">
         <div>
-          <h1>アンダーグラウンド（仮） v0.3.10</h1>
-          <p>セーブスロット・タイトル導線・エンディング後選択追加版。</p>
+          <h1>アンダーグラウンド（仮） v0.3.11</h1>
+          <p>ライブ準備UI・物販仕入れ・編成入替調整版。</p>
         </div>
         <div class="hero-actions"><button class="jumpTabBtn ghost-btn schedule-head-btn" data-view="schedule">予定</button><button id="refreshAppBtn" class="ghost-btn update-btn">最新版</button><button id="saveBtn" class="ghost-btn">セーブ</button><button id="loadBtn" class="ghost-btn">ロード</button><button id="titleBtn" class="ghost-btn">タイトルへ</button></div>
       </div>
@@ -1603,7 +1620,7 @@ function renderSavePanel() {
 function renderPwaPanel() {
   return `<div class="pwa-panel">
     <b>スマホ確認</b>
-    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.10は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
+    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.11は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
   </div>`;
 }
 
@@ -1736,12 +1753,12 @@ function renderMemberStageSlot(m, slotIndex=0) {
   const role = m.id === "player" ? "主人公" : (m.joinStatus || "本加入");
   const active = state.selectedMemberId === m.id ? "selected" : "";
   const memberIndex = slotIndex - 1;
-  const actions = m.id === "player" ? `<small>主人公 / 詳細はカード内表示</small>` : `<div class="stage-actions"><button class="moveMemberBtn" data-index="${memberIndex}" data-dir="up">前へ</button><button class="moveMemberBtn" data-index="${memberIndex}" data-dir="down">後へ</button><button class="dismissMemberBtn danger" data-index="${memberIndex}">脱退</button></div>`;
+  const actions = m.id === "player" ? `<small>主人公 / 詳細はカード内表示</small>` : `<div class="stage-actions"><button class="benchMemberBtn" data-index="${memberIndex}">控えへ</button><button class="moveMemberBtn" data-index="${memberIndex}" data-dir="up">前へ</button><button class="moveMemberBtn" data-index="${memberIndex}" data-dir="down">後へ</button><button class="dismissMemberBtn danger" data-index="${memberIndex}">脱退</button></div>`;
   return `<div class="stage-slot ${active}"><button class="stage-main selectMemberBtn" data-member-id="${m.id}"><div class="avatar">${initials(m.name)}</div><div><b>${m.name}</b><small>${role} / ${m.part}</small><span class="badge warn">${m.mainGenre}</span></div></button>${actions}</div>`;
 }
 
 function renderReserveCard(m, memberIndex) {
-  return `<div class="reserve-card"><div>${renderCompactMember(m)}<small>控え${m.reserveTurns || 0}T ${m.reserveWarned ? " / 離脱前報告あり" : ""}</small></div><div class="draft-actions"><button class="moveMemberBtn" data-index="${memberIndex}" data-dir="up">構成へ近づける</button><button class="dismissMemberBtn danger" data-index="${memberIndex}">脱退</button></div></div>`;
+  return `<div class="reserve-card"><div>${renderCompactMember(m)}<small>控え${m.reserveTurns || 0}T ${m.reserveWarned ? " / 離脱前報告あり" : ""}</small></div><div class="draft-actions"><button class="bringReserveBtn" data-index="${memberIndex}">構成へ入れる</button><button class="moveMemberBtn" data-index="${memberIndex}" data-dir="up">前へ</button><button class="dismissMemberBtn danger" data-index="${memberIndex}">脱退</button></div></div>`;
 }
 
 function renderManageMemberCard(m, idx) {
@@ -2242,6 +2259,15 @@ function renderLivePrepSetlist() {
   const ids = ensureLivePrepSetlist();
   return `<div class="setlist-card-list">${ids.map((id, idx) => renderLivePrepSongSlot(idx + 1, songById(id))).join("")}</div>`;
 }
+function moveSetlistSlot(slot, dir) {
+  const ids = ensureLivePrepSetlist();
+  const i = clamp(Number(slot || 1), 1, 5) - 1;
+  const j = dir === "up" ? i - 1 : i + 1;
+  if (j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  state.livePrepSetlist = ids;
+  render();
+}
 function renderLivePrepSongSlot(slot, song) {
   const safeId = song?.id || "";
   return `<div class="live-song-slot" data-slot="${slot}">
@@ -2253,6 +2279,7 @@ function renderLivePrepSongSlot(slot, song) {
       <div class="slot-tags">${(song?.tags || []).slice(0, 4).map(t => `<span class="badge">${escapeHtml(t)}</span>`).join("")}</div>
     </div>
     <div class="slot-actions">
+      <div class="slot-move-row"><button class="moveSetlistBtn ghost-btn" data-slot="${slot}" data-dir="up" ${slot === 1 ? "disabled" : ""}>↑</button><button class="moveSetlistBtn ghost-btn" data-slot="${slot}" data-dir="down" ${slot === 5 ? "disabled" : ""}>↓</button></div>
       <button class="openSongPickerBtn ghost-btn" data-slot="${slot}">曲を選ぶ</button>
       <button class="openSongDetailBtn ghost-btn" data-song-id="${escapeHtml(safeId)}">詳細</button>
     </div>
@@ -2286,13 +2313,7 @@ function renderLivePrep() {
           <p class="setlist-help"><small>プルダウンではなく、各枠の「曲を選ぶ」から別メニューで選択します。詳細だけ確認して戻ることもできます。</small></p>
           ${renderLivePrepSetlist()}
           <h3 style="margin-top:14px;">物販</h3>
-          <select id="merchSelect">
-            <option value="none" ${state.livePrepMerch === "none" ? "selected" : ""}>なし：0円</option>
-            <option value="low" ${state.livePrepMerch === "low" ? "selected" : ""}>低コスト：3,000円 / ステッカー・缶バッジ</option>
-            <option value="standard" ${state.livePrepMerch === "standard" ? "selected" : ""}>標準：8,000円 / ステッカー・缶バッジ・デモ音源</option>
-            <option value="premium" ${state.livePrepMerch === "premium" ? "selected" : ""}>勝負：15,000円 / タオル・Tシャツ・デモ音源</option>
-          </select>
-          <p><small>デモ音源は人気が上がるほど単価が大きく上がります。歌詞カード単体はなし。</small></p>
+          ${renderMerchPrepControls(v, audience)}
           <button id="performLiveBtn" class="big-action">ライブ本番へ</button>
           ${!currentLiveEvent().fixed ? `<button id="noShowLiveBtn" class="ghost-btn danger wide-cancel">ライブをドタキャンする</button>` : ""}
           ${state.lastApplicant ? renderApplicant() : ""}
@@ -2311,7 +2332,7 @@ function renderPositionControls() {
     const disabled = locked && m.id === "player" ? "disabled" : "";
     return `<div class="position-row" data-member="${m.id}">
       <div class="avatar small">${initials(m.name)}</div>
-      <div><b>${m.name}</b><small>${m.part}</small></div>
+      <div><b>${m.name}</b><small>${m.part}</small>${renderPositionMiniStats(m, defaultInst)}</div>
       <select class="positionSelect" data-member-id="${m.id}" ${disabled}>
         ${positionOptions(defaultInst)}
       </select>
@@ -2327,6 +2348,75 @@ function renderPositionControls() {
 function positionOptions(selected) {
   const opts = ["off","vocal","guitar","bass","drum","key","dj","other"];
   return opts.map(o => `<option value="${o}" ${selected===o ? "selected" : ""}>${instFullLabel(o)}</option>`).join("");
+}
+function renderPositionMiniStats(m, inst="off") {
+  if (!m) return "";
+  const skill = inst === "off" ? 0 : Math.round(instrumentSkillFor(m, inst));
+  const rhythm = val(m.stats?.rhythm || 0);
+  const tech = val(m.stats?.technique || 0);
+  const sta = val(m.stats?.stamina || 0);
+  const team = val(m.stats?.teamwork || 0);
+  return `<div class="position-mini-stats"><span>適性${skill}</span><span>技${tech}</span><span>リズム${rhythm}</span><span>体力${sta}</span><span>協調${team}</span></div>`;
+}
+function normalizeMerchOrders(raw=null) {
+  const src = raw && typeof raw === "object" ? raw : (state.livePrepMerchOrders || {});
+  const out = {};
+  MERCH_ITEMS.forEach(item => { out[item.id] = clamp(Math.floor(Number(src[item.id] || 0)), 0, 999); });
+  if (!Object.values(out).some(v => v > 0) && typeof state.livePrepMerch === "string") {
+    if (state.livePrepMerch === "low") { out.sticker = 10; out.badge = 8; }
+    if (state.livePrepMerch === "standard") { out.sticker = 15; out.badge = 10; out.demo = 5; }
+    if (state.livePrepMerch === "premium") { out.towel = 6; out.tshirt = 4; out.demo = 8; }
+  }
+  return out;
+}
+function collectMerchOrdersFromDom() {
+  const out = {};
+  MERCH_ITEMS.forEach(item => {
+    const el = document.querySelector(`.merchQtyInput[data-merch-id="${item.id}"]`);
+    out[item.id] = clamp(Math.floor(Number(el?.value || 0)), 0, 999);
+  });
+  return out;
+}
+function merchAudienceFit(item, audienceLabel) {
+  if (!item) return 1;
+  const label = audienceLabel || audienceProfileForVenue(venueById(currentLiveEvent().venueId)).label;
+  if ((item.best || []).includes(label)) return 1.22;
+  if (label === "フェス審査・外部客" && ["towel","tshirt","bucket","coach","rubberband"].includes(item.id)) return 1.18;
+  if (label === "友人・身内多め" && ["sticker","badge","keyholder","demo"].includes(item.id)) return 1.16;
+  if (label === "初見客多め" && ["sticker","towel","totebag","keyholder","bucket"].includes(item.id)) return 1.14;
+  return 0.92;
+}
+function merchCapacityFit(item, cap) {
+  const high = ["tshirt","longt","bucket","coach","towel"];
+  const low = ["sticker","badge","keyholder","demo"];
+  if (cap >= 200 && high.includes(item.id)) return 1.25;
+  if (cap >= 120 && high.includes(item.id)) return 1.12;
+  if (cap <= 90 && low.includes(item.id)) return 1.18;
+  if (cap <= 90 && item.cost >= 2500) return 0.72;
+  return 1;
+}
+function merchDemandRate(item, attendees, rank, setlist, audienceLabel, cap) {
+  const rankFactor = rankMult(rank);
+  const hasRep = setlist.some(s => hasTag(s, "代表曲候補") || hasTag(s, "定番"));
+  const coreFactor = 1 + state.band.core / 260;
+  const recFactor = 1 + avg(setlist.map(s => s.recognition || 0)) / 260;
+  const baseByPrice = item.price <= 700 ? 0.34 : item.price <= 1200 ? 0.23 : item.price <= 2200 ? 0.14 : item.price <= 3200 ? 0.09 : 0.055;
+  const rep = hasRep ? (item.id === "demo" ? 1.45 : 1.15) : 1;
+  return clamp(baseByPrice * rankFactor * merchAudienceFit(item, audienceLabel) * merchCapacityFit(item, cap) * coreFactor * recFactor * rep, 0.02, 0.92);
+}
+function renderMerchPrepControls(venue, audience) {
+  const orders = normalizeMerchOrders();
+  const label = audience?.label || "通常客層";
+  const cap = venue?.capacity || 80;
+  const estimatedCost = sum(MERCH_ITEMS.map(item => item.cost * (orders[item.id] || 0)));
+  return `<div class="merch-prep-panel">
+    <div class="merch-prep-summary"><b>仕入れ数を選択</b><span>仕入れ総額 ${estimatedCost.toLocaleString()}円</span><small>売れ残りは仕入れ値の70%で買い取り。キャパ・客層・ライブ評価で売れやすさが変動します。</small></div>
+    <div class="merch-item-grid">${MERCH_ITEMS.map(item => {
+      const fit = merchAudienceFit(item, label) * merchCapacityFit(item, cap);
+      const fitLabel = fit >= 1.25 ? "かなり売れやすい" : fit >= 1.08 ? "売れやすい" : fit >= .9 ? "普通" : "売れにくい";
+      return `<label class="merch-item-card"><div><b>${escapeHtml(item.name)}</b><small>仕入${item.cost.toLocaleString()}円 → 売値${item.price.toLocaleString()}円</small><small>最適客層：${item.best.join(" / ")}</small><small>${escapeHtml(item.desc)}</small><span class="badge ${fit >= 1.08 ? "good" : fit < .9 ? "bad" : ""}">${fitLabel}</span></div><input class="merchQtyInput" data-merch-id="${item.id}" type="number" min="0" max="999" step="1" value="${orders[item.id] || 0}" /></label>`;
+    }).join("")}</div>
+  </div>`;
 }
 
 
@@ -2597,6 +2687,7 @@ function renderLiveResultOverlay() {
         <p>ライブアレンジ：${escapeHtml(r.adlib || "なし")}</p>
         <p>セトリボーナス：${escapeHtml(r.setlistBonusText || "なし")}</p>
         <p>同一曲：${escapeHtml(r.repeatText || "なし")}</p>
+        <p>物販：${escapeHtml(r.merchSummary || "なし")}</p>
         ${r.coreEvent ? `<p>完璧ではないが、コアなファンに強く刺さった。</p>` : ""}
       </div>
       <button class="liveResultCloseBtn big-action">OK</button>
@@ -2642,6 +2733,8 @@ function bindEvents() {
   const liveBtn = document.getElementById("performLiveBtn");
   if (liveBtn) liveBtn.addEventListener("click", performLive);
   document.querySelectorAll(".moveMemberBtn").forEach(btn => btn.addEventListener("click", () => moveMember(Number(btn.dataset.index), btn.dataset.dir)));
+  document.querySelectorAll(".bringReserveBtn").forEach(btn => btn.addEventListener("click", () => bringReserveToBand(Number(btn.dataset.index))));
+  document.querySelectorAll(".benchMemberBtn").forEach(btn => btn.addEventListener("click", () => benchMember(Number(btn.dataset.index))));
   document.querySelectorAll(".dismissMemberBtn").forEach(btn => btn.addEventListener("click", () => dismissMember(Number(btn.dataset.index))));
   const capBtn = document.getElementById("applyMemberCapBtn");
   if (capBtn) capBtn.addEventListener("click", applyMemberCap);
@@ -2662,12 +2755,14 @@ function bindEvents() {
   document.querySelectorAll(".popupCloseBtn").forEach(btn => btn.addEventListener("click", closeActivePopup));
   document.querySelectorAll(".actionResultCloseBtn").forEach(btn => btn.addEventListener("click", closeActionResultModal));
   document.querySelectorAll(".liveProgressNextBtn").forEach(btn => btn.addEventListener("click", showLiveResultAfterProgress));
+  document.querySelectorAll(".moveSetlistBtn:not(:disabled)").forEach(btn => btn.addEventListener("click", () => moveSetlistSlot(Number(btn.dataset.slot), btn.dataset.dir)));
   document.querySelectorAll(".openSongPickerBtn").forEach(btn => btn.addEventListener("click", () => { state.livePrepPickerSlot = Number(btn.dataset.slot || 1); render(); }));
   document.querySelectorAll(".chooseSetlistSongBtn").forEach(btn => btn.addEventListener("click", () => { ensureLivePrepSetlist(); const slot = Number(btn.dataset.slot || state.livePrepPickerSlot || 1); state.livePrepSetlist[slot - 1] = btn.dataset.songId; state.livePrepPickerSlot = null; render(); }));
   document.querySelectorAll(".closeLivePickerBtn").forEach(btn => btn.addEventListener("click", () => { state.livePrepPickerSlot = null; render(); }));
   document.querySelectorAll(".openSongDetailBtn").forEach(btn => btn.addEventListener("click", () => { state.detailModal = { type:"song", id:btn.dataset.songId }; render(); }));
   document.querySelectorAll(".openMemberDetailBtn").forEach(btn => btn.addEventListener("click", () => { state.detailModal = { type:"member", id:btn.dataset.memberId }; render(); }));
   document.querySelectorAll(".closeDetailModalBtn").forEach(btn => btn.addEventListener("click", () => { state.detailModal = null; render(); }));
+  document.querySelectorAll(".merchQtyInput").forEach(inp => inp.addEventListener("change", () => { state.livePrepMerchOrders = collectMerchOrdersFromDom(); render(); }));
   const confirmBandNameBtn = document.getElementById("confirmBandNameBtn");
   if (confirmBandNameBtn) confirmBandNameBtn.addEventListener("click", () => { const name = (document.getElementById("bandNameInput")?.value || "").trim() || "名無しの地下バンド"; state.band.name = name; state.bandNamePrompt = false; log(`バンド名を「${name}」に決めた。`); showEventPopup("バンド名決定", `今日からこの名前でライブハウスに出る。\n${name}`, "event", "🏷️"); if (state.pendingTurnAdvance) finishPendingTurnAdvance(); else render(); });
   const confirmNoSongcraftBtn = document.getElementById("confirmNoSongcraftBtn");
@@ -2985,6 +3080,27 @@ function moveMember(index, dir) {
   state.members[index] = state.members[target];
   state.members[target] = tmp;
   log("メンバー順を入れ替えた。バンド構成内に入ったメンバーだけが画面・ライブに反映される。");
+  render();
+}
+function bringReserveToBand(index) {
+  if (index < 0 || index >= state.members.length) return;
+  const activeLimit = Math.max(0, (state.memberCap || 4) - 1);
+  const insertAt = Math.max(0, activeLimit - 1);
+  const arr = state.members;
+  const [m] = arr.splice(index, 1);
+  arr.splice(insertAt, 0, m);
+  m.reserveTurns = 0;
+  log(`${m.name}をバンド構成に入れた。`);
+  render();
+}
+function benchMember(index) {
+  if (index < 0 || index >= state.members.length) return;
+  const activeLimit = Math.max(0, (state.memberCap || 4) - 1);
+  const arr = state.members;
+  const [m] = arr.splice(index, 1);
+  arr.splice(activeLimit, 0, m);
+  m.reserveTurns = m.reserveTurns || 0;
+  log(`${m.name}を控えに回した。`);
   render();
 }
 function dismissMember(index) {
@@ -3388,8 +3504,9 @@ function performLive() {
   const supportIds = [...document.querySelectorAll(".supportCheck:checked")].map(x => x.value);
   state.livePrepSupportIds = supportIds;
   const supports = supportIds.map(id => DATA.supportOptions.find(s => s.id === id)).filter(Boolean);
-  const merch = document.getElementById("merchSelect")?.value || state.livePrepMerch || "none";
-  state.livePrepMerch = merch;
+  const merch = collectMerchOrdersFromDom();
+  state.livePrepMerchOrders = merch;
+  state.livePrepMerch = Object.values(merch).some(v => v > 0) ? "custom" : "none";
   const { map: positions, vocalistId } = getPositionMapFromDom();
   let chorusId = document.getElementById("chorusSelect")?.value || "none";
   if (chorusId === vocalistId) chorusId = "none";
@@ -3705,18 +3822,33 @@ function calculateRevenue(total, rank, merch, supports, setlist) {
   const finalProfit = ticketRevenue + bonus + merchData.revenue - venueFee() - supportCost - merchData.cost;
   return { attendees, ticketRevenue, bonus, merch: merchData, supportCost, venueFee: venueFee(), finalProfit };
 }
-function merchRevenue(level, attendees, rank, setlist) {
-  const levels = { none: { cost:0, base:0, demo:false, label:"なし" }, low: { cost:3000, base:180, demo:false, label:"低コスト" }, standard: { cost:8000, base:260, demo:true, label:"標準" }, premium: { cost:15000, base:420, demo:true, label:"勝負" } };
-  const m = levels[level] || levels.none;
-  if (level === "none") return { cost:0, revenue:0, label:m.label, demoPrice:0, demoUnits:0 };
-  const pop = popularity();
-  const hasRep = setlist.some(s => hasTag(s,"代表曲候補"));
-  const avgRec = avg(setlist.map(s => s.recognition));
-  const demoPrice = m.demo ? Math.round(clamp(500 + pop * 24 + state.band.core * 18 + avgRec * 10 + (hasRep ? 900 : 0), 500, 6000)) : 0;
-  const baseSales = attendees * m.base * rankMult(rank) * (1 + state.band.core / 180);
-  const demoUnits = m.demo ? Math.round(attendees * clamp(0.08 + state.band.core / 250 + avgRec / 500, .06, .45) * rankMult(rank)) : 0;
-  const revenue = Math.round(baseSales + demoUnits * demoPrice);
-  return { cost:m.cost, revenue, label:m.label, demoPrice, demoUnits };
+function merchRevenue(ordersRaw, attendees, rank, setlist) {
+  const orders = normalizeMerchOrders(ordersRaw);
+  const totalUnits = sum(Object.values(orders));
+  if (!totalUnits) return { cost:0, revenue:0, salesRevenue:0, buybackRevenue:0, label:"なし", demoPrice:0, demoUnits:0, lines:[] };
+  const ev = currentLiveEvent();
+  const venue = venueById(ev.venueId);
+  const audience = audienceProfileForVenue(venue);
+  let cost = 0, salesRevenue = 0, buybackRevenue = 0, demoUnits = 0;
+  const lines = [];
+  MERCH_ITEMS.forEach(item => {
+    const qty = orders[item.id] || 0;
+    if (!qty) return;
+    cost += item.cost * qty;
+    const demandRate = merchDemandRate(item, attendees, rank, setlist, audience.label, venue.capacity);
+    const demand = Math.round(attendees * demandRate * (item.id === "coach" ? 0.35 : item.id === "bucket" ? 0.55 : 1));
+    const sold = Math.min(qty, Math.max(0, demand + rand(-2, 3)));
+    const leftover = qty - sold;
+    const buyback = Math.round(leftover * item.cost * 0.7);
+    const sales = sold * item.price;
+    salesRevenue += sales;
+    buybackRevenue += buyback;
+    if (item.id === "demo") demoUnits = sold;
+    lines.push({ id:item.id, name:item.name, qty, sold, leftover, cost:item.cost * qty, sales, buyback, fit: demandRate });
+  });
+  const revenue = salesRevenue + buybackRevenue;
+  const label = `仕入れ${totalUnits}点 / 販売${sum(lines.map(x=>x.sold))}点`;
+  return { cost, revenue, salesRevenue, buybackRevenue, label, demoPrice: MERCH_ITEMS.find(x=>x.id==="demo")?.price || 0, demoUnits, lines };
 }
 function shouldCoreFanEvent(rank, expression, heat, tags) { return ["C","D","E"].includes(rank) && (expression > 70 || tags.includes("エモさ") || tags.includes("個性") || heat > 85) && Math.random() < 0.62; }
 
@@ -3762,8 +3894,8 @@ function applyLiveResult(r, setlist, supports) {
     r.adlib.text !== "なし" ? `ライブアレンジ:${r.adlib.text}。マンネリや同一曲の不利を一部無視した。` : `ライブアレンジは起きなかった。`,
     r.repeatInfo?.hasRepeats ? `${r.repeatInfo.boom ? "同一曲再演ボーナス" : "同一曲再演ペナルティ"}：${r.repeatInfo.text}` : "",
     r.coreEvent ? `ライブ全体は完璧ではなかったが、刺さったコアなファンがいた。コア人気が伸びた。` : "",
-    `集客:${r.revenue.attendees}人 / チケット:${r.revenue.ticketRevenue.toLocaleString()}円 / 物販:${r.revenue.merch.revenue.toLocaleString()}円 / デモ単価:${r.revenue.merch.demoPrice ? r.revenue.merch.demoPrice.toLocaleString()+"円" : "なし"}`,
-    `会場費:${r.revenue.venueFee.toLocaleString()}円 / サポート代:${r.revenue.supportCost.toLocaleString()}円 / 物販準備:${r.revenue.merch.cost.toLocaleString()}円 / 最終利益:${r.revenue.finalProfit.toLocaleString()}円`
+    `集客:${r.revenue.attendees}人 / チケット:${r.revenue.ticketRevenue.toLocaleString()}円 / 物販:${r.revenue.merch.salesRevenue.toLocaleString()}円 / 買い取り:${r.revenue.merch.buybackRevenue.toLocaleString()}円`,
+    `会場費:${r.revenue.venueFee.toLocaleString()}円 / サポート代:${r.revenue.supportCost.toLocaleString()}円 / 物販仕入れ:${r.revenue.merch.cost.toLocaleString()}円 / 最終利益:${r.revenue.finalProfit.toLocaleString()}円`
   ].filter(Boolean).join("\n");
   log(summary, "live");
 }
@@ -3787,6 +3919,7 @@ function makeLiveResultModal(r, setlist) {
     adlib: r.adlib.text,
     setlistBonusText: setlistBonusText(r.setlistBonus),
     repeatText: r.repeatInfo?.hasRepeats ? r.repeatInfo.text : "なし",
+    merchSummary: `${r.revenue.merch.label} / 売上${Number(r.revenue.merch.salesRevenue || 0).toLocaleString()}円 / 買い取り${Number(r.revenue.merch.buybackRevenue || 0).toLocaleString()}円`,
     coreEvent: !!r.coreEvent,
     gains: r.gains || {},
     songs: setlist.map(s => s.title)

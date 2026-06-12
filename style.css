@@ -2145,3 +2145,29 @@ button.stage-slot.selected {
   .title-actions, .slot-grid, .slot-grid.compact { grid-template-columns: 1fr; }
   .title-card { padding: 18px; border-radius: 20px; }
 }
+
+/* v0.3.11: live prep / merch / modal polish */
+.slot-move-row { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.slot-move-row button { min-width:0; padding:6px 0; }
+.position-mini-stats { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
+.position-mini-stats span { font-size:.66rem; color:var(--muted); border:1px solid rgba(255,255,255,.12); border-radius:999px; padding:2px 6px; background:rgba(255,255,255,.04); }
+.merch-prep-panel { display:grid; gap:10px; margin-top:8px; }
+.merch-prep-summary { display:grid; gap:3px; padding:10px; border:1px solid rgba(255,255,255,.12); border-radius:14px; background:rgba(255,255,255,.04); }
+.merch-prep-summary span { color:var(--accent); font-weight:800; }
+.merch-prep-summary small { color:var(--muted); }
+.merch-item-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; max-height:390px; overflow:auto; padding-right:2px; }
+.merch-item-card { display:grid; grid-template-columns:minmax(0,1fr) 76px; gap:8px; align-items:center; padding:9px; border:1px solid rgba(255,255,255,.12); border-radius:14px; background:rgba(0,0,0,.16); }
+.merch-item-card b, .merch-item-card small { display:block; }
+.merch-item-card small { color:var(--muted); font-size:.72rem; line-height:1.35; }
+.merch-item-card input { width:100%; min-width:0; text-align:center; font-size:16px; }
+.event-modal { align-items:start; }
+.event-modal .modal-actions { grid-column:1 / -1; align-self:end; justify-content:stretch; }
+.event-modal .modal-actions button { min-height:52px; width:100%; font-size:1rem; }
+.booking-modal .modal-actions, .event-modal .modal-actions.confirm-wide { grid-template-columns:1fr 1fr; }
+.buyItemBtn, .liveCandidateBtn, .slotActionBtn { touch-action:manipulation; }
+@media (max-width:640px) {
+  .merch-item-grid { grid-template-columns:1fr; max-height:340px; }
+  .merch-item-card { grid-template-columns:1fr 70px; }
+  .position-mini-stats span { font-size:.62rem; padding:2px 5px; }
+  .event-modal .modal-actions, .booking-modal .modal-actions, .event-modal .modal-actions.confirm-wide { grid-template-columns:1fr; }
+}
