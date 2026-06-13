@@ -1,10 +1,10 @@
 /*
-  アンダーグラウンド（仮） v0.3.22 prototype
+  アンダーグラウンド（仮） v0.3.23 prototype
   - 1ファイル内の DATA を差し替えるだけでキャラ・曲・サポート候補を変更できます。
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
 
-const VERSION = "v0.3.22";
+const VERSION = "v0.3.23";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -910,7 +910,7 @@ const SAVE_SLOT_COUNT = 2;
 const SAVE_SLOT_PREFIX = "underground_v0310_slot_";
 const AUTOSAVE_SLOT_PREFIX = "underground_v0310_autoslot_";
 const CURRENT_SLOT_KEY = "underground_v0310_current_slot";
-const SAVE_VERSION = "v0.3.22";
+const SAVE_VERSION = "v0.3.23";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -1182,7 +1182,9 @@ function createInitialState() {
     lastNoLivePlanWarnTurn: 0,
     lastLogType: "info",
     telopFlash: 0,
-    installHintDismissed: false
+    installHintDismissed: false,
+    seenGuidePopups: {},
+    quietGuideMode: true
   };
 }
 
@@ -1614,6 +1616,8 @@ function normalizeState() {
   if (!Array.isArray(state.setlistHistory)) state.setlistHistory = [];
   if (!Array.isArray(state.playerSkills)) state.playerSkills = [];
   if (!state.commandCounts || typeof state.commandCounts !== "object") state.commandCounts = {};
+  if (!state.seenGuidePopups || typeof state.seenGuidePopups !== "object") state.seenGuidePopups = {};
+  if (typeof state.quietGuideMode === "undefined") state.quietGuideMode = true;
   (state.songs || []).forEach((song, idx) => {
     if (typeof song.createdTurn === "undefined") song.createdTurn = idx === 0 ? 0 : (state.turn || 1);
     if (typeof song.livePlays === "undefined") song.livePlays = 0;
@@ -1901,6 +1905,62 @@ function renderMainContent() {
   return `<main class="view-panel" data-view="${state.view || "home"}">${homeBack}${html}</main>`;
 }
 
+
+function guideSignals() {
+  const signals = [];
+  const push = (label, level="info", detail="") => signals.push({ label, level, detail });
+  const fatigue = Number(state.band?.fatigue || 0);
+  const funds = Number(state.band?.funds || 0);
+  const turns = turnsUntilNextLive();
+  if (mustCompleteFirstDraftTutorial()) push("未完成曲", "warn", "このターンは曲完成まで誘導中");
+  if (isLiveTurn()) push("ライブ本番", "warn", "セトリと疲労だけ確認");
+  else if (turns <= 1 && fatigue >= 60) push("疲労高め", fatigue >= 80 ? "bad" : "warn", "ライブ前日は休憩も選択肢");
+  if (funds < 0) push("赤字", "bad", "バイト・小箱・仕入れ抑制を検討");
+  else if (funds < 10000) push("資金低め", "warn", "大きな支出前だけ注意");
+  if (fatigue >= 90) push("疲労限界近い", "bad", "100%超え行動は不可");
+  else if (fatigue >= 70) push("疲労注意", "warn", "効率が落ちやすい");
+  if (canBookSchedules()) {
+    const hasFutureFreeLive = (state.liveEvents || []).some(e => !e.fixed && !e.cancelled && e.turn > state.turn);
+    const nextNonFixedFar = (state.nextLiveTurn || 0) > state.turn + 7;
+    if (!hasFutureFreeLive && nextNonFixedFar) push("ライブ予定薄め", "warn", "予約候補だけ確認してもよい");
+  }
+  const draftCount = (state.pendingDrafts || []).filter(d => !(d.lyricsDone && d.musicDone)).length;
+  if (draftCount && !mustCompleteFirstDraftTutorial()) push("未完成曲あり", "info", "余力がある時に仕上げられる");
+  const songPt = (state.songs || []).reduce((a,s)=>a + Number(s.songPt || 0), 0);
+  if (songPt >= 20) push("曲Ptあり", "info", "強化は任意。最適解ではない");
+  if ((state.turn || 1) >= 25 && (state.turn || 1) < 30) push("UNDER接近", "warn", "条件と代表曲を確認");
+  if ((state.turn || 1) >= 44 && (state.turn || 1) < 50) push("GRAND接近", "warn", "高評価狙いは会場相性も見る");
+  const unique = [];
+  const seen = new Set();
+  signals.forEach(s => { if (!seen.has(s.label)) { seen.add(s.label); unique.push(s); } });
+  return unique.slice(0, 3);
+}
+function renderGuideChips(limit=3) {
+  const list = guideSignals().slice(0, limit);
+  if (!list.length) return `<span class="guide-muted">大きな警告なし</span>`;
+  return list.map(g => `<span class="guide-chip ${escapeHtml(g.level)}" title="${escapeHtml(g.detail)}">${escapeHtml(g.label)}</span>`).join("");
+}
+function renderQuietGuidePanel() {
+  const list = guideSignals();
+  return `<div class="card tips-card quiet-guide-card">
+    <div class="section-title"><h2>状況メモ</h2><span class="badge">必要時だけ表示</span></div>
+    <div class="quiet-guide-chips">${renderGuideChips(3)}</div>
+    ${list.length ? `<small>${escapeHtml(list[0].detail || "色やタグは安全目安。最高値は自分で探す余地があります。")}</small>` : `<small>常時の指南は出しすぎず、危険時だけ色・タグ・確認で知らせます。</small>`}
+  </div>`;
+}
+function maybeShowGuidePopupOnce(key, title, body, type="event", icon="💡") {
+  if (!state.seenGuidePopups || typeof state.seenGuidePopups !== "object") state.seenGuidePopups = {};
+  if (state.seenGuidePopups[key]) return false;
+  state.seenGuidePopups[key] = true;
+  showEventPopup(title, body, type, icon);
+  return true;
+}
+function quietGuideLine() {
+  const top = guideSignals()[0];
+  if (top) return `${top.label}：${top.detail}`;
+  return "必要な警告だけ表示。安全目安は破綻防止で、最高値はセトリや物販の読みで伸ばせる。";
+}
+
 function renderHomeScreen() {
   const latest = firstLine(state.logs[0]);
   return `
@@ -1909,10 +1969,7 @@ function renderHomeScreen() {
         <div class="section-title"><h2>ログ</h2><span class="badge warn">最新</span></div>
         <div class="home-latest-log">${escapeHtml(latest)}</div>
       </div>
-      <div class="card tips-card">
-        <div class="section-title"><h2>おすすめ行動 / Tips</h2><span class="badge">今週</span></div>
-        <p>${successAdvice()}</p>
-      </div>
+      ${renderQuietGuidePanel()}
       <div class="card home-menu-card command-window">
         <div class="success-window-title"><span>MENU</span><b>今週やること</b><small>画面を選ぶ</small></div>
         <div class="home-menu-grid">
@@ -1954,7 +2011,7 @@ function renderSavePanel() {
 function renderPwaPanel() {
   return `<div class="pwa-panel">
     <b>スマホ確認</b>
-    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.22は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
+    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.23は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
   </div>`;
 }
 
@@ -1977,10 +2034,32 @@ function renderSchedulePanel() {
       <div class="live-candidate-list">
         ${canBook ? candidates.map(renderLiveCandidate).join("") || `<div class="empty-panel">予約可能なライブ候補がありません。</div>` : `<div class="empty-panel">初ライブ後から、スケジュール帳で出たいライブを選んで予約できます。</div>`}
       </div>
-      <small>${canBook ? "候補カードを押すと予約。大きい会場ほど準備不足時の評価ペナルティが強いです。" : "まずは5ターン目の初ライブを目標に準備しましょう。"}</small>
+      <small>${canBook ? "タグは安全目安。高評価狙いは疲労・機材・セトリを見てあえて攻める余地あり。" : "まずは5ターン目の初ライブを目標に準備しましょう。"}</small>
     </section>
   </div>`;
 }
+
+function liveRiskProfile(v) {
+  const prep = estimatePrepScore();
+  const diff = prep - Number(v?.prepNeed || 0);
+  const fatigue = Number(state.band?.fatigue || 0);
+  const funds = Number(state.band?.funds || 0);
+  let label = "挑戦";
+  let cls = "warn";
+  if (diff >= 18 && fatigue < 60 && funds >= (v?.fee || 0) * 1.4) { label = "安全寄り"; cls = "good"; }
+  else if (diff >= 0 && fatigue < 80) { label = "挑戦圏"; cls = "warn"; }
+  else if (diff >= -14 || fatigue >= 80) { label = "背伸び"; cls = "warn"; }
+  else { label = "危険"; cls = "bad"; }
+  const notes = [];
+  if (diff < 0) notes.push(`準備-${val(Math.abs(diff))}`);
+  if (fatigue >= 60) notes.push(`疲労${Math.round(fatigue)}%`);
+  if (funds < (v?.fee || 0)) notes.push("資金注意");
+  return { label, cls, notes, diff, prep };
+}
+function renderRiskBadges(profile) {
+  return `<span class="badge ${profile.cls}">${escapeHtml(profile.label)}</span>${(profile.notes || []).slice(0,2).map(n => `<span class="badge ${profile.cls === "bad" ? "bad" : "warn"}">${escapeHtml(n)}</span>`).join("")}`;
+}
+
 function buildLiveCandidates() {
   const turns = [];
   for (let t = state.turn + 3; t < (state.maxTurn || 50) && turns.length < 3; t++) {
@@ -1993,18 +2072,16 @@ function buildLiveCandidates() {
 }
 function renderLiveCandidate(c) {
   const v = venueById(c.venueId);
-  const prep = estimatePrepScore();
-  const diff = prep - v.prepNeed;
-  const status = diff >= 12 ? "準備十分" : diff >= 0 ? "挑戦圏" : "準備不足";
-  const cls = diff >= 0 ? "good" : "risk";
+  const profile = liveRiskProfile(v);
+  const cls = profile.cls === "good" ? "good" : profile.cls === "bad" ? "risk" : "warn";
   return `<button class="liveCandidateBtn schedule-event candidate ${cls}" data-turn="${c.turn}" data-venue="${v.id}">
     <strong class="candidate-turn">${c.turn}ターン</strong>
     <b>${v.name}</b>
     <span class="candidate-meta"><em>キャパ${v.capacity}</em><em class="fee-pill">¥${v.fee.toLocaleString()}</em></span>
-    <small>要準備${v.prepNeed} / 現在${val(prep)} / ${escapeHtml(audienceProfileForVenue(v).label)}</small>
+    <div class="quiet-guide-chips candidate-risk">${renderRiskBadges(profile)}</div>
+    <small>要準備${v.prepNeed} / 現在${val(profile.prep)} / ${escapeHtml(audienceProfileForVenue(v).label)}</small>
     <small>${escapeHtml(v.note || "")}</small>
     <small>${escapeHtml(venueRequirementText(v))}</small>
-    <em>${status}</em>
   </button>`;
 }
 function renderScheduleEvent(e) {
@@ -2048,7 +2125,7 @@ function renderCommandDesk() {
     <div class="grid main-grid">
       <div class="card success-panel command-window">
         <div class="success-window-title"><span>COMMAND</span><b>今週の行動</b><small>行動カードを押すと1ターン進行</small></div>
-        <div class="coach-line"><b>今週のひとこと</b><span>${successAdvice()}</span></div>
+        <div class="coach-line quiet"><b>状況</b><span>${quietGuideLine()}</span><div class="quiet-guide-chips inline">${renderGuideChips(2)}</div></div>
         ${renderCommandCards()}
         ${currentApplicantList().length ? renderApplicantList() : ""}
       </div>
@@ -2660,7 +2737,7 @@ function renderNormalTurn() {
     <div class="grid main-grid">
       <div class="card success-panel command-window">
         <div class="success-window-title"><span>COMMAND</span><b>今週の行動</b><small>行動カードを押すと1ターン進行</small></div>
-        <div class="coach-line"><b>今週のひとこと</b><span>${successAdvice()}</span></div>
+        <div class="coach-line quiet"><b>状況</b><span>${quietGuideLine()}</span><div class="quiet-guide-chips inline">${renderGuideChips(2)}</div></div>
         ${renderCommandCards()}
         ${currentApplicantList().length ? renderApplicantList() : ""}
       </div>
@@ -2931,13 +3008,14 @@ function renderLivePrep() {
   const ev = currentLiveEvent();
   const v = venueById(ev.venueId);
   const prep = estimatePrepScore();
-  const prepState = prep >= v.prepNeed ? "挑戦圏" : "準備不足";
+  const riskProfile = liveRiskProfile(v);
+  const prepState = riskProfile.label;
   const audience = audienceProfileForVenue(v);
   const mixHint = "セトリボーナスは新曲2＋既存曲3、または新曲1＋既存曲4が狙い目。コピー曲は対象外。";
   return `
     <div class="card live-panel">
       <div class="section-title"><h2>${currentLiveName()}：ライブ準備</h2><span class="badge warn">${v.name} / ${prepState}</span></div>
-      <div class="venue-info"><b>${v.name}</b><span>キャパ${v.capacity} / 会場費${v.fee.toLocaleString()}円 / 要準備${v.prepNeed} / 現在準備${val(prep)}</span><small>${v.note}</small><small>${escapeHtml(venueRequirementText(v))}</small></div>
+      <div class="venue-info"><b>${v.name}</b><span>キャパ${v.capacity} / 会場費${v.fee.toLocaleString()}円 / 要準備${v.prepNeed} / 現在準備${val(prep)}</span><div class="quiet-guide-chips">${renderRiskBadges(riskProfile)}</div><small>${v.note}</small><small>${escapeHtml(venueRequirementText(v))}</small></div>
       <div class="venue-info audience-info"><b>客層：${escapeHtml(audience.label)}</b><span>${escapeHtml(audience.detail)}</span><small>${mixHint}</small></div>
       <div class="setlist-hint-panel"><b>セトリ自動ヒント</b>${livePrepAutoHints(ensureLivePrepSetlist().map(id=>songById(id)).filter(Boolean), v, audience).map(h=>`<span>${escapeHtml(h)}</span>`).join("")}</div>
       <p><small>ボーカルはコーラス不可。初ライブだけ主人公Vo固定。その他メンバーの担当楽器をライブごとに決められます。</small></p>
@@ -3074,6 +3152,18 @@ function updateMerchPrepSummaryDom() {
     diffEl.classList.toggle("bad", diff < 0);
     diffEl.classList.toggle("good", diff >= 0);
   }
+  const ev = currentLiveEvent();
+  const venue = venueById(ev.venueId);
+  const audience = audienceProfileForVenue(venue);
+  MERCH_ITEMS.forEach(item => {
+    const badge = document.querySelector(`.merchRiskBadge[data-merch-id="${item.id}"]`);
+    if (!badge) return;
+    const risk = merchRiskLabel(orders[item.id] || 0, item, venue, audience);
+    badge.textContent = risk.label;
+    badge.classList.toggle("good", risk.cls === "good");
+    badge.classList.toggle("warn", risk.cls === "warn");
+    badge.classList.toggle("bad", risk.cls === "bad");
+  });
 }
 function merchAudienceFit(item, audienceLabel) {
   if (!item) return 1;
@@ -3103,6 +3193,29 @@ function merchDemandRate(item, attendees, rank, setlist, audienceLabel, cap) {
   const overSupplyRisk = Math.max(0.65, 1 - Math.max(0, state.band.fame - 80) / 900);
   return clamp(baseByPrice * rankFactor * merchAudienceFit(item, audienceLabel) * merchCapacityFit(item, cap) * coreFactor * recFactor * rep * overSupplyRisk * (1 + equipmentMerchBonus()/100), 0.01, 0.58);
 }
+
+function merchSafeQtyRange(item, venue, audience) {
+  const cap = Number(venue?.capacity || 80);
+  const label = audience?.label || "通常客層";
+  const fit = merchAudienceFit(item, label) * merchCapacityFit(item, cap);
+  const cheapFactor = item.price <= 700 ? 0.28 : item.price <= 1200 ? 0.20 : item.price <= 2200 ? 0.13 : item.price <= 3200 ? 0.08 : 0.045;
+  const fanReach = clamp((Number(state.band?.fans || 0) + cap * 0.35 + Number(state.band?.fame || 0) * 1.6) / Math.max(1, cap), 0.18, 1.15);
+  const theory = cap * cheapFactor * fit * fanReach * (1 + equipmentMerchBonus()/160);
+  // 安全目安は期待値最大ではなく、少し下に置く。攻める余地を残す。
+  const mid = clamp(Math.round(theory * 0.68), 0, Math.max(0, Math.floor(cap * 0.55)));
+  const low = clamp(Math.floor(mid * 0.82), 0, 999);
+  const high = clamp(Math.ceil(mid * 1.18), low, 999);
+  return { low, high, mid, theory:Math.round(theory) };
+}
+function merchRiskLabel(qty, item, venue, audience) {
+  const r = merchSafeQtyRange(item, venue, audience);
+  if (qty <= 0) return { label:"未仕入", cls:"info" };
+  if (qty < r.low) return { label:"控えめ", cls:"info" };
+  if (qty <= r.high) return { label:"安全目安", cls:"good" };
+  if (qty <= Math.max(r.high + 8, Math.round(r.theory * 0.95))) return { label:"攻め", cls:"warn" };
+  return { label:"売残注意", cls:"bad" };
+}
+
 function renderMerchPrepControls(venue, audience) {
   const orders = normalizeMerchOrders();
   const label = audience?.label || "通常客層";
@@ -3111,13 +3224,15 @@ function renderMerchPrepControls(venue, audience) {
   const estimatedCost = sum(MERCH_ITEMS.map(item => item.cost * (orders[item.id] || 0)));
   const diff = state.band.funds - estimatedCost;
   return `<div class="merch-prep-panel">
-    <div class="merch-prep-summary"><b>仕入れ数を選択</b><span id="merchEstimatedCost">仕入れ総額 ${estimatedCost.toLocaleString()}円</span><span id="merchCurrentFunds">所持金 ${state.band.funds.toLocaleString()}円</span><span id="merchFundsDiff" class="${diff < 0 ? "bad" : "good"}">差額 ${diff.toLocaleString()}円</span><small>売れ残りは仕入れ値の35%で買い取り。キャパ・客層・ライブ評価・物販ブースLvで売れやすさが変動します。</small></div>
+    <div class="merch-prep-summary"><b>仕入れ数を選択</b><span id="merchEstimatedCost">仕入れ総額 ${estimatedCost.toLocaleString()}円</span><span id="merchCurrentFunds">所持金 ${state.band.funds.toLocaleString()}円</span><span id="merchFundsDiff" class="${diff < 0 ? "bad" : "good"}">差額 ${diff.toLocaleString()}円</span><small>安全目安はあえて低め。破綻しにくい数で、最高利益の最適解ではありません。客層・キャパを読んで増減できます。</small></div>
     <div class="merch-item-grid">${MERCH_ITEMS.map(item => {
       const qty = orders[item.id] || 0;
       const fit = merchAudienceFit(item, label) * merchCapacityFit(item, cap);
       const fitLabel = fit >= 1.25 ? "かなり売れやすい" : fit >= 1.08 ? "売れやすい" : fit >= .9 ? "普通" : "売れにくい";
+      const safeRange = merchSafeQtyRange(item, venue, audience);
+      const risk = merchRiskLabel(qty, item, venue, audience);
       const digits = merchDigitsFromValue(qty);
-      return `<div class="merch-item-card"><div><b>${escapeHtml(item.name)}</b><small>仕入${item.cost.toLocaleString()}円 → 売値${item.price.toLocaleString()}円</small><small>最適客層：${item.best.join(" / ")}</small><small>${escapeHtml(item.desc)}</small><span class="badge ${fit >= 1.08 ? "good" : fit < .9 ? "bad" : ""}">${fitLabel}</span></div><div class="merch-qty-control merch-dial-control"><div class="merch-dial-readout"><span>仕入れ数</span><output class="merchQtyValue" data-merch-id="${item.id}">${String(qty).padStart(3, "0")}</output><span>個</span></div><div class="merch-dial-lock">${renderMerchDigitSelect(item.id, "hundreds", digits.hundreds, "百")}${renderMerchDigitSelect(item.id, "tens", digits.tens, "十")}${renderMerchDigitSelect(item.id, "ones", digits.ones, "一")}</div><div class="merch-dial-step"><button class="merchQtyStepBtn" data-merch-id="${item.id}" data-delta="-1" type="button" aria-label="${escapeHtml(item.name)}を1個減らす">−1</button><button class="merchQtyStepBtn" data-merch-id="${item.id}" data-delta="1" type="button" aria-label="${escapeHtml(item.name)}を1個増やす">＋1</button></div><input class="merchQtyInput" data-merch-id="${item.id}" type="hidden" value="${qty}" /></div></div>`;
+      return `<div class="merch-item-card"><div><b>${escapeHtml(item.name)}</b><small>仕入${item.cost.toLocaleString()}円 → 売値${item.price.toLocaleString()}円</small><small>客層：${item.best.join(" / ")}</small><small>${escapeHtml(item.desc)}</small><div class="quiet-guide-chips merch-signal"><span class="badge ${fit >= 1.08 ? "good" : fit < .9 ? "bad" : ""}">${fitLabel}</span><span class="badge merchRiskBadge ${risk.cls === "bad" ? "bad" : risk.cls === "warn" ? "warn" : risk.cls === "good" ? "good" : ""}" data-merch-id="${item.id}">${escapeHtml(risk.label)}</span></div><small class="safe-guide-line">安全目安 ${safeRange.low}〜${safeRange.high}個</small></div><div class="merch-qty-control merch-dial-control"><div class="merch-dial-readout"><span>仕入れ数</span><output class="merchQtyValue" data-merch-id="${item.id}">${String(qty).padStart(3, "0")}</output><span>個</span></div><div class="merch-dial-lock">${renderMerchDigitSelect(item.id, "hundreds", digits.hundreds, "百")}${renderMerchDigitSelect(item.id, "tens", digits.tens, "十")}${renderMerchDigitSelect(item.id, "ones", digits.ones, "一")}</div><div class="merch-dial-step"><button class="merchQtyStepBtn" data-merch-id="${item.id}" data-delta="-1" type="button" aria-label="${escapeHtml(item.name)}を1個減らす">−1</button><button class="merchQtyStepBtn" data-merch-id="${item.id}" data-delta="1" type="button" aria-label="${escapeHtml(item.name)}を1個増やす">＋1</button></div><input class="merchQtyInput" data-merch-id="${item.id}" type="hidden" value="${qty}" /></div></div>`;
     }).join("")}</div>
   </div>`;
 }
@@ -3344,10 +3459,11 @@ function renderBookingConfirmOverlay() {
   const v = venueById(b.venueId);
   const prep = estimatePrepScore();
   const shortage = Math.max(0, v.prepNeed - prep);
+  const riskProfile = liveRiskProfile(v);
   return `<div class="modal-backdrop">
     <div class="event-modal event booking-modal">
       <div class="modal-icon">📅</div>
-      <div class="modal-copy"><h2>${b.turn}ターン目のライブを予約する？</h2><p>${escapeHtml(v.name)} / キャパ${v.capacity} / 会場費${v.fee.toLocaleString()}円</p><p>準備要求：${v.prepNeed} / 現在準備：${val(prep)}${shortage ? ` / 不足${val(shortage)}` : " / 準備OK"}</p><p>予約後、残り2ターン以内は通常キャンセル不可。当日ドタキャンは会場費＋損料が必要。</p></div>
+      <div class="modal-copy"><h2>${b.turn}ターン目のライブを予約する？</h2><p>${escapeHtml(v.name)} / キャパ${v.capacity} / 会場費${v.fee.toLocaleString()}円</p><p>準備要求：${v.prepNeed} / 現在準備：${val(prep)}${shortage ? ` / 不足${val(shortage)}` : " / 準備OK"}</p><div class="quiet-guide-chips">${renderRiskBadges(riskProfile)}</div><p>予約後、残り2ターン以内は通常キャンセル不可。当日ドタキャンは会場費＋損料が必要。</p></div>
       <div class="modal-actions"><button id="confirmBookingBtn" class="big-action">予約する</button><button id="cancelBookingBtn" class="ghost-btn">戻る</button></div>
     </div>
   </div>`;

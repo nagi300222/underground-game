@@ -2378,3 +2378,40 @@ button:focus:not(:focus-visible), input:focus:not(:focus-visible), select:focus:
   .schedule-booked-panel { padding:8px; }
   .live-candidates-panel { padding:10px; border:1px solid rgba(255,255,255,.08); border-radius:14px; background:rgba(0,0,0,.10); }
 }
+
+/* v0.3.23: 控えめガイドUI / 安全目安 */
+.quiet-guide-card { border-color: rgba(117,191,255,.18); background: linear-gradient(180deg, rgba(117,191,255,.07), rgba(0,0,0,.08)); }
+.quiet-guide-card small { display:block; margin-top:6px; color:var(--muted); line-height:1.45; }
+.quiet-guide-chips { display:flex; flex-wrap:wrap; gap:5px; align-items:center; min-width:0; }
+.quiet-guide-chips.inline { justify-content:flex-start; }
+.guide-chip,
+.guide-muted {
+  display:inline-flex;
+  align-items:center;
+  min-height:24px;
+  padding:3px 8px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.14);
+  background:rgba(255,255,255,.045);
+  color:var(--muted);
+  font-size:.76rem;
+  font-weight:800;
+  white-space:nowrap;
+}
+.guide-chip.info { color:var(--blue); border-color:rgba(117,191,255,.32); background:rgba(117,191,255,.08); }
+.guide-chip.warn { color:var(--accent); border-color:rgba(255,206,92,.36); background:rgba(255,206,92,.08); }
+.guide-chip.bad { color:var(--danger); border-color:rgba(255,119,119,.40); background:rgba(255,119,119,.08); }
+.coach-line.quiet { grid-template-columns:70px minmax(0,1fr); background:rgba(255,255,255,.035); border-color:rgba(255,255,255,.10); }
+.coach-line.quiet .quiet-guide-chips { grid-column:2; }
+.candidate-risk { margin:3px 0; }
+.safe-guide-line { color:var(--accent) !important; font-weight:800; }
+.merch-signal { margin-top:4px; }
+.liveCandidateBtn.candidate.warn { border-color:rgba(255,206,92,.24); }
+.liveCandidateBtn.candidate.risk { border-color:rgba(255,119,119,.32); }
+.liveCandidateBtn.candidate.good { border-color:rgba(143,227,136,.30); }
+@media (max-width:620px) {
+  .coach-line.quiet { grid-template-columns:1fr; gap:6px; }
+  .coach-line.quiet .quiet-guide-chips { grid-column:1; }
+  .quiet-guide-chips { gap:4px; }
+  .guide-chip, .guide-muted { font-size:.7rem; padding:3px 7px; }
+}
