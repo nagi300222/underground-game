@@ -4,7 +4,7 @@
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
 
-const VERSION = "v0.3.17";
+const VERSION = "v0.3.18";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -859,7 +859,7 @@ const SAVE_SLOT_COUNT = 2;
 const SAVE_SLOT_PREFIX = "underground_v0310_slot_";
 const AUTOSAVE_SLOT_PREFIX = "underground_v0310_autoslot_";
 const CURRENT_SLOT_KEY = "underground_v0310_current_slot";
-const SAVE_VERSION = "v0.3.17";
+const SAVE_VERSION = "v0.3.18";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -1039,9 +1039,9 @@ function createInitialState() {
     consecutiveLiveUses: 0,
     mannerism: 0,
     songPt: 0,
-    theme: d.theme,
-    keyword: d.keyword,
-    arrange: d.arrange
+    theme: "青春",
+    keyword: "はじまり / 地下 / ライブ",
+    arrange: "疾走ビート"
   };
   const liveEvents = generateInitialLiveEvents();
   return {
