@@ -1,10 +1,10 @@
 /*
-  アンダーグラウンド（仮） v0.3.20 prototype
+  アンダーグラウンド（仮） v0.3.21 prototype
   - 1ファイル内の DATA を差し替えるだけでキャラ・曲・サポート候補を変更できます。
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
 
-const VERSION = "v0.3.20";
+const VERSION = "v0.3.21";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -128,11 +128,32 @@ const KEYWORD_DICTIONARY = [
 ];
 
 const ARRANGES = ["疾走ビート", "轟音ギター", "静かなイントロ", "ツインギター", "シンセ厚め", "ベース主導", "ドラム爆発", "DJミックス", "コーラス重視", "ピアノ主導"];
+const EQUIPMENT_DATA = [
+  { id:"strat", name:"ストラトキャスター", category:"ギター", desc:"バランス型。キャッチー・演奏に少し効く。", effects:{ performance:1.2, catchy:1.2 } },
+  { id:"tele", name:"テレキャスター", category:"ギター", desc:"歯切れの良い音。パンク/ポップの輪郭を出す。", effects:{ performance:1.1, tempo:1.0, strategy:0.8 } },
+  { id:"lespaul", name:"レスポール", category:"ギター", desc:"太い音。ロック/メタルの熱量に強い。", effects:{ performance:1.4, heat:1.0 } },
+  { id:"sg", name:"SG", category:"ギター", desc:"荒く勢いのある音。ハードコア/メタル向き。", effects:{ heat:1.4, tempo:0.8 } },
+  { id:"prs", name:"PRS", category:"ギター", desc:"高性能万能型。高額だが演奏と安定に効く。", effects:{ performance:1.3, stability:1.0 } },
+  { id:"acoustic", name:"アコースティックギター", category:"ギター", desc:"歌詞・表現寄り。静かな曲や余韻に強い。", effects:{ expression:1.4, lyrics:1.0 } },
+  { id:"guitar_amp", name:"ギターアンプ", category:"機材", desc:"ギターの音圧。演奏点と熱量に効く。", effects:{ performance:1.6, heat:1.0 } },
+  { id:"bass_amp", name:"ベースアンプ", category:"機材", desc:"低音の支え。安定とグルーヴに効く。", effects:{ stability:1.4, performance:0.8 } },
+  { id:"drum_set", name:"ドラムセット", category:"機材", desc:"ライブの土台。テンポ・熱量・安定に効く。", effects:{ tempo:1.2, heat:1.2, stability:0.8 } },
+  { id:"microphone", name:"マイク", category:"機材", desc:"歌とMCの抜け。表現点とファン増加に効く。", effects:{ expression:1.4, fans:0.6 } },
+  { id:"pa", name:"PA機材", category:"機材", desc:"大きい会場ほど重要。準備不足ペナルティを軽くする。", effects:{ stability:1.6, prep:2.0 } },
+  { id:"effecter", name:"エフェクター", category:"機材", desc:"音作り。個性・演奏・表現を底上げする。", effects:{ performance:1.0, expression:1.0, strategy:0.8 } },
+  { id:"recording", name:"レコーディング機材", category:"機材", desc:"曲作り向き。曲完成時の認知/流行に少し効く。", effects:{ trend:1.2, recognition:1.0 } },
+  { id:"merch_booth", name:"物販ブース", category:"機材", desc:"物販の売れやすさに効く。", effects:{ merch:2.0 } },
+  { id:"van", name:"移動車", category:"機材", desc:"大所帯の維持費と疲労を少し抑える。", effects:{ upkeep:-0.05, fatigue:-0.6 } }
+];
 const SKILL_DATA = [
-  { id:"practice_efficiency", name:"効率練習", rarity:"通常", desc:"練習のステータス上昇が少し上がる。" },
-  { id:"setlist_sense", name:"セットリスト感覚", rarity:"通常", desc:"曲順・新曲/既存曲の組み合わせを意識できる。" },
-  { id:"dual_songcraft", name:"一気呵成", rarity:"レア", desc:"将来的に作詞と作曲を同時に進められるレアスキル。" },
-  { id:"shortcut_command", name:"段取りの鬼", rarity:"レア", desc:"将来的に一部コマンドを短縮できるレアスキル。" }
+  { id:"practice_efficiency", name:"効率練習", rarity:"通常", desc:"練習のステータス上昇が20%アップ。", condition:"練習3回" },
+  { id:"setlist_sense", name:"セットリスト感覚", rarity:"通常", desc:"セトリボーナスが少し伸び、ライブ準備ヒントが詳しくなる。", condition:"ライブ3回 or セトリボーナス発生" },
+  { id:"mc_master", name:"MC上手", rarity:"通常", desc:"ライブの表現点とファン増加が少し上がる。", condition:"ライブ2回＋ファン30人" },
+  { id:"saving_master", name:"節約上手", rarity:"通常", desc:"会場費・ショップ・機材費が5%軽くなる。", condition:"バイト2回 or 資金が一度少なくなる" },
+  { id:"merch_master", name:"物販の工夫", rarity:"通常", desc:"物販の売れやすさと買い取り条件が少し良くなる。", condition:"物販売上が一定以上" },
+  { id:"midnight_inspiration", name:"深夜のひらめき", rarity:"通常", desc:"疲労が高い時、ひらめき獲得率と作詞/作曲の個性が上がる。", condition:"疲労70%以上で曲作り/会話" },
+  { id:"dual_songcraft", name:"一気呵成", rarity:"レア", desc:"作詞/作曲の疲労がさらに軽くなり、未完成曲を仕上げやすい。", condition:"作詞Lv・作曲Lvが高い状態で曲完成" },
+  { id:"shortcut_command", name:"段取りの鬼", rarity:"レア", desc:"練習・宣伝の疲労が少し減り、後半の作業負担を軽くする。", condition:"35ターン以降に複数行動を積み重ねる" }
 ];
 const ARRANGE_DATA = {
   "疾走ビート": { need:{ drum:1 }, boost:["メロディックパンク","青春パンク","ポップパンク","スピードメタル"], rare:["ダンスロック"], effects:"テンポ+ / 疾走感 / 1曲目向き" },
@@ -848,7 +869,37 @@ function unlockSkill(id, reason="") {
 }
 function renderPlayerSkillPanel() {
   const owned = new Set(state.playerSkills || []);
-  return `<div class="skill-panel"><div class="section-title"><h2>主人公スキル</h2><span class="badge warn">今後拡張</span></div>${SKILL_DATA.map(sk => `<div class="skill-row ${owned.has(sk.id) ? "owned" : "locked"}"><b>${owned.has(sk.id) ? "習得済" : "未習得"}：${escapeHtml(sk.name)}</b><span class="badge ${sk.rarity === "レア" ? "rare" : "good"}">${escapeHtml(sk.rarity)}</span><small>${escapeHtml(sk.desc)}</small></div>`).join("")}</div>`;
+  return `<div class="skill-panel"><div class="section-title"><h2>主人公スキル</h2><span class="badge good">効果発動中</span></div>${SKILL_DATA.map(sk => `<div class="skill-row ${owned.has(sk.id) ? "owned" : "locked"}"><b>${owned.has(sk.id) ? "習得済" : "未習得"}：${escapeHtml(sk.name)}</b><span class="badge ${sk.rarity === "レア" ? "rare" : "good"}">${escapeHtml(sk.rarity)}</span><small>${escapeHtml(sk.desc)}</small><small>条件：${escapeHtml(sk.condition || "-")}</small></div>`).join("")}</div>`;
+}
+function equipmentById(id) { return EQUIPMENT_DATA.find(e => e.id === id) || null; }
+function equipmentLevel(id) { return clamp(Number(state.equipment?.[id] || 0), 0, 5); }
+function equipmentUpgradeCost(id) {
+  const eq = equipmentById(id);
+  const lv = equipmentLevel(id);
+  const base = eq?.id === "prs" || eq?.id === "van" || eq?.id === "pa" ? 90000 : eq?.category === "ギター" ? 45000 : 60000;
+  return Math.round(base * Math.pow(1.75, lv));
+}
+function equipmentEffectSum(key) {
+  return EQUIPMENT_DATA.reduce((sum, eq) => sum + (equipmentLevel(eq.id) * Number(eq.effects?.[key] || 0)), 0);
+}
+function equipmentPrepBonus() { return equipmentEffectSum("prep"); }
+function equipmentMerchBonus() { return equipmentEffectSum("merch") + (hasSkill("merch_master") ? 5 : 0); }
+function equipmentUpkeepDiscount() { return Math.max(-0.35, EQUIPMENT_DATA.reduce((sum, eq) => sum + equipmentLevel(eq.id) * Number(eq.effects?.upkeep || 0), 0)); }
+function equipmentFatigueReduction() { return equipmentEffectSum("fatigue"); }
+function skillSummaryShort() {
+  const owned = (state.playerSkills || []).map(id => skillById(id)?.name).filter(Boolean);
+  return owned.length ? owned.join(" / ") : "未習得";
+}
+function maybeUnlockProgressSkills(context="") {
+  const cc = state.commandCounts || {};
+  if ((cc.practice || 0) >= 3) unlockSkill("practice_efficiency", "練習を重ねた");
+  if ((state.liveCount || 0) >= 3) unlockSkill("setlist_sense", "ライブ経験が増えた");
+  if ((state.liveCount || 0) >= 2 && (state.band?.fans || 0) >= 30) unlockSkill("mc_master", "客前で話す経験を積んだ");
+  if ((cc.parttime || 0) >= 2 || (state.band?.funds || 0) < 12000) unlockSkill("saving_master", "資金繰りを覚えた");
+  if ((state.totalMerchSales || 0) >= 45000) unlockSkill("merch_master", "物販の反応を掴んだ");
+  if ((state.band?.fatigue || 0) >= 70 && ((cc.talk || 0) >= 1 || (state.playerCraft?.lyricsXp || 0) + (state.playerCraft?.musicXp || 0) >= 4)) unlockSkill("midnight_inspiration", "疲れた夜に言葉が降ってきた");
+  if (craftLevel("lyrics") >= 6 && craftLevel("music") >= 6 && (state.songs || []).length >= 6) unlockSkill("dual_songcraft", "作詞作曲の型ができてきた");
+  if ((state.turn || 1) >= 35 && ((cc.practice || 0) + (cc.promo || 0) + (cc.talk || 0)) >= 16) unlockSkill("shortcut_command", "後半の段取りが身についた");
 }
 function initials(name) { return String(name).replace(/[（(].*?[）)]/g, "").slice(0, 2); }
 
@@ -859,7 +910,7 @@ const SAVE_SLOT_COUNT = 2;
 const SAVE_SLOT_PREFIX = "underground_v0310_slot_";
 const AUTOSAVE_SLOT_PREFIX = "underground_v0310_autoslot_";
 const CURRENT_SLOT_KEY = "underground_v0310_current_slot";
-const SAVE_VERSION = "v0.3.20";
+const SAVE_VERSION = "v0.3.21";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -1057,6 +1108,11 @@ function createInitialState() {
     memberCap: 999,
     memberCostExplained: false,
     items: { drink: 0, effecter: 0, usedGear: 0, lightFx: 0 },
+    equipment: {},
+    totalMerchSales: 0,
+    songTitleHistory: [],
+    characterEventFlags: {},
+    endingRecorded: false,
     candidates: clone(DATA.candidateCharacters),
     songs: [starterSong],
     pendingDrafts: [],
@@ -1124,8 +1180,6 @@ function createInitialState() {
     deferPopupsUntilAfterLive: false,
     popupQueue: [],
     lastNoLivePlanWarnTurn: 0,
-    lastPreLiveFatigueWarnTurn: 0,
-    firstSongFatigueExplained: false,
     lastLogType: "info",
     telopFlash: 0,
     installHintDismissed: false
@@ -1154,8 +1208,26 @@ function audienceProfileForVenue(v) {
   if (v.id === "garage") return { label:"友人・身内多め", detail:"荒くても熱量が届きやすい。コピー曲も安定しやすい。" };
   if (v.id === "livehouse_s") return { label:"地下ライブ常連", detail:"既存曲の安定感と新曲の新鮮さ、両方を見る客層。" };
   if (v.id === "livehouse_m") return { label:"初見客多め", detail:"キャッチーさ・曲順・新曲の話題性が伸びやすい。" };
+  if (v.id === "warehouse") return { label:"イベント客・コア層", detail:"熱量・物販・大きめの音圧が見られる。準備不足時の失敗リスクが上がる。" };
   if (v.id === "big_stage") return { label:"フェス審査・外部客", detail:"コピー曲よりオリジナル、同じセトリより幅のある勝負が評価される。" };
   return { label:"通常客層", detail:v.note || "会場ごとの色がある。" };
+}
+function venueRankLabel(v) {
+  if (!v) return "通常";
+  if (v.id === "garage") return "小箱";
+  if (v.id === "livehouse_s") return "小箱";
+  if (v.id === "livehouse_m") return "中規模ライブハウス";
+  if (v.id === "warehouse") return "大箱";
+  if (v.id === "big_stage") return (state.turn || 1) >= 50 ? "GRAND UNDER FES" : (state.turn || 1) >= 30 ? "UNDER FES" : "業界関係者イベント";
+  return "通常";
+}
+function venueRequirementText(v) {
+  if (!v) return "必要機材：なし";
+  const need = [];
+  if (["livehouse_m","warehouse","big_stage"].includes(v.id)) need.push(`PA Lv${v.id === "big_stage" ? 3 : 1}+`);
+  if (["warehouse","big_stage"].includes(v.id)) need.push(`移動車 Lv${v.id === "big_stage" ? 2 : 1}+`);
+  if (v.id === "big_stage") need.push("代表曲/定番曲", "幅のあるセトリ");
+  return `${venueRankLabel(v)} / 必要目安：${need.length ? need.join("・") : "基礎準備"} / 失敗時リスク：${v.id === "big_stage" ? "業界評価大" : v.id === "warehouse" ? "費用大" : "小"}`;
 }
 function canBookSchedules() {
   return !state.ended && (state.turn > 5 || state.liveResultHistory.length > 0);
@@ -1182,7 +1254,7 @@ function memberUpkeepCost() {
     if (totalBandPeople <= 5) cost += 700;
     else cost += 700 * Math.pow(2, Math.min(totalBandPeople - 5, 5));
   }
-  return Math.round(cost);
+  return Math.round(cost * (1 + equipmentUpkeepDiscount()));
 }
 function maybeExplainMemberCost() {
   if (state.memberCostExplained || bandSize() < 4) return;
@@ -1537,8 +1609,6 @@ function normalizeState() {
   if (typeof state.deferPopupsUntilAfterLive === "undefined") state.deferPopupsUntilAfterLive = false;
   if (!Array.isArray(state.popupQueue)) state.popupQueue = [];
   if (typeof state.lastNoLivePlanWarnTurn === "undefined") state.lastNoLivePlanWarnTurn = 0;
-  if (typeof state.lastPreLiveFatigueWarnTurn === "undefined") state.lastPreLiveFatigueWarnTurn = 0;
-  if (typeof state.firstSongFatigueExplained === "undefined") state.firstSongFatigueExplained = false;
   if (state.turnNotice && (!state.turnNotice.createdAt || Date.now() - state.turnNotice.createdAt > 3200)) state.turnNotice = null;
   if (!state.discoveredGenres) state.discoveredGenres = {};
   if (!state.band) state.band = {};
@@ -1547,6 +1617,12 @@ function normalizeState() {
   if (typeof state.activeSaveSlot === "undefined") state.activeSaveSlot = selectedSaveSlot || 1;
   if (typeof state.saveSlotModal === "undefined") state.saveSlotModal = null;
   if (!Array.isArray(state.playerSkills)) state.playerSkills = [];
+  if (!state.equipment || typeof state.equipment !== "object") state.equipment = {};
+  EQUIPMENT_DATA.forEach(eq => { state.equipment[eq.id] = clamp(Number(state.equipment[eq.id] || 0), 0, 5); });
+  if (typeof state.totalMerchSales === "undefined") state.totalMerchSales = 0;
+  if (!Array.isArray(state.songTitleHistory)) state.songTitleHistory = [];
+  if (!state.characterEventFlags || typeof state.characterEventFlags !== "object") state.characterEventFlags = {};
+  if (typeof state.endingRecorded === "undefined") state.endingRecorded = false;
   state.memberCap = 999;
   if (typeof state.memberCostExplained === "undefined") state.memberCostExplained = bandSize() >= 4;
   normalizeLivePrepChorusIds();
@@ -1653,16 +1729,6 @@ function maybeTriggerStoryEvents() {
     };
     return;
   }
-  if (shouldWarnPreLiveFatigue()) {
-    state.lastPreLiveFatigueWarnTurn = state.turn;
-    state.activePopup = {
-      title:"ライブ前日の疲労注意",
-      body:`明日はライブ本番。疲労が${val(state.band.fatigue)}%まで溜まっている。\n60%以上だとライブ評価や練習効率に響きやすい。休憩やドリンクで整えよう。`,
-      type:"warn",
-      icon:"⚠️"
-    };
-    return;
-  }
   if (shouldWarnNoLivePlan()) {
     state.lastNoLivePlanWarnTurn = state.turn;
     state.activePopup = {
@@ -1682,25 +1748,6 @@ function shouldWarnNoLivePlan() {
   const hasNearLive = (state.liveEvents || []).some(e => !e.cancelled && e.turn > state.turn && e.turn <= state.turn + 7);
   return !hasNearLive;
 }
-function shouldForceSecondTurnDraft() {
-  return state && state.turn === 2 && (state.pendingDrafts || []).length > 0;
-}
-function shouldWarnPreLiveFatigue() {
-  if (!canBookSchedules() || isLiveTurn()) return false;
-  if (state.lastPreLiveFatigueWarnTurn === state.turn) return false;
-  if ((state.band?.fatigue || 0) < 60) return false;
-  refreshLiveSchedule();
-  return (state.liveEvents || []).some(e => !e.cancelled && e.turn === state.turn + 1);
-}
-function logLineClass(msg) {
-  const text = String(msg || "");
-  if (/レアゲット|RARE|レアジャンル|レア/.test(text)) return "log-rare";
-  if (/スキル獲得|ジャンル発見|新ジャンル|定番曲|STANDARD|作詞Lv|作曲Lv/.test(text)) return "log-purple";
-  return "";
-}
-function logLineHtml(msg) {
-  return `<div class="log-line ${logLineClass(msg)}">${escapeHtml(msg)}</div>`;
-}
 
 function completeSongcraftTutorial() {
   state.songcraftUsedThisTurn = true;
@@ -1714,13 +1761,10 @@ function completeSongcraftTutorial() {
 function showTutorialBlocked(kind) {
   if (state.tutorialStage === "needSong") {
     // 初回チュートリアル中は「作詞・作曲」だけ通す。
+    // v0.3.0ではここで song もブロックしてしまい、
+    // 曲作りポップアップ後に先へ進めない状態になっていた。
     if (kind === "song") return false;
     state.activePopup = { title:"まずは曲作り", body:"最初は作詞・作曲から始めよう。\nホームの「作詞・作曲」だけが使える。", type:"event", icon:"🎼" };
-    render();
-    return true;
-  }
-  if (shouldForceSecondTurnDraft() && kind !== "song") {
-    state.activePopup = { title:"未完成曲を完成させよう", body:"2ターン目は、1ターン目で作った未完成曲を完成させるチュートリアル。\n曲エディタで未完成曲を選び、作っていない作詞/作曲を進めよう。", type:"event", icon:"📝" };
     render();
     return true;
   }
@@ -1792,16 +1836,12 @@ function renderNav(liveMode=false) {
     ["songs", "曲", "🎼"],
     ["schedule", "予定", "📅"],
     ["shop", "ショップ", "🛒"],
-    ["log", "ログ", "📺"]
+    ["log", "ログ", "📺"],
+    ["library", "図鑑", "📚"]
   ];
-  const forceDraft = shouldForceSecondTurnDraft();
   return `<div class="tabbar ${liveMode ? "live-lock" : ""}">
-    ${tabs.map(([id,label,icon]) => {
-      const disabled = liveMode || (forceDraft && id !== "songs" && id !== "home");
-      const noteCls = disabled && forceDraft ? " locked" : "";
-      return `<button class="tabBtn ${state.view===id ? "active" : ""}${noteCls}" data-view="${id}" ${disabled ? "disabled" : ""}><span>${icon}</span><b>${label}</b></button>`;
-    }).join("")}
-    ${liveMode ? `<div class="tab-live-note">今日はライブ本番。準備画面に集中。</div>` : forceDraft ? `<div class="tab-live-note">2ターン目は未完成曲を完成させよう。</div>` : ""}
+    ${tabs.map(([id,label,icon]) => `<button class="tabBtn ${state.view===id ? "active" : ""}" data-view="${id}" ${liveMode ? "disabled" : ""}><span>${icon}</span><b>${label}</b></button>`).join("")}
+    ${liveMode ? `<div class="tab-live-note">今日はライブ本番。準備画面に集中。</div>` : ""}
   </div>`;
 }
 
@@ -1813,6 +1853,7 @@ function renderMainContent() {
   else if (state.view === "schedule") html = renderScheduleScreen();
   else if (state.view === "shop") html = renderShopScreen();
   else if (state.view === "log") html = renderLogScreen();
+  else if (state.view === "library") html = renderLibraryScreen();
   else html = renderHomeScreen();
   const homeBack = (state.view || "home") !== "home" ? `<button class="jumpTabBtn page-home-btn" data-view="home">← ホームに戻る</button>` : "";
   return `<main class="view-panel" data-view="${state.view || "home"}">${homeBack}${html}</main>`;
@@ -1839,6 +1880,7 @@ function renderHomeScreen() {
           ${homeMenuButton("schedule", "📅", "スケジュール帳", canBookSchedules() ? "ライブ予約・キャンセル" : "初ライブ後に解放", !canBookSchedules())}
           ${homeMenuButton("shop", "🛒", "ショップ", "回復・機材・演出アイテム")}
           ${homeMenuButton("log", "📺", "ログ", "イベント履歴を見る")}
+          ${homeMenuButton("library", "📚", "図鑑", "発見済みジャンル・スキル・歴代バンド")}
         </div>
       </div>
     </div>
@@ -1848,15 +1890,13 @@ function renderHomeScreen() {
 
 function homeMenuButton(view, icon, label, small, forceLocked=false) {
   const scheduleLock = state.scheduleTutorialStage === "needSchedule" && view !== "schedule";
-  const draftLock = shouldForceSecondTurnDraft() && view !== "songs";
-  const locked = forceLocked || state.tutorialStage === "needSong" || (state.tutorialStage === "needCommand" && view !== "command") || scheduleLock || draftLock;
-  const note = draftLock ? "未完成曲を完成" : state.tutorialStage === "needSong" ? "まずは曲作り" : state.tutorialStage === "needCommand" && view !== "command" ? "先に今週の行動" : scheduleLock ? "まず予定を確認" : small;
+  const locked = forceLocked || state.tutorialStage === "needSong" || (state.tutorialStage === "needCommand" && view !== "command") || scheduleLock;
+  const note = state.tutorialStage === "needSong" ? "まずは曲作り" : state.tutorialStage === "needCommand" && view !== "command" ? "先に今週の行動" : scheduleLock ? "まず予定を確認" : small;
   return `<button class="jumpTabBtn menu-tile ${locked ? "locked" : ""}" data-view="${view}" ${locked ? "disabled" : ""}><span>${icon}</span><b>${label}</b><small>${note}</small></button>`;
 }
 function homeSongMenuButton() {
   const locked = state.tutorialStage === "needCommand" || state.scheduleTutorialStage === "needSchedule";
-  const forceDraft = shouldForceSecondTurnDraft();
-  const note = forceDraft ? "未完成曲を完成させよう" : state.scheduleTutorialStage === "needSchedule" ? "まず予定を確認" : locked ? "次は行動を選ぼう" : "新曲・強化・未完成曲";
+  const note = state.scheduleTutorialStage === "needSchedule" ? "まず予定を確認" : locked ? "次は行動を選ぼう" : "新曲・強化・未完成曲";
   return `<button class="openSongEditorBtn menu-tile ${locked ? "locked" : ""}" ${locked ? "disabled" : ""}><span>🎼</span><b>作詞・作曲</b><small>${note}</small></button>`;
 }
 
@@ -1870,7 +1910,7 @@ function renderSavePanel() {
 function renderPwaPanel() {
   return `<div class="pwa-panel">
     <b>スマホ確認</b>
-    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.20は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
+    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.21は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
   </div>`;
 }
 
@@ -1894,11 +1934,12 @@ function renderSchedulePanel() {
 }
 function buildLiveCandidates() {
   const turns = [];
-  for (let t = state.turn + 3; t < (state.maxTurn || 50) && turns.length < 6; t++) {
+  for (let t = state.turn + 3; t < (state.maxTurn || 50) && turns.length < 3; t++) {
     if (!liveEventForTurn(t)) turns.push(t);
   }
   const list = [];
-  turns.forEach(t => VENUES.forEach(v => list.push({ turn:t, venueId:v.id })));
+  const availableVenues = VENUES.filter(v => (state.turn >= 30 || !["big_stage"].includes(v.id)) && (state.turn >= 16 || !["warehouse"].includes(v.id)));
+  turns.forEach(t => availableVenues.forEach(v => list.push({ turn:t, venueId:v.id })));
   return list;
 }
 function renderLiveCandidate(c) {
@@ -1911,7 +1952,9 @@ function renderLiveCandidate(c) {
     <strong class="candidate-turn">${c.turn}ターン</strong>
     <b>${v.name}</b>
     <span class="candidate-meta"><em>キャパ${v.capacity}</em><em class="fee-pill">¥${v.fee.toLocaleString()}</em></span>
-    <small>要準備${v.prepNeed} / 現在${val(prep)}</small>
+    <small>要準備${v.prepNeed} / 現在${val(prep)} / ${escapeHtml(audienceProfileForVenue(v).label)}</small>
+    <small>${escapeHtml(v.note || "")}</small>
+    <small>${escapeHtml(venueRequirementText(v))}</small>
     <em>${status}</em>
   </button>`;
 }
@@ -1935,7 +1978,7 @@ function renderScheduleEvent(e) {
 function estimatePrepScore() {
   const originals = state.songs.filter(s=>!s.isCover).length;
   const avgRec = avg(state.songs.map(s=>s.recognition));
-  return state.band.fame * 0.35 + state.band.fans * 0.20 + state.band.industry * 0.30 + state.band.trust * 0.18 + originals * 4 + avgRec * 0.20;
+  return state.band.fame * 0.35 + state.band.fans * 0.20 + state.band.industry * 0.30 + state.band.trust * 0.18 + originals * 4 + avgRec * 0.20 + equipmentPrepBonus();
 }
 
 function goalChip(label, ok, value="") {
@@ -2476,15 +2519,47 @@ function renderShopScreen() {
         <p>${itemBadges}</p>
         <button class="useItemBtn big-action" data-item="drink">ドリンクを使う</button>
         <hr class="soft" />
+        ${renderEquipmentPanel()}
+        <hr class="soft" />
         <h2>資金メモ</h2>
-        <div class="kv"><b>現在資金</b><span>${state.band.funds.toLocaleString()}円</span><b>出費</b><span>練習・募集・宣伝・維持費・ライブ参加費・サポート代</span><b>収入</b><span>バイト・チケット売上・物販</span></div>
+        <div class="kv"><b>現在資金</b><span>${state.band.funds.toLocaleString()}円</span><b>出費</b><span>練習・募集・宣伝・維持費・ライブ参加費・サポート代・機材投資</span><b>収入</b><span>バイト・チケット売上・物販</span></div>
       </div>
     </div>
   `;
 }
 
+function renderEquipmentPanel() {
+  const rows = EQUIPMENT_DATA.map(eq => {
+    const lv = equipmentLevel(eq.id);
+    const cost = equipmentUpgradeCost(eq.id);
+    const maxed = lv >= 5;
+    return `<div class="equipment-row"><div><b>${escapeHtml(eq.name)}</b><small>${escapeHtml(eq.category)} / Lv${lv}/5</small><small>${escapeHtml(eq.desc)}</small></div><button class="buyItemBtn gear-upgrade" data-item="gear:${eq.id}" ${maxed ? "disabled" : ""}>${maxed ? "MAX" : `強化 ${cost.toLocaleString()}円`}</button></div>`;
+  }).join("");
+  return `<div class="equipment-panel"><div class="section-title"><h2>機材・楽器アップグレード</h2><span class="badge good">Lv制</span></div><p><small>所持数ではなくLv1〜5の導入/強化制。現在はバンド全体に装備され、ライブ・物販・準備に補正が入ります。</small></p>${rows}</div>`;
+}
+function renderLibraryScreen() {
+  const discovered = Object.entries(state.discoveredGenres || {});
+  const comboKeys = [...new Set((state.songs || []).map(s => (s.sourceMainGenres || []).length ? genreComboKey(s.sourceMainGenres[0], s.sourceMainGenres[1]) : "").filter(Boolean))];
+  const histories = readBandHistory();
+  return `<div class="grid library-grid">
+    <div class="card"><div class="section-title"><h2>ジャンル図鑑</h2><span class="badge">${discovered.length}件</span></div>${discovered.length ? discovered.map(([g,d])=>`<div class="dict-row ${d.rare ? "rare" : ""}"><b>${escapeHtml(g)}</b><small>${d.rare ? "レア" : "通常"} / ${d.songTitle ? "初出："+escapeHtml(d.songTitle) : ""} / ${d.turn || "?"}T</small></div>`).join("") : `<p><small>曲作りやライブで発見したジャンルが登録されます。</small></p>`}</div>
+    <div class="card"><div class="section-title"><h2>コンボ図鑑</h2><span class="badge">仮</span></div><p><small>発見済みの組み合わせと、今後出る可能性のあるサブジャンルを確認します。</small></p>${comboKeys.map(k=>`<div class="dict-row"><b>${escapeHtml(k)}</b><small>${escapeHtml(genrePlanText(...k.split("+")))}</small></div>`).join("") || `<p><small>まだ組み合わせ履歴がありません。</small></p>`}</div>
+    <div class="card"><div class="section-title"><h2>スキル図鑑</h2><span class="badge">${(state.playerSkills||[]).length}/${SKILL_DATA.length}</span></div>${renderPlayerSkillPanel()}</div>
+    <div class="card"><div class="section-title"><h2>曲名履歴</h2><span class="badge">${(state.songTitleHistory||[]).length}曲</span></div>${(state.songTitleHistory||[]).slice(-30).reverse().map(x=>`<div class="dict-row"><b>${escapeHtml(x.title)}</b><small>${escapeHtml(x.genre || "")} / ${x.turn || "?"}T</small></div>`).join("") || `<p><small>完成した曲名がここに残ります。</small></p>`}</div>
+    <div class="card"><div class="section-title"><h2>歴代バンド図鑑</h2><span class="badge">${histories.length}組</span></div>${histories.map(h=>`<div class="dict-row"><b>${escapeHtml(h.name || "名無しの地下バンド")}</b><small>${escapeHtml(h.ending || "END")} / ファン${h.fans} / 資金${Number(h.funds||0).toLocaleString()}円</small></div>`).join("") || `<p><small>エンディングを見たバンドだけ記録されます。</small></p>`}</div>
+  </div>`;
+}
+function readBandHistory() { try { return JSON.parse(localStorage.getItem("underground_band_history_v0321") || "[]"); } catch(e) { return []; } }
+function saveBandHistory(record) {
+  try {
+    const list = readBandHistory();
+    list.push({ ...record, savedAt:new Date().toISOString() });
+    localStorage.setItem("underground_band_history_v0321", JSON.stringify(list.slice(-20)));
+  } catch(e) {}
+}
+
 function renderLogScreen() {
-  return `<div class="card full-card"><div class="section-title"><h2>ログ履歴</h2><span class="badge warn">テロップ＋詳細</span></div><div class="log big-log">${state.logs.slice(0, 140).map(logLineHtml).join("")}</div></div>`;
+  return `<div class="card full-card"><div class="section-title"><h2>ログ履歴</h2><span class="badge warn">テロップ＋詳細</span></div><div class="log big-log">${state.logs.slice(0, 140).map(l => `<div class="log-line">${escapeHtml(l)}</div>`).join("")}</div></div>`;
 }
 
 function renderTimeline() {
@@ -2813,7 +2888,7 @@ function renderLivePrep() {
   return `
     <div class="card live-panel">
       <div class="section-title"><h2>${currentLiveName()}：ライブ準備</h2><span class="badge warn">${v.name} / ${prepState}</span></div>
-      <div class="venue-info"><b>${v.name}</b><span>キャパ${v.capacity} / 会場費${v.fee.toLocaleString()}円 / 要準備${v.prepNeed} / 現在準備${val(prep)}</span><small>${v.note}</small></div>
+      <div class="venue-info"><b>${v.name}</b><span>キャパ${v.capacity} / 会場費${v.fee.toLocaleString()}円 / 要準備${v.prepNeed} / 現在準備${val(prep)}</span><small>${v.note}</small><small>${escapeHtml(venueRequirementText(v))}</small></div>
       <div class="venue-info audience-info"><b>客層：${escapeHtml(audience.label)}</b><span>${escapeHtml(audience.detail)}</span><small>${mixHint}</small></div>
       <div class="setlist-hint-panel"><b>セトリ自動ヒント</b>${livePrepAutoHints(ensureLivePrepSetlist().map(id=>songById(id)).filter(Boolean), v, audience).map(h=>`<span>${escapeHtml(h)}</span>`).join("")}</div>
       <p><small>ボーカルはコーラス不可。初ライブだけ主人公Vo固定。その他メンバーの担当楽器をライブごとに決められます。</small></p>
@@ -2977,7 +3052,7 @@ function merchDemandRate(item, attendees, rank, setlist, audienceLabel, cap) {
   const baseByPrice = item.price <= 700 ? 0.22 : item.price <= 1200 ? 0.15 : item.price <= 2200 ? 0.085 : item.price <= 3200 ? 0.052 : 0.032;
   const rep = hasRep ? (item.id === "demo" ? 1.45 : 1.15) : 1;
   const overSupplyRisk = Math.max(0.65, 1 - Math.max(0, state.band.fame - 80) / 900);
-  return clamp(baseByPrice * rankFactor * merchAudienceFit(item, audienceLabel) * merchCapacityFit(item, cap) * coreFactor * recFactor * rep * overSupplyRisk, 0.01, 0.55);
+  return clamp(baseByPrice * rankFactor * merchAudienceFit(item, audienceLabel) * merchCapacityFit(item, cap) * coreFactor * recFactor * rep * overSupplyRisk * (1 + equipmentMerchBonus()/100), 0.01, 0.58);
 }
 function renderMerchPrepControls(venue, audience) {
   const orders = normalizeMerchOrders();
@@ -2987,7 +3062,7 @@ function renderMerchPrepControls(venue, audience) {
   const estimatedCost = sum(MERCH_ITEMS.map(item => item.cost * (orders[item.id] || 0)));
   const diff = state.band.funds - estimatedCost;
   return `<div class="merch-prep-panel">
-    <div class="merch-prep-summary"><b>仕入れ数を選択</b><span id="merchEstimatedCost">仕入れ総額 ${estimatedCost.toLocaleString()}円</span><span id="merchCurrentFunds">所持金 ${state.band.funds.toLocaleString()}円</span><span id="merchFundsDiff" class="${diff < 0 ? "bad" : "good"}">差額 ${diff.toLocaleString()}円</span><small>売れ残りは仕入れ値の35%で買い取り。キャパ・客層・ライブ評価で売れやすさが変動します。</small></div>
+    <div class="merch-prep-summary"><b>仕入れ数を選択</b><span id="merchEstimatedCost">仕入れ総額 ${estimatedCost.toLocaleString()}円</span><span id="merchCurrentFunds">所持金 ${state.band.funds.toLocaleString()}円</span><span id="merchFundsDiff" class="${diff < 0 ? "bad" : "good"}">差額 ${diff.toLocaleString()}円</span><small>売れ残りは仕入れ値の35%で買い取り。キャパ・客層・ライブ評価・物販ブースLvで売れやすさが変動します。</small></div>
     <div class="merch-item-grid">${MERCH_ITEMS.map(item => {
       const qty = orders[item.id] || 0;
       const fit = merchAudienceFit(item, label) * merchCapacityFit(item, cap);
@@ -3162,14 +3237,19 @@ function renderTurnNoticeOverlay() {
 }
 function renderPurchaseConfirmOverlay() {
   const item = state.pendingPurchase;
+  const isGear = String(item || "").startsWith("gear:");
+  const gearId = isGear ? String(item).split(":")[1] : "";
+  const gear = equipmentById(gearId);
   const prices = { drink: 5000, effecter: 50000, usedGear: 60000, lightFx: 45000 };
   const names = { drink: "疲労回復ドリンク", effecter: "エフェクター", usedGear: "中古楽器", lightFx: "照明エフェクト" };
-  const price = prices[item] || 0;
+  const price = isGear ? equipmentUpgradeCost(gearId) : (prices[item] || 0);
+  const title = isGear ? `${gear?.name || "機材"}を強化する？` : `${names[item] || "アイテム"}を購入する？`;
+  const desc = isGear ? `現在Lv${equipmentLevel(gearId)} → Lv${Math.min(5, equipmentLevel(gearId)+1)}。${gear?.desc || ""}` : "誤タップ防止のため、購入前に確認しています。";
   return `<div class="modal-backdrop">
     <div class="event-modal event">
       <div class="modal-icon">🛒</div>
-      <div class="modal-copy"><h2>${escapeHtml(names[item] || "アイテム")}を購入する？</h2><p>価格：${price.toLocaleString()}円</p><p>誤タップ防止のため、購入前に確認しています。</p></div>
-      <div class="modal-actions"><button id="confirmPurchaseBtn" class="big-action">購入する</button><button id="cancelPurchaseBtn" class="ghost-btn">戻る</button></div>
+      <div class="modal-copy"><h2>${escapeHtml(title)}</h2><p>価格：${price.toLocaleString()}円</p><p>${escapeHtml(desc)}</p></div>
+      <div class="modal-actions"><button id="confirmPurchaseBtn" class="big-action">${isGear ? "強化する" : "購入する"}</button><button id="cancelPurchaseBtn" class="ghost-btn">戻る</button></div>
     </div>
   </div>`;
 }
@@ -3282,7 +3362,7 @@ function renderLiveResultOverlay() {
         <p>物販：${escapeHtml(r.merchSummary || "なし")}</p>
         ${r.coreEvent ? `<p>完璧ではないが、コアなファンに強く刺さった。</p>` : ""}
       </div>
-      <button class="liveResultCloseBtn big-action">OK</button>
+      <div class="modal-actions"><button id="downloadSetlistImageBtn" class="ghost-btn">セトリ画像を保存</button><button class="liveResultCloseBtn big-action">OK</button></div>
     </div>
   </div>`;
 }
@@ -3300,14 +3380,36 @@ function resultBar(label, value) {
   return `<div class="result-bar"><span>${label}</span><div class="meter mini"><div class="fill" style="width:${pct}%"></div></div><b>${value}</b></div>`;
 }
 
-function bindEvents() {
-  document.querySelectorAll("button, select, input").forEach(el => {
-    if (!el.dataset.blurBound) {
-      el.dataset.blurBound = "1";
-      el.addEventListener("pointerup", () => setTimeout(() => { try { el.blur(); } catch(e) {} }, 0));
-      el.addEventListener("change", () => setTimeout(() => { try { el.blur(); } catch(e) {} }, 0));
-    }
+function downloadSetlistImage() {
+  const r = state.liveResultModal;
+  if (!r) return;
+  const canvas = document.createElement("canvas");
+  canvas.width = 900; canvas.height = 1200;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#121018"; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = "#f8f1e8"; ctx.font = "bold 42px sans-serif";
+  ctx.fillText(state.band.name || "名無しの地下バンド", 60, 90);
+  ctx.font = "26px sans-serif"; ctx.fillStyle = "#d9c7ff";
+  ctx.fillText(`${r.title || "LIVE"} / ${state.turn}T / ${r.venue || ""}`, 60, 140);
+  ctx.fillStyle = "#fff"; ctx.font = "bold 34px sans-serif";
+  ctx.fillText(`RANK ${r.rank || "-"}  SCORE ${val(r.total || 0)}`, 60, 210);
+  ctx.font = "30px sans-serif";
+  (r.songs || []).forEach((name, i) => {
+    ctx.fillStyle = i % 2 ? "#f8f1e8" : "#ffe66d";
+    ctx.fillText(`${i+1}. ${name}`, 90, 300 + i*82);
   });
+  ctx.fillStyle = "#d9c7ff"; ctx.font = "24px sans-serif";
+  ctx.fillText(`Setlist bonus: ${r.setlistBonusText || "-"}`, 60, 780);
+  ctx.fillText(`Merch: ${r.merchSummary || "-"}`, 60, 830);
+  ctx.fillText(`Profit: ${Number(r.profit || r.gains?.funds || 0).toLocaleString()} yen`, 60, 880);
+  const a = document.createElement("a");
+  a.download = `setlist_${Date.now()}.png`;
+  a.href = canvas.toDataURL("image/png");
+  a.click();
+  log("ライブ後セトリ画像を作成した。", "event");
+}
+
+function bindEvents() {
   document.querySelectorAll(".command-card").forEach(btn => btn.addEventListener("click", () => handleCommandClick(btn.dataset.command)));
   document.querySelectorAll(".tabBtn:not(:disabled), .jumpTabBtn").forEach(btn => btn.addEventListener("click", () => {
     const v = btn.dataset.view || "home";
@@ -3409,6 +3511,7 @@ function bindEvents() {
   const bookLiveBtn = document.getElementById("bookLiveBtn");
   if (bookLiveBtn) bookLiveBtn.addEventListener("click", () => bookLiveFromHome());
   document.querySelectorAll(".liveCandidateBtn").forEach(btn => btn.addEventListener("click", () => { state.pendingBooking = { turn:Number(btn.dataset.turn), venueId:btn.dataset.venue }; render(); }));
+  document.getElementById("downloadSetlistImageBtn")?.addEventListener("click", downloadSetlistImage);
   const confirmBookingBtn = document.getElementById("confirmBookingBtn");
   if (confirmBookingBtn) confirmBookingBtn.addEventListener("click", () => { const b = state.pendingBooking; state.pendingBooking = null; if (b) bookLiveFromHome(b.turn, b.venueId, true); });
   const cancelBookingBtn = document.getElementById("cancelBookingBtn");
@@ -3522,7 +3625,7 @@ function runCommandTurn(command) {
   executeCommand(command);
   const promoApplicant = maybePromoRecruitAfterCommand(command);
   const event = maybeGenerateCommandEvent(command);
-  if (command === "practice" && (state.commandCounts.practice || 0) >= 3 && !hasSkill("practice_efficiency")) { state.playerSkills.push("practice_efficiency"); log("スキル獲得：効率練習。練習のステータス上昇が少し上がる。"); }
+  maybeUnlockProgressSkills(command);
   postTurnMaintenance(command);
   const after = snapshotActionState();
   const tutorialMsg = state.tutorialStage === "needCommand" ? "5ターン目に初ライブだ！\n曲を作り、メンバーを集めよう！" : "";
@@ -3661,7 +3764,7 @@ function executeCommand(command) {
       if (inst) inst.lv = clamp(inst.lv + rand(2,5) * (inst.growth || 1), 1, inst.potentialCap || inst.cap);
     });
     state.songs.forEach(s => s.performance = clamp(s.performance + Math.max(0, Math.round(rand(1,3) * fatigueEffectMultiplier())), 0, 99));
-    b.fatigue = clamp(b.fatigue + 14, 0, 100);
+    b.fatigue = clamp(b.fatigue + 14 - (hasSkill("shortcut_command") ? 2 : 0), 0, 100);
     b.trust = clamp(b.trust + 2, 0, 100);
     log(`練習した。技術・リズム・楽器Lv・曲の演奏が少し上がった。費用-${cost.toLocaleString()}円、疲労も増えた。`);
   }
@@ -3758,14 +3861,31 @@ function applyMemberCap() {
   render();
 }
 function buyItem(item) {
+  if (String(item || "").startsWith("gear:")) {
+    const id = String(item).split(":")[1];
+    const gear = equipmentById(id);
+    if (!gear) { render(); return; }
+    const lv = equipmentLevel(id);
+    if (lv >= 5) { log(`${gear.name}はLv5で最大強化済み。`); render(); return; }
+    let price = equipmentUpgradeCost(id);
+    if (hasSkill("saving_master")) price = Math.round(price * 0.95);
+    state.band.funds -= price;
+    state.equipment[id] = lv + 1;
+    log(`${gear.name}をLv${lv + 1}に強化した。-${price.toLocaleString()}円。ライブ・物販・準備に補正が入る。`, "event");
+    maybeUnlockProgressSkills("gear");
+    render();
+    return;
+  }
   const prices = { drink: 5000, effecter: 50000, usedGear: 60000, lightFx: 45000 };
   const names = { drink: "疲労回復ドリンク", effecter: "エフェクター", usedGear: "中古楽器", lightFx: "照明エフェクト" };
-  const price = prices[item] || 0;
+  let price = prices[item] || 0;
+  if (hasSkill("saving_master") && item !== "drink") price = Math.round(price * 0.95);
   const maxStock = { drink:99, effecter:5, usedGear:5, lightFx:5 };
   if ((state.items[item] || 0) >= (maxStock[item] || 99)) { log(`${names[item]}はこれ以上持てない。`); render(); return; }
   state.band.funds -= price;
   state.items[item] = (state.items[item] || 0) + 1;
   log(`${names[item]}を購入した。-${price.toLocaleString()}円。`);
+  maybeUnlockProgressSkills("shop");
   render();
 }
 function useItem(item) {
@@ -3851,10 +3971,12 @@ function craftLevel(type) {
 }
 function songcraftFatigueCost(type, baseCost) {
   const lv = craftLevel(type);
-  const freeChance = lv >= 2 ? (lv - 1) * 0.02 : 0;
+  let freeChance = lv >= 2 ? (lv - 1) * 0.02 : 0;
+  if (hasSkill("midnight_inspiration") && (state.band.fatigue || 0) >= 60) freeChance += 0.08;
   if ((state.freeSongcraftCharge || 0) > 0) { state.freeSongcraftCharge -= 1; return { cost:0, free:true, reason:"ひらめきストック" }; }
   if (Math.random() < freeChance) return { cost:0, free:true, reason:"作詞作曲Lv" };
-  return { cost:Math.max(0, baseCost - lv), free:false, reason:"" };
+  const skillReduce = (hasSkill("dual_songcraft") ? 2 : 0) + (hasSkill("shortcut_command") ? 1 : 0);
+  return { cost:Math.max(0, baseCost - lv - skillReduce), free:false, reason:"" };
 }
 function applySongcraftFatigue(type, baseCost, member, label) {
   const r = songcraftFatigueCost(type, baseCost);
@@ -3867,6 +3989,7 @@ function applySongcraftFatigue(type, baseCost, member, label) {
   const beforeLv = craftLevel(type);
   if (type === "lyrics") state.playerCraft.lyricsXp = (state.playerCraft.lyricsXp || 0) + 1;
   if (type === "music") state.playerCraft.musicXp = (state.playerCraft.musicXp || 0) + 1;
+  maybeUnlockProgressSkills("songcraft");
   const afterLv = craftLevel(type);
   if (afterLv > beforeLv) {
     showEventPopup(type === "lyrics" ? "作詞Lv UP!!" : "作曲Lv UP!!", `${type === "lyrics" ? "作詞" : "作曲"}Lvが${afterLv}になった！
@@ -4062,6 +4185,9 @@ function finishDraft(draftId) {
     log(`作詞作曲が大成功！「${song.title}」は完成直後から定番曲になった。ステータスが大きく伸びた。`, "rare");
   }
   state.songs.push(song);
+  state.songTitleHistory = state.songTitleHistory || [];
+  state.songTitleHistory.push({ title:song.title, genre:genreDisplay(song), turn:state.turn });
+  maybeUnlockProgressSkills("song");
   updateDirection(song.mainGenre, 5); if (song.subGenre) updateDirection(song.subGenre, 4);
   state.pendingDrafts.splice(idx, 1);
   const discovery = registerGenreDiscovery(song.subGenre || song.mainGenre, song.title);
@@ -4093,11 +4219,6 @@ ${liveExperienceBonus ? `ライブ経験ボーナス：+${val(liveExperienceBonu
     { label:"キャッチー", value:val(song.catchy) },
     { label:"流行", value:val(song.trend) }
   ] });
-  if (!state.firstSongFatigueExplained) {
-    state.firstSongFatigueExplained = true;
-    showEventPopup("疲労に注意", `曲作りで疲労が${val(state.band.fatigue)}%まで溜まった。
-作詞・作曲は疲労+20%、編曲や曲強化は疲労+10%。疲労が高いと練習や宣伝の効率も落ちる。ライブ前は休憩やドリンクで整えよう。`, "warn", "⚠️");
-  }
 }
 
 function registerGenreDiscovery(genre, songTitle="") {
@@ -4449,7 +4570,7 @@ function calculateLive(setlist, supports, merch, positions, vocalist, chorus) {
   const combo = instrumentComboScore(instruments);
   const memberScaleBonus = Math.max(0, performers.length - 3) * 3;
   const memberScaleRisk = Math.max(0, performers.length - 4) * 5;
-  const equipmentBonus = { performance:(state.items.usedGear||0)*2 + (state.items.effecter||0), expression:(state.items.effecter||0)*2, heat:(state.items.lightFx||0)*3, strategy:(state.items.lightFx||0), stability:0 };
+  const equipmentBonus = { performance:(state.items.usedGear||0)*2 + (state.items.effecter||0) + equipmentEffectSum("performance"), expression:(state.items.effecter||0)*2 + equipmentEffectSum("expression"), heat:(state.items.lightFx||0)*3 + equipmentEffectSum("heat"), strategy:(state.items.lightFx||0) + equipmentEffectSum("strategy"), stability:equipmentEffectSum("stability") };
   const originalityBonus = originalCount === 5 ? 25 : originalCount === 4 ? 15 : originalCount === 3 ? 0 : -18;
   const coverStability = coverCount * 7;
   const fatigue = state.band.fatigue;
@@ -4470,9 +4591,9 @@ function calculateLive(setlist, supports, merch, positions, vocalist, chorus) {
   const baseRecognition = avg(setlist.map((s, idx) => s.recognition * repeatInfo.multipliers[idx]));
 
   let performance = avgTech * .30 + avgRhythm * .13 + positionScore * .25 + baseSongPerformance * .30 + supportScore + combo.performance + coverStability + memberScaleBonus + equipmentBonus.performance - coverCount * 2 + rand(-8,8);
-  let expression = avgSense * .25 + avgKnowledge * .15 + baseLyrics * .35 + vocalLv * .15 + chorusBoost + equipmentBonus.expression + (tags.includes("エモさ") ? 8 : 0) + rand(-8,8);
+  let expression = avgSense * .25 + avgKnowledge * .15 + baseLyrics * .35 + vocalLv * .15 + chorusBoost + equipmentBonus.expression + (hasSkill("mc_master") ? 5 : 0) + (tags.includes("エモさ") ? 8 : 0) + rand(-8,8);
   let heat = baseTempo * .23 + baseCatchy * .22 + avgCharisma * .22 + avgRhythm * .15 + avgStamina * .12 + memberScaleBonus + equipmentBonus.heat + venueData.heatBonus + (tags.includes("爆発力") ? 10 : 0) + (tags.includes("疾走感") ? 6 : 0) + rand(-8,8);
-  let strategy = avg(slotScores) + combo.strategy + originalityBonus + setlistBonus.total + baseRecognition * .12 + avg(setlist.map((s, idx)=>s.trend * repeatInfo.multipliers[idx])) * .10 + (supports.length ? 6 : 0) + equipmentBonus.strategy - venuePenalty * .65 + rand(-8,8);
+  let strategy = avg(slotScores) + combo.strategy + originalityBonus + setlistBonus.total + (hasSkill("setlist_sense") ? Math.max(0, setlistBonus.total) * 0.15 + 3 : 0) + baseRecognition * .12 + avg(setlist.map((s, idx)=>s.trend * repeatInfo.multipliers[idx])) * .10 + (supports.length ? 6 : 0) + equipmentBonus.strategy - venuePenalty * .65 + rand(-8,8);
   let stability = avgMental * .22 + avgStamina * .20 + avgTeam * .24 + state.band.trust * .24 + combo.stability + coverStability - fatigue * .78 - memberScaleRisk + supportScore * .35 - venuePenalty + rand(-10,6);
   if (fatigue > 70) { stability -= (fatigue - 70) * 0.9; heat -= (fatigue - 70) * 0.35; }
 
@@ -4618,7 +4739,7 @@ function merchRevenue(ordersRaw, attendees, rank, setlist) {
     const demand = Math.round(attendees * demandRate * (item.id === "coach" ? 0.35 : item.id === "bucket" ? 0.55 : 1));
     const sold = Math.min(qty, Math.max(0, demand + rand(-2, 3)));
     const leftover = qty - sold;
-    const buyback = Math.round(leftover * item.cost * 0.35);
+    const buyback = Math.round(leftover * item.cost * (hasSkill("merch_master") ? 0.40 : 0.35));
     const sales = sold * item.price;
     salesRevenue += sales;
     buybackRevenue += buyback;
@@ -4636,7 +4757,7 @@ function applyLiveResult(r, setlist, supports) {
   const fanGainBase = { S:45, A:30, B:18, C:8, D:2, E:0 }[r.rank] || 0;
   const fameGainBase = { S:22, A:14, B:8, C:3, D:1, E:0 }[r.rank] || 0;
   const industryGainBase = { S:24, A:16, B:9, C:2, D:0, E:0 }[r.rank] || 0;
-  let fanGain = fanGainBase + Math.round(r.total / 50) + (r.coreEvent ? 3 : 0);
+  let fanGain = fanGainBase + Math.round(r.total / 50) + (r.coreEvent ? 3 : 0) + (hasSkill("mc_master") ? 2 : 0);
   let fameGain = fameGainBase + (r.revenue.attendees > 50 ? 2 : 0);
   let coreGain = { S:12, A:8, B:5, C:2, D:1, E:0 }[r.rank] || 0;
   let industryGain = industryGainBase + (r.originalCount >= 4 ? 4 : 0) - (state.turn === state.maxTurn ? r.coverCount * 2 : 0);
@@ -4647,6 +4768,7 @@ function applyLiveResult(r, setlist, supports) {
   b.core += Math.max(0, coreGain);
   b.industry += Math.max(0, industryGain);
   b.funds += r.revenue.finalProfit;
+  state.totalMerchSales = (state.totalMerchSales || 0) + Number(r.revenue?.merch?.salesRevenue || 0);
   b.trust = clamp(b.trust + ({ S:8, A:5, B:3, C:0, D:-3, E:-6 }[r.rank] || 0), 0, 100);
   b.fatigue = clamp(b.fatigue + 18 + Math.round(avg(setlist.map(s => s.tempo)) / 9) + Math.max(0, activeMembers().length - 4) * 5 - avg(activeMembers().map(m=>m.stats.stamina)) / 16, 0, 100);
   setlist.forEach((song, idx) => {
@@ -4657,6 +4779,7 @@ function applyLiveResult(r, setlist, supports) {
     growSongAfterLive(song, r.rank, idx + 1, r.coreEvent);
   });
   registerSetlistAfterLive(setlist, r);
+  maybeUnlockProgressSkills("live");
   revealSubGenresAfterLive(r, setlist);
   if (!state.fesInfoKnown && (state.liveCount >= 1 || state.turn >= 12 || b.industry >= 15)) {
     state.fesInfoKnown = true;
@@ -4775,10 +4898,15 @@ function renderEnding() {
   const minimum = final && ["A","S"].includes(final.rank) && b.fans >= 180 && b.fame >= 150 && b.industry >= 135 && originals >= 7 && repCount >= 2 && freshCount >= 1;
   const attention = final && final.rank === "S" && final.total >= 82 && b.fans >= 230 && b.fame >= 180 && b.industry >= 165 && repCount >= 3 && final.originalCount === 5;
   const huge = final && final.rank === "S" && final.total >= 90 && b.fans >= 280 && b.fame >= 220 && b.industry >= 200 && repCount >= 4 && final.originalCount === 5;
+  if (b.funds < -50000) { title = "赤字解散エンド"; tier = "BAD MONEY"; body = "鳴らしたい音はあった。でも、続けるための資金が尽きた。次は物販と会場選びを見直そう。"; }
+  else if (state.members.length >= 8 && b.trust < 15) { title = "メンバー離散エンド"; tier = "BAD BAND"; body = "大所帯になったバンドは、音より先に心がばらけてしまった。"; }
+  else if (!state.liveResultHistory.some(r=>r.title?.includes("UNDER") || r.venueId === "big_stage")) { title = "UNDER FES未達成エンド"; tier = "UNDER未達"; body = "大きな舞台には届かなかった。それでも、地下の音は消えていない。"; }
+  else if (final && final.rank && !minimum) { title = "UNDER FES達成エンド"; tier = "MIDDLE CLEAR"; body = "UNDER FESには届いた。次は、その先の巨大なステージを目指す。"; }
   if (minimum) { title = "GRAND UNDER FES 出演決定"; tier = "BIGGER STAGE"; body = "UNDER FESの先にある大舞台へ、ついに名前が載った。地下から始まった音が、巨大なステージへ届いた。"; }
   if (attention) { title = "GRAND UNDER FES 注目枠"; tier = "HEADLINER候補"; body = "資料の上の方に、バンド名が載っている。もうただの地下バンドじゃない。"; }
-  if (huge) { title = "GRAND UNDER FES 大抜擢"; tier = "BEST END"; body = "ステージ袖から見える客席は、これまでで一番広かった。鳴らせば、夜が明ける。"; }
-  app.innerHTML = `<div class="app-shell"><div class="hero"><h1>${title}</h1><p>${body}</p></div><div class="grid"><div class="card"><h2>最終結果：${tier}</h2><div class="kv"><b>ファン</b><span>${b.fans}人</span><b>知名度</b><span>${b.fame}</span><b>業界評価</b><span>${b.industry}</span><b>オリジナル曲</b><span>${originals}曲</span><b>資金</b><span>${b.funds.toLocaleString()}円</span><b>最終ライブ</b><span>${final ? final.rank + " / " + val(final.total) : "なし"}</span></div><div class="modal-actions ending-actions"><button id="continueAfterEndingBtn" class="big-action">このまま続ける</button><button id="newAfterEndingBtn" class="ghost-btn">はじめから選ぶ</button></div><small>続ける場合は延長活動として20ターン追加されます。</small></div><div class="card"><h2>ログ</h2><div class="log">${state.logs.slice(0, 90).map(logLineHtml).join("")}</div></div></div></div>`;
+  if (huge) { title = "伝説のインディーズバンドエンド"; tier = "LEGEND END"; body = "ステージ袖から見える客席は、これまでで一番広かった。鳴らせば、夜が明ける。"; }
+  if (!state.endingRecorded) { saveBandHistory({ name:b.name || "名無しの地下バンド", ending:tier, fans:b.fans, fame:b.fame, industry:b.industry, funds:b.funds, songs:originals }); state.endingRecorded = true; }
+  app.innerHTML = `<div class="app-shell"><div class="hero"><h1>${title}</h1><p>${body}</p></div><div class="grid"><div class="card"><h2>最終結果：${tier}</h2><div class="kv"><b>ファン</b><span>${b.fans}人</span><b>知名度</b><span>${b.fame}</span><b>業界評価</b><span>${b.industry}</span><b>オリジナル曲</b><span>${originals}曲</span><b>資金</b><span>${b.funds.toLocaleString()}円</span><b>最終ライブ</b><span>${final ? final.rank + " / " + val(final.total) : "なし"}</span></div><div class="modal-actions ending-actions"><button id="continueAfterEndingBtn" class="big-action">このまま続ける</button><button id="newAfterEndingBtn" class="ghost-btn">はじめから選ぶ</button></div><small>続ける場合は延長活動として20ターン追加されます。</small></div><div class="card"><h2>ログ</h2><div class="log">${state.logs.slice(0, 90).map(l => `<div class="log-line">${escapeHtml(l)}</div>`).join("")}</div></div></div></div>`;
   document.getElementById("continueAfterEndingBtn")?.addEventListener("click", () => { continueAfterEnding(); });
   document.getElementById("newAfterEndingBtn")?.addEventListener("click", () => { uiMode = "slot-new"; render(); });
 }
