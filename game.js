@@ -1,10 +1,10 @@
 /*
-  アンダーグラウンド（仮） v0.3.23 prototype
+  アンダーグラウンド（仮） v0.3.24 prototype
   - 1ファイル内の DATA を差し替えるだけでキャラ・曲・サポート候補を変更できます。
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
 
-const VERSION = "v0.3.23";
+const VERSION = "v0.3.24";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -910,7 +910,7 @@ const SAVE_SLOT_COUNT = 2;
 const SAVE_SLOT_PREFIX = "underground_v0310_slot_";
 const AUTOSAVE_SLOT_PREFIX = "underground_v0310_autoslot_";
 const CURRENT_SLOT_KEY = "underground_v0310_current_slot";
-const SAVE_VERSION = "v0.3.23";
+const SAVE_VERSION = "v0.3.24";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -2011,7 +2011,7 @@ function renderSavePanel() {
 function renderPwaPanel() {
   return `<div class="pwa-panel">
     <b>スマホ確認</b>
-    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.23は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
+    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.24は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
   </div>`;
 }
 
@@ -2411,6 +2411,10 @@ function statSliderRows(song) {
   return `<div class="pt-slider-list">${stats.map(k=>`<div class="pt-slider-row"><label>${statSongLabel(k)} <small>現在${val(song[k]||0)}</small></label><input class="songPtInput" data-stat="${k}" type="range" min="0" max="${Math.max(0, pt)}" value="0" /><input class="songPtNumber" data-stat="${k}" type="number" min="0" max="${Math.max(0, pt)}" value="0" inputmode="numeric" /></div>`).join("")}</div>`;
 }
 function renderSongEditorStep(ed) {
+  if (mustCompleteFirstDraftTutorial()) {
+    const draftSteps = ["composeMenu","draftSelect","draftType","draftLyricsMember","draftLyricWords","draftMusicMember","draftMain1","draftMain2","draftMusicArrange","draftMusicConfirm","draftFinalize"];
+    if (!draftSteps.includes(ed.step)) ed.step = "composeMenu";
+  }
   if (ed.step === "menu") {
     return `<div class="choice-grid main-choice-grid">
       ${choiceButton("<span>🎼</span><b>曲作成</b>", "compose:menu", "", "新曲作成・未完成曲の続き")}
@@ -2507,7 +2511,7 @@ function stepSongEditorBack(ed) {
     draftMain2:"draftMain1",
     draftMusicArrange:"draftMain2",
     draftMusicConfirm:"draftMusicArrange",
-    draftFinalize:"composeMenu",
+    draftFinalize:"draftType",
     arrangeMenu:"menu",
     boostSong:"arrangeMenu",
     boostPtForm:"boostSong",
@@ -2534,16 +2538,26 @@ function applyDraftMusicFields(d, mainGenreA, mainGenreB, arrange) {
 }
 function handleSongEditorAction(action) {
   const ed = editorData();
-  if (action === "editor:back") { if (mustCompleteFirstDraftTutorial()) { state.songEditor = { step:"composeMenu" }; showEventPopup("未完成曲を完成", "2ターン目は未完成曲の完成まで曲エディタから進めよう。", "event", "📝"); render(); return; } stepSongEditorBack(ed); render(); return; }
-  if (action === "editor:menu") { state.songEditor = { step:"menu" }; render(); return; }
+  if (action === "editor:back") {
+    if (mustCompleteFirstDraftTutorial()) {
+      stepSongEditorBack(ed);
+      // 2ターン目は曲エディタ外へは戻さないが、作詞/作曲フロー内の1段階戻る操作は許可する。
+      const allowed = ["composeMenu","draftSelect","draftType","draftLyricsMember","draftLyricWords","draftMusicMember","draftMain1","draftMain2","draftMusicArrange","draftMusicConfirm","draftFinalize"];
+      if (!allowed.includes(ed.step)) state.songEditor = { step:"composeMenu" };
+      render();
+      return;
+    }
+    stepSongEditorBack(ed); render(); return;
+  }
+  if (action === "editor:menu") { state.songEditor = { step: mustCompleteFirstDraftTutorial() ? "composeMenu" : "menu" }; render(); return; }
   if (action === "compose:menu") { state.songEditor = { step:"composeMenu" }; render(); return; }
-  if (action === "arrange:menu") { state.songEditor = { step:"arrangeMenu" }; render(); return; }
+  if (action === "arrange:menu") { if (mustCompleteFirstDraftTutorial()) { state.songEditor = { step:"composeMenu" }; render(); return; } state.songEditor = { step:"arrangeMenu" }; render(); return; }
   if (action === "new:start" && state.turn === 2 && state.pendingDrafts.length) { showEventPopup("まず未完成曲を完成", `2ターン目は、1ターン目で作った未完成曲だけを選べる。
 作っていない作詞/作曲を選んで、曲が完成する流れを確認しよう。`, "event", "📝"); return; }
   if (action === "new:start") { state.songEditor = { step:"newType" }; render(); return; }
   if (action === "draft:start") { state.songEditor = { step:"draftSelect" }; render(); return; }
-  if (action === "boost:start") { state.songEditor = { step:"boostSong" }; render(); return; }
-  if (action === "edit:start") { state.songEditor = { step:"editSong" }; render(); return; }
+  if (action === "boost:start") { if (mustCompleteFirstDraftTutorial()) { state.songEditor = { step:"composeMenu" }; render(); return; } state.songEditor = { step:"boostSong" }; render(); return; }
+  if (action === "edit:start") { if (mustCompleteFirstDraftTutorial()) { state.songEditor = { step:"composeMenu" }; render(); return; } state.songEditor = { step:"editSong" }; render(); return; }
   if (action === "draft:titleRandom") { ed.title = randomSongTitleCandidate(ed); render(); return; }
   let m;
   if ((m = action.match(/^new:type:(lyrics|music)$/))) { ed.type = m[1]; ed.step = m[1] === "lyrics" ? "newLyricsMember" : "newMusicMember"; render(); return; }
@@ -4383,9 +4397,9 @@ function finishDraft(draftId) {
   maybeUnlockProgressSkills("song");
   updateDirection(song.mainGenre, 5); if (song.subGenre) updateDirection(song.subGenre, 4);
   state.pendingDrafts.splice(idx, 1);
-  const discovery = registerGenreDiscovery(song.subGenre || song.mainGenre, song.title);
+  const discovery = registerGenreDiscovery(song.subGenre, song.title);
   if (discovery) {
-    showEventPopup(discovery.rare ? "RARE GENRE DISCOVERED!!" : "NEW GENRE DISCOVERED!!", `${discovery.rare ? "レア" : "新"}ジャンル「${discovery.genre}」を発見！\n「${song.title}」からジャンル図鑑に登録された。`, discovery.rare ? "rare" : "song", discovery.rare ? "⭐" : "💡");
+    showEventPopup(discovery.rare ? "RARE GENRE DISCOVERED!!" : "NEW GENRE DISCOVERED!!", `${discovery.rare ? "レア" : "新"}ジャンル「${discovery.genre}」を発見！\n「${song.title}」から生まれた新しい方向性。`, discovery.rare ? "rare" : "song", discovery.rare ? "⭐" : "💡");
   }
   const bonusLines = [];
   if (discovery?.rare) bonusLines.push(`レアジャンル発見：${genreDisplay(song)}`);
@@ -4416,8 +4430,10 @@ ${liveExperienceBonus ? `ライブ経験ボーナス：+${val(liveExperienceBonu
 
 function registerGenreDiscovery(genre, songTitle="") {
   if (!genre) return null;
-  if (state.discoveredGenres[genre]) return null;
   const sg = SUB_GENRES.find(x => x.name === genre);
+  // メインジャンルは最初から知っている扱い。ポップ/図鑑発見は派生・レアジャンルだけに絞る。
+  if (!sg) return null;
+  if (state.discoveredGenres[genre]) return null;
   const rare = sg?.rarity === "rare";
   state.discoveredGenres[genre] = { turn: state.turn, songTitle, rare: !!rare };
   log(`${rare ? "レア" : "新"}ジャンル発見！『${genre}』${songTitle ? `（${songTitle}）` : ""}`, rare ? "rare" : "song");
