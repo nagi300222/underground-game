@@ -1,10 +1,10 @@
 /*
-  アンダーグラウンド（仮） v0.3.21 prototype
+  アンダーグラウンド（仮） v0.3.22 prototype
   - 1ファイル内の DATA を差し替えるだけでキャラ・曲・サポート候補を変更できます。
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
 
-const VERSION = "v0.3.21";
+const VERSION = "v0.3.22";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -910,7 +910,7 @@ const SAVE_SLOT_COUNT = 2;
 const SAVE_SLOT_PREFIX = "underground_v0310_slot_";
 const AUTOSAVE_SLOT_PREFIX = "underground_v0310_autoslot_";
 const CURRENT_SLOT_KEY = "underground_v0310_current_slot";
-const SAVE_VERSION = "v0.3.21";
+const SAVE_VERSION = "v0.3.22";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -1284,6 +1284,24 @@ function nextLiveLabel() {
   return `${state.nextLiveTurn}T ${ev?.label || ev?.name || "ライブ"}`;
 }
 function turnsUntilNextLive() { return Math.max(0, state.nextLiveTurn - state.turn); }
+function mustCompleteFirstDraftTutorial() {
+  return state.turn === 2 && Array.isArray(state.pendingDrafts) && state.pendingDrafts.some(d => !(d.lyricsDone && d.musicDone));
+}
+function firstDraftTutorialPopup() {
+  return {
+    title:"2ターン目：未完成曲を完成させよう",
+    body:"1ターン目で作った曲はまだ未完成。\nこのターンは未完成曲だけを選び、作っていない作詞/作曲を進めて曲完成まで確認しよう。",
+    type:"event",
+    icon:"📝"
+  };
+}
+function maybeShowFatigueIncreasePopup(before, after, reason) {
+  const inc = Math.round((after || 0) - (before || 0));
+  if (inc <= 0) return;
+  showEventPopup("疲労が増えた", `${reason}
+疲労 +${inc}%（現在 ${Math.round(after)}%）。
+疲労が高いと練習・宣伝・曲作りの効率が下がる。ライブ前日は休憩やドリンクも考えよう。`, "warn", "⚠️");
+}
 function log(msg, type="info") {
   state.logs.unshift(msg);
   state.lastLogType = type;
@@ -1292,7 +1310,7 @@ function log(msg, type="info") {
 function showEventPopup(title, body, type="info", icon="🎸", payload={}) {
   const popup = { title, body, type, icon, ...(payload || {}) };
   // ライブ演出中に通常ポップアップを出すと画面が重なるため、ライブ結果OK後に順番表示する。
-  if (state.deferPopupsUntilAfterLive || state.liveProgressModal || state.pendingLiveResultModal || state.liveResultModal || state.activePopup) {
+  if (state.deferPopupsUntilAfterLive || state.liveProgressModal || state.pendingLiveResultModal || state.liveResultModal || state.actionResultModal || state.detailModal || state.pendingBooking || state.pendingPurchase || state.saveSlotModal || state.pendingCancelLive || state.activePopup) {
     state.popupQueue = state.popupQueue || [];
     state.popupQueue.push(popup);
     return;
@@ -1327,6 +1345,11 @@ function closeLiveResultModal() {
 function closeActionResultModal() {
   state.actionResultModal = null;
   state.lastSongcraftResult = null;
+  if (Array.isArray(state.popupQueue) && state.popupQueue.length && !state.activePopup) {
+    state.activePopup = state.popupQueue.shift();
+    render();
+    return;
+  }
   // 行動結果を確認してからターンを進める。
   if (state.pendingTurnAdvance) {
     const pending = state.pendingTurnAdvance;
@@ -1351,6 +1374,11 @@ function finishPendingTurnAdvance() {
   scheduleNextLive();
   state.turnNotice = { turn: state.turn, next: state.nextLiveTurn, label: currentLiveName(), remain: turnsUntilNextLive(), createdAt: Date.now() };
   state.songcraftUsedThisTurn = false;
+  if (mustCompleteFirstDraftTutorial()) {
+    state.view = "songs";
+    state.songEditor = { step:"composeMenu" };
+    if (!state.activePopup) state.activePopup = firstDraftTutorialPopup();
+  }
   render();
 }
 function showLiveResultAfterProgress() {
@@ -1562,6 +1590,7 @@ function normalizeState() {
   if (typeof state.fesInfoKnown !== "boolean") state.fesInfoKnown = false;
   if (typeof state.pendingNoSongcraftCommand === "undefined") state.pendingNoSongcraftCommand = null;
   if (typeof state.pendingTurnAdvance === "undefined") state.pendingTurnAdvance = null;
+  if (typeof state.pendingCancelLive === "undefined") state.pendingCancelLive = null;
   if (!Array.isArray(state.applicants)) state.applicants = state.lastApplicant ? [state.lastApplicant] : [];
   if (!Array.isArray(state.dismissedApplicantIds)) state.dismissedApplicantIds = [];
   if (typeof state.promoRecruitTurns === "undefined") state.promoRecruitTurns = 0;
@@ -1714,6 +1743,12 @@ function renderIntroScreen() {
 
 function maybeTriggerStoryEvents() {
   if (state.activePopup || state.actionResultModal || state.liveProgressModal || state.liveResultModal || state.bandNamePrompt) return;
+  if (mustCompleteFirstDraftTutorial() && state.view !== "songs") {
+    state.view = "songs";
+    state.songEditor = { step:"composeMenu" };
+    state.activePopup = firstDraftTutorialPopup();
+    return;
+  }
   if (state.turn >= 4 && !state.band.name && !isLiveTurn()) {
     state.bandNamePrompt = true;
     return;
@@ -1759,6 +1794,13 @@ function completeSongcraftTutorial() {
 }
 
 function showTutorialBlocked(kind) {
+  if (mustCompleteFirstDraftTutorial() && kind !== "song") {
+    state.activePopup = firstDraftTutorialPopup();
+    state.view = "songs";
+    state.songEditor = { step:"composeMenu" };
+    render();
+    return true;
+  }
   if (state.tutorialStage === "needSong") {
     // 初回チュートリアル中は「作詞・作曲」だけ通す。
     // v0.3.0ではここで song もブロックしてしまい、
@@ -1890,13 +1932,15 @@ function renderHomeScreen() {
 
 function homeMenuButton(view, icon, label, small, forceLocked=false) {
   const scheduleLock = state.scheduleTutorialStage === "needSchedule" && view !== "schedule";
-  const locked = forceLocked || state.tutorialStage === "needSong" || (state.tutorialStage === "needCommand" && view !== "command") || scheduleLock;
-  const note = state.tutorialStage === "needSong" ? "まずは曲作り" : state.tutorialStage === "needCommand" && view !== "command" ? "先に今週の行動" : scheduleLock ? "まず予定を確認" : small;
+  const draftLock = mustCompleteFirstDraftTutorial() && view !== "songs";
+  const locked = forceLocked || draftLock || state.tutorialStage === "needSong" || (state.tutorialStage === "needCommand" && view !== "command") || scheduleLock;
+  const note = draftLock ? "未完成曲を完成" : state.tutorialStage === "needSong" ? "まずは曲作り" : state.tutorialStage === "needCommand" && view !== "command" ? "先に今週の行動" : scheduleLock ? "まず予定を確認" : small;
   return `<button class="jumpTabBtn menu-tile ${locked ? "locked" : ""}" data-view="${view}" ${locked ? "disabled" : ""}><span>${icon}</span><b>${label}</b><small>${note}</small></button>`;
 }
 function homeSongMenuButton() {
-  const locked = state.tutorialStage === "needCommand" || state.scheduleTutorialStage === "needSchedule";
-  const note = state.scheduleTutorialStage === "needSchedule" ? "まず予定を確認" : locked ? "次は行動を選ぼう" : "新曲・強化・未完成曲";
+  const forcedDraft = mustCompleteFirstDraftTutorial();
+  const locked = !forcedDraft && (state.tutorialStage === "needCommand" || state.scheduleTutorialStage === "needSchedule");
+  const note = forcedDraft ? "未完成曲を完成させる" : state.scheduleTutorialStage === "needSchedule" ? "まず予定を確認" : locked ? "次は行動を選ぼう" : "新曲・強化・未完成曲";
   return `<button class="openSongEditorBtn menu-tile ${locked ? "locked" : ""}" ${locked ? "disabled" : ""}><span>🎼</span><b>作詞・作曲</b><small>${note}</small></button>`;
 }
 
@@ -1910,7 +1954,7 @@ function renderSavePanel() {
 function renderPwaPanel() {
   return `<div class="pwa-panel">
     <b>スマホ確認</b>
-    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.21は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
+    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.22は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
   </div>`;
 }
 
@@ -1919,17 +1963,22 @@ function renderSchedulePanel() {
   const events = state.liveEvents.filter(e => e.turn >= state.turn).sort((a,b)=>a.turn-b.turn);
   const canBook = canBookSchedules();
   const candidates = canBook ? buildLiveCandidates() : [];
-  return `<div class="schedule-panel">
-    <div class="section-title"><h3>スケジュール帳</h3><span class="badge warn">残り2ターン以内は予約・キャンセル不可</span></div>
-    <div class="schedule-list-x booked-list">
-      ${events.map(e => renderScheduleEvent(e)).join("") || `<div class="schedule-event empty-panel">予定なし</div>`}
-    </div>
-    <hr class="soft" />
-    <div class="section-title"><h3>出演できるライブ候補</h3><span class="badge ${canBook ? "good" : "warn"}">${canBook ? "選択して予約" : "初ライブ後に解放"}</span></div>
-    <div class="live-candidate-list">
-      ${canBook ? candidates.map(renderLiveCandidate).join("") || `<div class="empty-panel">予約可能なライブ候補がありません。</div>` : `<div class="empty-panel">初ライブ後から、スケジュール帳で出たいライブを選んで予約できます。</div>`}
-    </div>
-    <small>${canBook ? "候補カードを押すと予約。大きい会場ほど準備不足時の評価ペナルティが強いです。" : "まずは5ターン目の初ライブを目標に準備しましょう。"}</small>
+  return `<div class="schedule-screen-split">
+    <section class="schedule-panel schedule-booked-panel">
+      <div class="section-title"><h3>スケジュール帳</h3><span class="badge warn">残り2ターン以内は予約・キャンセル不可</span></div>
+      <div class="schedule-scroll-box">
+        <div class="schedule-list-x booked-list">
+          ${events.map(e => renderScheduleEvent(e)).join("") || `<div class="schedule-event empty-panel">予定なし</div>`}
+        </div>
+      </div>
+    </section>
+    <section class="live-candidates-panel">
+      <div class="section-title"><h3>出演できるライブ候補</h3><span class="badge ${canBook ? "good" : "warn"}">${canBook ? "選択して予約" : "初ライブ後に解放"}</span></div>
+      <div class="live-candidate-list">
+        ${canBook ? candidates.map(renderLiveCandidate).join("") || `<div class="empty-panel">予約可能なライブ候補がありません。</div>` : `<div class="empty-panel">初ライブ後から、スケジュール帳で出たいライブを選んで予約できます。</div>`}
+      </div>
+      <small>${canBook ? "候補カードを押すと予約。大きい会場ほど準備不足時の評価ペナルティが強いです。" : "まずは5ターン目の初ライブを目標に準備しましょう。"}</small>
+    </section>
   </div>`;
 }
 function buildLiveCandidates() {
@@ -2295,7 +2344,7 @@ function renderSongEditorStep(ed) {
     const hasDrafts = state.pendingDrafts.length > 0;
     const forceFirstDraft = state.turn === 2 && hasDrafts;
     if (forceFirstDraft) {
-      return `<div class="editor-summary tutorial-box"><b>2ターン目：未完成曲を完成させよう</b><span>1ターン目で作った曲はまだ未完成。作っていない作詞/作曲だけを進めて、曲が完成する流れを確認しよう。</span></div><div class="choice-grid song-choice">${state.pendingDrafts.map(d=>choiceButton(`<b>${escapeHtml(d.titleHint)}</b>`, `draft:select:${d.id}`, "", draftProgressSmall(d))).join("")}</div>${editorBackButton()}`;
+      return `<div class="editor-summary tutorial-box"><b>2ターン目：未完成曲を完成させよう</b><span>このターンは他の操作を一時ロック中。未完成曲を選び、作っていない作詞/作曲を進めると曲が完成します。</span></div><div class="choice-grid song-choice">${state.pendingDrafts.map(d=>choiceButton(`<b>${escapeHtml(d.titleHint)}</b>`, `draft:select:${d.id}`, "", draftProgressSmall(d))).join("")}</div>`;
     }
     return `<div class="choice-grid main-choice-grid">
       ${choiceButton("<span>🆕</span><b>新曲作成</b>", "new:start", "", "作詞か作曲から始める")}
@@ -2408,7 +2457,7 @@ function applyDraftMusicFields(d, mainGenreA, mainGenreB, arrange) {
 }
 function handleSongEditorAction(action) {
   const ed = editorData();
-  if (action === "editor:back") { stepSongEditorBack(ed); render(); return; }
+  if (action === "editor:back") { if (mustCompleteFirstDraftTutorial()) { state.songEditor = { step:"composeMenu" }; showEventPopup("未完成曲を完成", "2ターン目は未完成曲の完成まで曲エディタから進めよう。", "event", "📝"); render(); return; } stepSongEditorBack(ed); render(); return; }
   if (action === "editor:menu") { state.songEditor = { step:"menu" }; render(); return; }
   if (action === "compose:menu") { state.songEditor = { step:"composeMenu" }; render(); return; }
   if (action === "arrange:menu") { state.songEditor = { step:"arrangeMenu" }; render(); return; }
@@ -3196,6 +3245,7 @@ function renderOverlays() {
   if (state.detailModal) return renderDetailModalOverlay();
   if (state.livePrepPickerSlot) return renderLiveSongPickerOverlay();
   if (state.pendingBooking) return renderBookingConfirmOverlay();
+  if (state.pendingCancelLive) return renderCancelLiveConfirmOverlay();
   if (state.pendingPurchase) return renderPurchaseConfirmOverlay();
   if (state.saveSlotModal) return renderSaveSlotOverlay();
   if (state.pendingNoSongcraftCommand) return renderNoSongcraftConfirmOverlay();
@@ -3235,6 +3285,21 @@ function renderTurnNoticeOverlay() {
   const next = n.next ? `NEXT ${n.remain}ターン後 ${n.label}` : "NEXT 予定なし";
   return `<div class="turn-toast"><b>${n.turn}/${state.maxTurn || 50}ターン</b><span>${escapeHtml(next)}</span></div>`;
 }
+function renderCancelLiveConfirmOverlay() {
+  const p = state.pendingCancelLive || {};
+  const ev = liveEventForTurn(Number(p.turn));
+  const v = ev ? venueById(ev.venueId) : null;
+  const noShow = !!p.noShow;
+  const penalty = v ? (noShow ? v.fee + Math.round(v.fee * 0.5) : 0) : 0;
+  return `<div class="modal-backdrop"><div class="event-modal warn">
+    <div class="modal-icon">${noShow ? "⚠️" : "📅"}</div>
+    <div class="modal-copy"><h2>${noShow ? "ライブをドタキャンする？" : "ライブをキャンセルする？"}</h2>
+      <p>${ev && v ? `${ev.turn}ターン目「${escapeHtml(v.name)}」を${noShow ? "ドタキャン" : "キャンセル"}します。` : "対象のライブをキャンセルします。"}<br>${noShow ? `会場費＋損料 ${penalty.toLocaleString()}円が発生し、信頼度と知名度が大きく下がります。` : "メリットはなく、信頼度と知名度が少し下がります。"}</p>
+    </div>
+    <div class="modal-actions confirm-wide"><button id="confirmCancelLiveBtn" class="big-action danger">${noShow ? "ドタキャンする" : "キャンセルする"}</button><button id="cancelCancelLiveBtn" class="ghost-btn">戻る</button></div>
+  </div></div>`;
+}
+
 function renderPurchaseConfirmOverlay() {
   const item = state.pendingPurchase;
   const isGear = String(item || "").startsWith("gear:");
@@ -3516,10 +3581,14 @@ function bindEvents() {
   if (confirmBookingBtn) confirmBookingBtn.addEventListener("click", () => { const b = state.pendingBooking; state.pendingBooking = null; if (b) bookLiveFromHome(b.turn, b.venueId, true); });
   const cancelBookingBtn = document.getElementById("cancelBookingBtn");
   if (cancelBookingBtn) cancelBookingBtn.addEventListener("click", () => { state.pendingBooking = null; render(); });
-  document.querySelectorAll(".cancelLiveBtn").forEach(btn => btn.addEventListener("click", () => cancelBookedLive(Number(btn.dataset.turn), false)));
+  const cancelCancelLiveBtn = document.getElementById("cancelCancelLiveBtn");
+  if (cancelCancelLiveBtn) cancelCancelLiveBtn.addEventListener("click", () => { state.pendingCancelLive = null; render(); });
+  const confirmCancelLiveBtn = document.getElementById("confirmCancelLiveBtn");
+  if (confirmCancelLiveBtn) confirmCancelLiveBtn.addEventListener("click", () => { const p = state.pendingCancelLive || {}; state.pendingCancelLive = null; cancelBookedLive(Number(p.turn), !!p.noShow); });
+  document.querySelectorAll(".cancelLiveBtn").forEach(btn => btn.addEventListener("click", () => { state.pendingCancelLive = { turn:Number(btn.dataset.turn), noShow:false }; render(); }));
   document.querySelectorAll(".selectMemberBtn").forEach(btn => btn.addEventListener("click", () => { state.selectedMemberId = btn.dataset.memberId || "player"; render(); }));
   const noShowBtn = document.getElementById("noShowLiveBtn");
-  if (noShowBtn) noShowBtn.addEventListener("click", () => cancelBookedLive(state.turn, true));
+  if (noShowBtn) noShowBtn.addEventListener("click", () => { state.pendingCancelLive = { turn:state.turn, noShow:true }; render(); });
   document.querySelectorAll(".supportCheck").forEach(cb => cb.addEventListener("change", () => { state.livePrepSupportIds = [...document.querySelectorAll(".supportCheck:checked")].map(x => x.value); }));
   const merchSel = document.getElementById("merchSelect");
   if (merchSel) merchSel.addEventListener("change", () => { state.livePrepMerch = merchSel.value; });
@@ -3618,6 +3687,9 @@ function confirmNoSongcraftCommand() {
   state.pendingNoSongcraftCommand = null;
   if (command) runCommandTurn(command);
 }
+function commandLabel(command) {
+  return ({ practice:"練習", rest:"休憩", parttime:"バイト", recruit:"募集", promo:"宣伝", talk:"会話" }[command] || "行動");
+}
 function runCommandTurn(command) {
   const before = snapshotActionState();
   state.commandCounts = state.commandCounts || {};
@@ -3631,6 +3703,7 @@ function runCommandTurn(command) {
   const tutorialMsg = state.tutorialStage === "needCommand" ? "5ターン目に初ライブだ！\n曲を作り、メンバーを集めよう！" : "";
   if (state.tutorialStage === "needCommand") state.tutorialStage = "done";
   state.actionResultModal = makeActionResultModal(command, before, after, event, tutorialMsg);
+  maybeShowFatigueIncreasePopup(before.fatigue, after.fatigue, commandLabel(command) + "で疲労が増えた。");
   state.pendingTurnAdvance = { nextTurn: state.turn + 1 };
   render();
 }
@@ -3984,6 +4057,7 @@ function applySongcraftFatigue(type, baseCost, member, label) {
     showEventPopup("疲労限界", `${label}には疲労${r.cost}%が必要です。疲労が100％を超えるため、先に休憩かドリンクを使おう。`, "warn", "⚠️");
     return false;
   }
+  const fatigueBeforeCraft = state.band.fatigue || 0;
   state.band.fatigue = clamp((state.band.fatigue || 0) + r.cost, 0, 100);
   if (!state.playerCraft) state.playerCraft = { lyricsXp:0, musicXp:0 };
   const beforeLv = craftLevel(type);
@@ -4007,7 +4081,10 @@ function applySongcraftFatigue(type, baseCost, member, label) {
   }
   if (r.free) { log(`${label}は${r.reason}で疲労なしで進められた。`, "rare"); showEventPopup("ひらめき制作！", `${label}は${r.reason}で疲労なしで進められた。
 今週はまだ余力が残っている。`, "rare", "💡"); }
-  else log(`${label}で疲労+${r.cost}%。作詞Lv${craftLevel("lyrics")} / 作曲Lv${craftLevel("music")}。`, "song");
+  else {
+    log(`${label}で疲労+${r.cost}%。作詞Lv${craftLevel("lyrics")} / 作曲Lv${craftLevel("music")}。`, "song");
+    maybeShowFatigueIncreasePopup(fatigueBeforeCraft, state.band.fatigue, `${label}で疲労がたまった。`);
+  }
   return true;
 }
 function fatigueEffectMultiplier() {
@@ -4770,7 +4847,9 @@ function applyLiveResult(r, setlist, supports) {
   b.funds += r.revenue.finalProfit;
   state.totalMerchSales = (state.totalMerchSales || 0) + Number(r.revenue?.merch?.salesRevenue || 0);
   b.trust = clamp(b.trust + ({ S:8, A:5, B:3, C:0, D:-3, E:-6 }[r.rank] || 0), 0, 100);
+  const fatigueBeforeLive = b.fatigue;
   b.fatigue = clamp(b.fatigue + 18 + Math.round(avg(setlist.map(s => s.tempo)) / 9) + Math.max(0, activeMembers().length - 4) * 5 - avg(activeMembers().map(m=>m.stats.stamina)) / 16, 0, 100);
+  maybeShowFatigueIncreasePopup(fatigueBeforeLive, b.fatigue, "ライブ本番で疲労が増えた。");
   setlist.forEach((song, idx) => {
     const prevTurn = song.lastLiveTurn || 0;
     song.consecutiveLiveUses = prevTurn === state.turn - 1 ? (song.consecutiveLiveUses || 0) + 1 : 1;

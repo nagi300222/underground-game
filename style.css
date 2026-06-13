@@ -2297,3 +2297,84 @@ input, select, textarea, button { font-size:16px; }
   .live-candidate-list { max-height:460px; overflow-y:auto; padding-right:2px; }
   .liveCandidateBtn.schedule-event.candidate { min-height:auto; }
 }
+
+/* v0.3.22: 2T導線・歌詞入力・スケジュール分離 */
+.clear-lyric-grid .lyric-word-row,
+.keyword-form .lyric-word-row {
+  display:block !important;
+  width:100%;
+  min-width:0;
+  padding:10px;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;
+  background:rgba(0,0,0,.16);
+  box-sizing:border-box;
+}
+.clear-lyric-grid .title-input-row,
+.keyword-form .lyric-word-row .title-input-row {
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) 54px !important;
+  gap:8px;
+  width:100%;
+}
+.clear-lyric-grid input,
+.keyword-form .lyric-word-row input {
+  width:100% !important;
+  min-width:0 !important;
+  min-height:48px;
+  font-size:16px;
+  box-sizing:border-box;
+}
+.keyword-form .keywordDiceBtn {
+  min-width:54px;
+  min-height:48px;
+  font-size:1.2rem;
+}
+button:focus:not(:focus-visible), input:focus:not(:focus-visible), select:focus:not(:focus-visible) { outline:none !important; box-shadow:none !important; }
+@media (hover:none), (pointer:coarse) {
+  button:focus-visible, select:focus-visible, input:focus-visible { outline:none !important; box-shadow:none !important; }
+  button:hover, .command-card:hover, .liveCandidateBtn:hover { border-color:var(--line) !important; box-shadow:none !important; filter:none !important; transform:none !important; }
+}
+.schedule-screen-split {
+  display:grid;
+  gap:12px;
+  width:100%;
+  max-width:100%;
+  overflow-x:hidden;
+}
+.schedule-booked-panel,
+.live-candidates-panel {
+  max-width:100%;
+  overflow-x:hidden;
+  box-sizing:border-box;
+}
+.schedule-scroll-box {
+  width:100%;
+  max-width:100%;
+  overflow-x:auto;
+  overflow-y:hidden;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-x:contain;
+}
+.schedule-scroll-box .schedule-list-x {
+  width:max-content;
+  max-width:none;
+  overflow:visible;
+}
+.live-candidates-panel .live-candidate-list {
+  width:100%;
+  max-width:100%;
+  overflow-x:hidden;
+  grid-template-columns:minmax(0,1fr) !important;
+}
+.live-candidates-panel .liveCandidateBtn.schedule-event.candidate {
+  width:100% !important;
+  max-width:100% !important;
+  min-width:0 !important;
+  grid-template-columns:1fr;
+}
+@media (max-width:620px) {
+  .schedule-scroll-box .schedule-list-x { grid-auto-columns:minmax(170px, 210px); }
+  .schedule-booked-panel { padding:8px; }
+  .live-candidates-panel { padding:10px; border:1px solid rgba(255,255,255,.08); border-radius:14px; background:rgba(0,0,0,.10); }
+}
