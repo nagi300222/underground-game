@@ -2275,3 +2275,102 @@ input, select, textarea, button { font-size:16px; }
   .pt-slider-row { grid-template-columns: 1fr; }
   .pt-slider-row input[type="number"] { width:100%; }
 }
+
+/* v0.3.20: lyric input / tutorial focus / schedule compact fixes */
+.clear-lyric-grid,
+.lyric-word-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  width: 100%;
+}
+.lyric-word-row {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 6px !important;
+  align-items: stretch;
+  width: 100%;
+}
+.lyric-word-row label {
+  font-size: .82rem;
+  color: var(--muted);
+  font-weight: 800;
+}
+.lyric-word-row .title-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 52px;
+  width: 100%;
+  gap: 8px;
+}
+.lyric-word-row input,
+.keyword-form input {
+  width: 100%;
+  min-width: 0;
+  min-height: 52px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+.keyword-form .big-action { min-height: 54px; }
+button:focus,
+button:active,
+button:focus-visible,
+.command-card:focus,
+.command-card:active,
+.menu-tile:focus,
+.menu-tile:active,
+.tabBtn:focus,
+.tabBtn:active {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: var(--line) !important;
+}
+.tabBtn.active,
+.menu-tile.locked,
+button.stage-slot.selected {
+  border-color: rgba(117,191,255,.55) !important;
+}
+* { -webkit-tap-highlight-color: transparent; }
+.schedule-panel {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+.schedule-list-x.booked-list {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+  padding-bottom: 10px;
+}
+.live-candidate-list {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+.live-candidate-list .schedule-event,
+.live-candidate-list .liveCandidateBtn.schedule-event {
+  flex: initial !important;
+  min-width: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box;
+}
+.log-line.log-rare {
+  color: #ffce5c;
+  border-left: 3px solid rgba(255,206,92,.75);
+  background: rgba(255,206,92,.08);
+}
+.log-line.log-purple {
+  color: #d7b7ff;
+  border-left: 3px solid rgba(190,132,255,.75);
+  background: rgba(190,132,255,.08);
+}
+@media (max-width: 620px) {
+  .keywordDiceBtn { min-height: 52px; }
+  .live-candidate-list { grid-template-columns: 1fr !important; }
+  .schedule-screen, .schedule-panel { overflow-x: hidden !important; }
+  .schedule-list-x.booked-list { overflow-x: auto !important; }
+}
