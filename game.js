@@ -1,10 +1,10 @@
 /*
-  アンダーグラウンド（仮） v0.3.17 prototype
+  アンダーグラウンド（仮） v0.3.19 prototype
   - 1ファイル内の DATA を差し替えるだけでキャラ・曲・サポート候補を変更できます。
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
 
-const VERSION = "v0.3.18";
+const VERSION = "v0.3.19";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -859,7 +859,7 @@ const SAVE_SLOT_COUNT = 2;
 const SAVE_SLOT_PREFIX = "underground_v0310_slot_";
 const AUTOSAVE_SLOT_PREFIX = "underground_v0310_autoslot_";
 const CURRENT_SLOT_KEY = "underground_v0310_current_slot";
-const SAVE_VERSION = "v0.3.18";
+const SAVE_VERSION = "v0.3.19";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -2152,160 +2152,265 @@ function renderSongEditor() {
   </div>`;
 }
 function songEditorTitle(ed) {
-  const map = { menu:"曲エディタ", newType:"新曲：作詞/作曲", newMain1:"新曲：メインジャンル1", newMain2:"新曲：メインジャンル2", newTheme:"新曲：テーマ", newKeyword:"新曲：キーワード", newArrange:"新曲：アレンジ", newMember:"新曲：担当メンバー", newTitle:"新曲：曲名", boostSong:"強化：曲選択", boostType:"強化：カテゴリ", boostMember:"強化：担当メンバー", draftSelect:"未完成曲", draftType:"未完成曲：作詞/作曲", draftMember:"未完成曲：担当メンバー", draftFinalize:"曲完成前確認", arrangeSong:"編曲：曲選択", arrangeForm:"編曲：編集/強化" };
+  const map = {
+    menu:"曲エディタ",
+    composeMenu:"曲作成",
+    newType:"新曲作成",
+    newLyricsMember:"新曲：作詞者",
+    newLyricWords:"新曲：作詞",
+    newMusicMember:"新曲：作曲者",
+    newMain1:"新曲：ジャンル1",
+    newMain2:"新曲：ジャンル2",
+    newArrange:"新曲：アレンジ",
+    newMusicConfirm:"新曲：作曲確認",
+    draftSelect:"未完成曲",
+    draftType:"未完成曲：続き",
+    draftLyricsMember:"未完成曲：作詞者",
+    draftLyricWords:"未完成曲：作詞",
+    draftMusicMember:"未完成曲：作曲者",
+    draftMain1:"未完成曲：ジャンル1",
+    draftMain2:"未完成曲：ジャンル2",
+    draftMusicArrange:"未完成曲：アレンジ",
+    draftMusicConfirm:"未完成曲：作曲確認",
+    draftFinalize:"曲完成前確認",
+    arrangeMenu:"編曲",
+    boostSong:"曲強化：曲選択",
+    boostPtForm:"曲強化：曲Pt振り分け",
+    editSong:"曲編集：曲選択",
+    editForm:"曲編集"
+  };
   return map[ed.step] || "曲エディタ";
 }
 function editorBackButton() { return `<button class="songEditorChoiceBtn ghost-btn editor-back-btn" data-action="editor:back">← 戻る</button>`; }
+function lyricWordsFromText(text="") { return String(text || "").split(/[、,\s/]+/).filter(Boolean).slice(0,3); }
+function renderLyricWordInputs(words=[]) {
+  return `<div class="lyric-word-grid clear-lyric-grid">${[1,2,3].map(i=>`<div class="lyric-word-row"><label>${i}語目</label><div class="title-input-row"><input id="editorKeywordInput${i}" value="${escapeHtml(words[i-1] || "")}" placeholder="${i===1 ? "例：午前二時" : i===2 ? "例：コンビニ前" : "例：まだ鳴ってる"}" /><button class="keywordDiceBtn" data-target="${i}" type="button">🎲</button></div></div>`).join("")}</div>`;
+}
+function draftProgressSmall(d) {
+  return `${d.lyricsDone ? "作詞済" : "作詞未"} / ${d.musicDone ? "作曲済" : "作曲未"} / ${escapeHtml(genreDisplay(d))}${d.arrange ? " / " + escapeHtml(d.arrange) : ""}`;
+}
+function provisionalDraftTitle(type, ed) {
+  if (type === "lyrics") return makeTitle(ed.keyword || "新しい言葉", ed.theme || "自分");
+  return `未完成曲${(state.pendingDrafts || []).length + 1}`;
+}
+function statSliderRows(song) {
+  const pt = song?.songPt || 0;
+  const stats = ["catchy","tempo","recognition","lyrics","performance","trend"];
+  return `<div class="pt-slider-list">${stats.map(k=>`<div class="pt-slider-row"><label>${statSongLabel(k)} <small>現在${val(song[k]||0)}</small></label><input class="songPtInput" data-stat="${k}" type="range" min="0" max="${Math.max(0, pt)}" value="0" /><input class="songPtNumber" data-stat="${k}" type="number" min="0" max="${Math.max(0, pt)}" value="0" inputmode="numeric" /></div>`).join("")}</div>`;
+}
 function renderSongEditorStep(ed) {
   if (ed.step === "menu") {
+    return `<div class="choice-grid main-choice-grid">
+      ${choiceButton("<span>🎼</span><b>曲作成</b>", "compose:menu", "", "新曲作成・未完成曲の続き")}
+      ${choiceButton("<span>🎛️</span><b>編曲</b>", "arrange:menu", state.songs.length ? "" : "disabled", "曲強化・曲編集")}
+    </div>`;
+  }
+  if (ed.step === "composeMenu") {
     const hasDrafts = state.pendingDrafts.length > 0;
     const forceFirstDraft = state.turn === 2 && hasDrafts;
     if (forceFirstDraft) {
-      return `<div class="editor-summary tutorial-box"><b>2ターン目：未完成曲を完成させよう</b><span>1ターン目で作った曲はまだ50％。作っていない作詞/作曲を選ぶと、曲が100％完成する流れが分かります。</span></div><div class="choice-grid main-choice-grid">${choiceButton("<span>📝</span><b>未完成曲を進める</b>", "draft:start", "", "作っていない詞/曲を完成させる")}</div>`;
+      return `<div class="editor-summary tutorial-box"><b>2ターン目：未完成曲を完成させよう</b><span>1ターン目で作った曲はまだ未完成。作っていない作詞/作曲だけを進めて、曲が完成する流れを確認しよう。</span></div><div class="choice-grid song-choice">${state.pendingDrafts.map(d=>choiceButton(`<b>${escapeHtml(d.titleHint)}</b>`, `draft:select:${d.id}`, "", draftProgressSmall(d))).join("")}</div>${editorBackButton()}`;
     }
     return `<div class="choice-grid main-choice-grid">
-      ${choiceButton("<span>🆕</span><b>新曲を作る</b>", "new:start", "", "ジャンル・テーマを決めて、最後に曲名を決める")}
-      ${choiceButton("<span>🔧</span><b>曲を強化する</b>", "boost:start", "", "完成曲の歌詞・演奏を伸ばす")}
-      ${choiceButton("<span>🎛️</span><b>編曲する</b>", "arrange:start", state.songs.length ? "" : "disabled", "ジャンル/アレンジ/テーマを調整し、曲Ptで磨く")}
-      ${choiceButton("<span>📝</span><b>未完成曲を進める</b>", "draft:start", hasDrafts ? "" : "disabled", hasDrafts ? "作っていない詞/曲を完成させる" : "制作中の曲がありません")}
-    </div>`;
+      ${choiceButton("<span>🆕</span><b>新曲作成</b>", "new:start", "", "作詞か作曲から始める")}
+      ${state.pendingDrafts.map(d=>choiceButton(`<span>📝</span><b>${escapeHtml(d.titleHint)}</b>`, `draft:select:${d.id}`, "", draftProgressSmall(d))).join("")}
+      ${!hasDrafts ? `<div class="empty-panel">未完成曲はありません。</div>` : ""}
+    </div>${editorBackButton()}`;
   }
-  if (ed.step === "newTitle") {
-    return `<div class="editor-form song-title-final"><label>最後に曲名を決める</label><div class="title-input-row"><input id="editorSongTitle" value="${escapeHtml(ed.title || "")}" placeholder="例：Basement Anthem" /><button class="songEditorChoiceBtn dice-title-btn" data-action="new:titleRandom" title="ランダム生成">🎲</button></div><div class="editor-summary mini"><b>制作内容</b><span>${ed.type === "lyrics" ? "作詞" : "作曲"} / ${ed.mainGenreA || "-"}→${ed.mainGenreB || "-"} / ${ed.theme || "-"} / ${ed.arrange || "-"}</span></div><button class="songEditorNextBtn big-action" data-action="new:titleExecute">この曲名で制作する</button>${editorBackButton()}</div>`;
+  if (ed.step === "newType") {
+    return `<div class="editor-summary mini"><b>新曲作成</b><span>先に作詞か作曲を作る。作詞と作曲が揃うと、曲名とテーマを決めて完成します。</span></div><div class="choice-grid">${choiceButton("<b>作詞</b>", "new:type:lyrics", "", "作詞者と歌詞3語を決める")}${choiceButton("<b>作曲</b>", "new:type:music", "", "作曲者・ジャンル2つ・アレンジを決める")}</div>${editorBackButton()}`;
   }
+  if (ed.step === "newLyricsMember") return `<p><small>作詞者を選択。作詞力・得意ジャンルが歌詞完成度に影響します。</small></p><div class="choice-grid member-choice">${activeMembers().map(m=>choiceButton(`<b>${m.name}</b>`, `new:lyricsMember:${m.id}`, "", memberCraftSmall(m, "lyrics", ed))).join("")}</div>${editorBackButton()}`;
+  if (ed.step === "newLyricWords") {
+    const words = lyricWordsFromText(ed.keyword || "");
+    const preview = ed.keyword ? keywordPreview(ed.keyword, ed.theme) : "3つの歌詞ワードを入れてください。未登録ワードも個性として扱います。";
+    return `<div class="editor-form keyword-form"><label>歌詞の単語を3つ入力</label>${renderLyricWordInputs(words)}<button class="songEditorNextBtn big-action" data-action="new:lyricsExecute">作詞を完了する</button><div class="keyword-preview">${preview}</div>${editorBackButton()}</div>`;
+  }
+  if (ed.step === "newMusicMember") return `<p><small>作曲者を選択。作曲力・ジャンル適性が曲の演奏/テンポに影響します。</small></p><div class="choice-grid member-choice">${activeMembers().map(m=>choiceButton(`<b>${m.name}</b>`, `new:musicMember:${m.id}`, "", memberCraftSmall(m, "music", ed))).join("")}</div>${editorBackButton()}`;
+  if (ed.step === "newMain1") return `<div class="choice-grid genre-choice">${availableMainGenres().map(g=>choiceButton(`<b>${g}</b>`, `new:main1:${g}`)).join("")}</div>${editorBackButton()}`;
+  if (ed.step === "newMain2") return `<div class="editor-summary mini"><b>1つ目</b><span>${ed.mainGenreA || "-"}</span></div><div class="choice-grid genre-choice">${availableMainGenres().map(g=>choiceButton(`<b>${g}</b>`, `new:main2:${g}`)).join("")}</div>${editorBackButton()}`;
+  if (ed.step === "newArrange") return `<div class="editor-summary mini"><b>ジャンル狙い</b><span>${ed.mainGenreA || "-"} → ${ed.mainGenreB || "-"}</span><span>${ed.mainGenreA && ed.mainGenreB ? genrePlanLabel(ed.mainGenreA, ed.mainGenreB, ed.arrange || "") : ""}</span></div><div class="choice-grid compact-choice-grid arrange-choice">${ARRANGES.map(x=>choiceButton(`<b>${x}</b>`, `new:arrange:${x}`)).join("")}</div>${editorBackButton()}`;
+  if (ed.step === "newMusicConfirm") return `<div class="editor-summary"><b>作曲確認</b><span>作曲者：${escapeHtml(activeMembers().find(m=>m.id===ed.memberId)?.name || "-")}</span><span>ジャンル：${ed.mainGenreA || "-"} → ${ed.mainGenreB || "-"}</span><span>アレンジ：${ed.arrange || "-"}</span><span>派生確率：${ed.mainGenreA && ed.mainGenreB ? genrePlanLabel(ed.mainGenreA, ed.mainGenreB, ed.arrange || "") : "-"}</span></div><button class="songEditorNextBtn big-action" data-action="new:musicExecute">作曲を完了する</button>${editorBackButton()}`;
+  if (ed.step === "draftSelect") return `<div class="choice-grid song-choice">${state.pendingDrafts.map(d=>choiceButton(`<b>${escapeHtml(d.titleHint)}</b>`, `draft:select:${d.id}`, "", draftProgressSmall(d))).join("") || `<div class="empty-panel">制作中の曲はありません。</div>`}</div>${editorBackButton()}`;
+  if (ed.step === "draftType") {
+    const d = state.pendingDrafts.find(x=>x.id===ed.draftId);
+    if (!d) return `<div class="empty-panel">制作中の曲が見つかりません。</div>${editorBackButton()}`;
+    return `<div class="editor-summary mini"><b>${escapeHtml(d.titleHint)}</b><span>${draftProgressSmall(d)}</span><span>作成済みの項目は押せません。未作成の作詞/作曲だけ進められます。</span></div><div class="choice-grid">${choiceButton("<b>作詞</b>", "draft:type:lyrics", d.lyricsDone ? "disabled" : "", d.lyricsDone ? "作詞済み" : "未作成")}${choiceButton("<b>作曲</b>", "draft:type:music", d.musicDone ? "disabled" : "", d.musicDone ? "作曲済み" : "未作成")}</div>${editorBackButton()}`;
+  }
+  if (ed.step === "draftLyricsMember") return `<p><small>作詞者を選択。</small></p><div class="choice-grid member-choice">${activeMembers().map(m=>choiceButton(`<b>${m.name}</b>`, `draft:lyricsMember:${m.id}`, "", memberCraftSmall(m, "lyrics", state.pendingDrafts.find(x=>x.id===ed.draftId)||ed))).join("")}</div>${editorBackButton()}`;
+  if (ed.step === "draftLyricWords") {
+    const d = state.pendingDrafts.find(x=>x.id===ed.draftId) || {};
+    const words = lyricWordsFromText(ed.keyword || d.keyword || "");
+    return `<div class="editor-form keyword-form"><label>歌詞の単語を3つ入力</label>${renderLyricWordInputs(words)}<button class="songEditorNextBtn big-action" data-action="draft:lyricsExecute">作詞を完了する</button><div class="keyword-preview">${keywordPreview(words.join(" "), d.theme || "")}</div>${editorBackButton()}</div>`;
+  }
+  if (ed.step === "draftMusicMember") return `<p><small>作曲者を選択。</small></p><div class="choice-grid member-choice">${activeMembers().map(m=>choiceButton(`<b>${m.name}</b>`, `draft:musicMember:${m.id}`, "", memberCraftSmall(m, "music", state.pendingDrafts.find(x=>x.id===ed.draftId)||ed))).join("")}</div>${editorBackButton()}`;
+  if (ed.step === "draftMain1") return `<div class="choice-grid genre-choice">${availableMainGenres().map(g=>choiceButton(`<b>${g}</b>`, `draft:main1:${g}`)).join("")}</div>${editorBackButton()}`;
+  if (ed.step === "draftMain2") return `<div class="editor-summary mini"><b>1つ目</b><span>${ed.mainGenreA || "-"}</span></div><div class="choice-grid genre-choice">${availableMainGenres().map(g=>choiceButton(`<b>${g}</b>`, `draft:main2:${g}`)).join("")}</div>${editorBackButton()}`;
+  if (ed.step === "draftMusicArrange") return `<div class="editor-summary mini"><b>ジャンル狙い</b><span>${ed.mainGenreA || "-"} → ${ed.mainGenreB || "-"}</span></div><div class="choice-grid compact-choice-grid arrange-choice">${ARRANGES.map(x=>choiceButton(`<b>${x}</b>`, `draft:arrange:${x}`)).join("")}</div>${editorBackButton()}`;
+  if (ed.step === "draftMusicConfirm") return `<div class="editor-summary"><b>作曲確認</b><span>ジャンル：${ed.mainGenreA || "-"} → ${ed.mainGenreB || "-"}</span><span>アレンジ：${ed.arrange || "-"}</span><span>派生確率：${ed.mainGenreA && ed.mainGenreB ? genrePlanLabel(ed.mainGenreA, ed.mainGenreB, ed.arrange || "") : "-"}</span></div><button class="songEditorNextBtn big-action" data-action="draft:musicExecute">作曲を完了する</button>${editorBackButton()}`;
   if (ed.step === "draftFinalize") {
     const d = state.pendingDrafts.find(x => x.id === ed.draftId);
     if (!d) return `<div class="empty-panel">完成確認中の曲が見つかりません。</div>${editorBackButton()}`;
     const themeOptions = availableThemes().map(t => `<option value="${escapeHtml(t)}" ${t === (ed.theme || d.theme) ? "selected" : ""}>${escapeHtml(t)}</option>`).join("");
-    return `<div class="editor-form song-title-final"><div class="editor-summary tutorial-box"><b>曲完成前確認</b><span>曲名とテーマをここで編集できます。完了すると新曲として登録されます。</span></div><label>曲名</label><div class="title-input-row"><input id="draftFinalTitle" value="${escapeHtml(ed.title || d.titleHint || "")}" placeholder="曲名" /><button class="songEditorChoiceBtn dice-title-btn" data-action="draft:titleRandom" title="ランダム生成">🎲</button></div><label>テーマ</label><select id="draftFinalTheme">${themeOptions}</select><div class="editor-summary mini"><b>制作内容</b><span>作詞${val(d.lyricsScore)}% / 作曲${val(d.musicScore)}% / ${escapeHtml(genreDisplay(d))} / ${escapeHtml(d.arrange || "")}</span></div><button class="songEditorNextBtn big-action" data-action="draft:finalize">この内容で完成させる</button>${editorBackButton()}</div>`;
+    return `<div class="editor-form song-title-final"><div class="editor-summary tutorial-box"><b>曲完成前確認</b><span>作詞と作曲が揃った。ここで曲名とテーマを決めて完成させます。</span></div><label>曲名</label><div class="title-input-row"><input id="draftFinalTitle" value="${escapeHtml(ed.title || d.titleHint || "")}" placeholder="曲名" /><button class="songEditorChoiceBtn dice-title-btn" data-action="draft:titleRandom" title="ランダム生成">🎲</button></div><label>テーマ</label><select id="draftFinalTheme">${themeOptions}</select><div class="editor-summary mini"><b>制作内容</b><span>作詞${val(d.lyricsScore)}% / 作曲${val(d.musicScore)}% / ${escapeHtml(genreDisplay(d))} / ${escapeHtml(d.arrange || "")}</span><span>歌詞：${escapeHtml(d.keyword || "-")}</span></div><button class="songEditorNextBtn big-action" data-action="draft:finalize">この内容で完成させる</button>${editorBackButton()}</div>`;
   }
-  if (ed.step === "newType") return `<div class="choice-grid">${choiceButton("<b>作詞から作る</b>", "new:type:lyrics")}${choiceButton("<b>作曲から作る</b>", "new:type:music")}</div>${editorBackButton()}`;
-  if (ed.step === "newMain1") return `<div class="choice-grid genre-choice">${availableMainGenres().map(g=>choiceButton(`<b>${g}</b>`, `new:main1:${g}`)).join("")}</div>${editorBackButton()}`;
-  if (ed.step === "newMain2") return `<div class="editor-summary mini"><b>1つ目</b><span>${ed.mainGenreA || "-"}</span></div><div class="choice-grid genre-choice">${availableMainGenres().map(g=>choiceButton(`<b>${g}</b>`, `new:main2:${g}`)).join("")}</div>${editorBackButton()}`;
-  if (ed.step === "newTheme") return `<div class="choice-grid compact-choice-grid">${availableThemes().map(x=>choiceButton(`<b>${x}</b>`, `new:theme:${x}`)).join("")}</div>${editorBackButton()}`;
-  if (ed.step === "newKeyword") {
-    const preview = ed.keyword ? keywordPreview(ed.keyword, ed.theme) : "単語を入力するか、候補を押してください。未登録ワードも個性として扱われます。";
-    const words = (ed.keyword || "").split(/[、,\s]+/).filter(Boolean);
-    return `<div class="editor-form keyword-form"><label>歌詞の単語を3つ入力</label><div class="lyric-word-grid">${[1,2,3].map(i=>`<div class="lyric-word-row"><input id="editorKeywordInput${i}" value="${escapeHtml(words[i-1] || "")}" placeholder="${i===1 ? "例：午前二時" : i===2 ? "例：コンビニ前" : "例：まだ鳴ってる"}" /><button class="keywordDiceBtn" data-target="${i}" type="button">🎲</button></div>`).join("")}</div><button class="songEditorNextBtn big-action" data-action="new:keywordInputNext">この3語で作詞へ進む</button><div class="keyword-preview">${preview}</div><p><small>候補</small></p><div class="choice-grid compact-choice-grid">${KEYWORD_SUGGESTIONS.map(x=>choiceButton(`<b>${x}</b>`, `new:keyword:${x}`)).join("")}</div>${editorBackButton()}</div>`;
+  if (ed.step === "arrangeMenu") return `<div class="choice-grid main-choice-grid">${choiceButton("<span>📈</span><b>曲強化</b>", "boost:start", "", "ライブで得た曲Ptを振り分ける")}${choiceButton("<span>✏️</span><b>曲編集</b>", "edit:start", "", "曲名・テーマ・ジャンル・アレンジ・歌詞を変更")}</div>${editorBackButton()}`;
+  if (ed.step === "boostSong") return `<div class="choice-grid song-choice">${state.songs.map(song=>choiceButton(`<b>${escapeHtml(song.title)}</b>`, `boost:song:${song.id}`, "", `${genreDisplay(song)} / 曲Pt${song.songPt || 0}`)).join("")}</div>${editorBackButton()}`;
+  if (ed.step === "boostPtForm") {
+    const song = state.songs.find(x=>x.id===ed.songId);
+    if (!song) return `<div class="empty-panel">曲が見つかりません。</div>${editorBackButton()}`;
+    return `<div class="editor-form boost-pt-form"><div class="editor-summary mini"><b>${escapeHtml(song.title)}</b><span>使える曲Pt：${song.songPt || 0}</span><span>バーで伸ばしたいパラメータへ振り分けます。合計が曲Ptを超えると実行できません。</span></div>${statSliderRows(song)}<button class="songEditorNextBtn big-action" data-action="boost:ptExecute">曲Ptで強化する</button>${editorBackButton()}</div>`;
   }
-  if (ed.step === "newArrange") return `<div class="choice-grid compact-choice-grid arrange-choice">${ARRANGES.map(x=>arrangeChoiceButton(x)).join("")}</div>${editorBackButton()}`;
-  if (ed.step === "newMember") return `<div class="choice-grid member-choice">${activeMembers().map(m=>choiceButton(`<b>${m.name}</b>`, `new:member:${m.id}`, "", memberCraftSmall(m, ed.type || "lyrics", ed))).join("")}</div>${editorSummary(ed)}${editorBackButton()}`;
-  if (ed.step === "boostSong") return `<div class="choice-grid song-choice">${state.songs.map(song=>choiceButton(`<b>${escapeHtml(song.title)}</b>`, `boost:song:${song.id}`, "", genreDisplay(song))).join("")}</div>${editorBackButton()}`;
-  if (ed.step === "boostType") return `<div class="choice-grid">${choiceButton("<b>歌詞を強化</b>", "boost:type:lyrics", "", "歌詞・キャッチー・認知度")}${choiceButton("<b>作曲を強化</b>", "boost:type:music", "", "演奏・テンポ・流行")}</div>${editorBackButton()}`;
-  if (ed.step === "boostMember") return `<p><small>担当メンバーを選ぶと強化を実行します。</small></p><div class="choice-grid member-choice">${activeMembers().map(m=>choiceButton(`<b>${m.name}</b>`, `boost:member:${m.id}`, "", memberCraftSmall(m, ed.type || "lyrics", ed))).join("")}</div>${editorBackButton()}`;
-  if (ed.step === "arrangeSong") return `<div class="choice-grid song-choice">${state.songs.map(song=>choiceButton(`<b>${escapeHtml(song.title)}</b>`, `arrange:song:${song.id}`, "", `${genreDisplay(song)} / 曲Pt${song.songPt || 0}`)).join("")}</div>${editorBackButton()}`;
-  if (ed.step === "arrangeForm") {
-    const song = state.songs.find(x => x.id === ed.songId);
-    if (!song) return `<div class="empty-panel">編曲する曲が見つかりません。</div>${editorBackButton()}`;
+  if (ed.step === "editSong") return `<div class="choice-grid song-choice">${state.songs.map(song=>choiceButton(`<b>${escapeHtml(song.title)}</b>`, `edit:song:${song.id}`, "", `${genreDisplay(song)} / ${escapeHtml(song.theme || "テーマ未設定")}`)).join("")}</div>${editorBackButton()}`;
+  if (ed.step === "editForm") {
+    const song = state.songs.find(x=>x.id===ed.songId);
+    if (!song) return `<div class="empty-panel">編集する曲が見つかりません。</div>${editorBackButton()}`;
     const themeOptions = availableThemes().map(t => `<option value="${escapeHtml(t)}" ${t === (song.theme || "") ? "selected" : ""}>${escapeHtml(t)}</option>`).join("");
     const mainOptions = availableMainGenres().map(g => `<option value="${escapeHtml(g)}" ${g === (song.mainGenre || subParent(song.genre)) ? "selected" : ""}>${escapeHtml(g)}</option>`).join("");
     const arrangeOptions = ARRANGES.map(a => `<option value="${escapeHtml(a)}" ${a === (song.arrange || "") ? "selected" : ""}>${escapeHtml(a)}</option>`).join("");
-    return `<div class="editor-form arrange-form"><div class="editor-summary mini"><b>${escapeHtml(song.title)}</b><span>${escapeHtml(genreDisplay(song))} / 曲Pt ${song.songPt || 0}</span><span>編集・強化すると疲労+10%。曲Ptを使うと指定パラメータを伸ばせます。</span></div><label>メインジャンル</label><select id="arrangeMainGenre">${mainOptions}</select><label>アレンジ</label><select id="arrangeArrange">${arrangeOptions}</select><label>テーマ</label><select id="arrangeTheme">${themeOptions}</select><label>歌詞キーワード</label><input id="arrangeKeyword" value="${escapeHtml(song.keyword || "")}" placeholder="例：夜 高架下 ノイズ" /><label>伸ばしたいパラメータ</label><select id="arrangeParam"><option value="lyrics">歌詞</option><option value="performance">演奏</option><option value="catchy">キャッチー</option><option value="tempo">テンポ</option><option value="trend">流行</option><option value="recognition">認知度</option></select><button class="songEditorNextBtn big-action" data-action="arrange:execute">この内容で編曲する</button>${editorBackButton()}</div>`;
+    return `<div class="editor-form arrange-form"><div class="editor-summary mini"><b>${escapeHtml(song.title)}</b><span>${escapeHtml(genreDisplay(song))}</span><span>編集すると疲労+10%。曲の方向性を変えられます。</span></div><label>曲名</label><input id="editSongTitle" value="${escapeHtml(song.title || "")}" /><label>テーマ</label><select id="editTheme">${themeOptions}</select><label>メインジャンル</label><select id="editMainGenre">${mainOptions}</select><label>アレンジ</label><select id="editArrange">${arrangeOptions}</select><label>歌詞</label><input id="editLyricsText" value="${escapeHtml(song.keyword || "")}" placeholder="例：夜 高架下 ノイズ" /><button class="songEditorNextBtn big-action" data-action="edit:execute">この内容で編集する</button>${editorBackButton()}</div>`;
   }
-  if (ed.step === "draftSelect") return `<div class="choice-grid song-choice">${state.pendingDrafts.map(d=>choiceButton(`<b>${escapeHtml(d.titleHint)}</b>`, `draft:select:${d.id}`, "", `${d.lyricsDone ? "詞済" : "詞未"} / ${d.musicDone ? "曲済" : "曲未"} / ${genreDisplay(d)}${d.sourceMainGenres ? " / 狙い:" + d.sourceMainGenres.join("→") : ""}`)).join("") || `<div class="empty-panel">制作中の曲はありません。</div>`}</div>${editorBackButton()}`;
-  if (ed.step === "draftType") {
-    const d = state.pendingDrafts.find(x=>x.id===ed.draftId);
-    if (!d) return `<div class="empty-panel">制作中の曲が見つかりません。</div>${editorBackButton()}`;
-    return `<p><small>「${escapeHtml(d.titleHint)}」の未作成カテゴリを選択。</small></p><div class="choice-grid">${choiceButton("<b>作詞する</b>", "draft:type:lyrics", d.lyricsDone ? "disabled" : "", d.lyricsDone ? "作詞済み" : "未作成")}${choiceButton("<b>作曲する</b>", "draft:type:music", d.musicDone ? "disabled" : "", d.musicDone ? "作曲済み" : "未作成")}</div>${editorBackButton()}`;
-  }
-  if (ed.step === "draftMember") return `<p><small>担当メンバーを選ぶと未完成曲を進めます。</small></p><div class="choice-grid member-choice">${activeMembers().map(m=>choiceButton(`<b>${m.name}</b>`, `draft:member:${m.id}`, "", memberCraftSmall(m, ed.type || "lyrics", state.pendingDrafts.find(x=>x.id===ed.draftId)||ed))).join("")}</div>${editorBackButton()}`;
   return editorBackButton();
 }
 function editorSummary(ed) {
-  return `<div class="editor-summary"><b>制作内容</b><span>曲名：${escapeHtml(ed.title || "最後に決定")}</span><span>カテゴリ：${ed.type === "lyrics" ? "作詞" : "作曲"}</span><span>ジャンル狙い：${ed.mainGenreA || "-"} → ${ed.mainGenreB || "-"}</span><span>確率：${ed.mainGenreA && ed.mainGenreB ? genrePlanLabel(ed.mainGenreA, ed.mainGenreB, ed.arrange || "") : "-"}</span><span>テーマ：${ed.theme || "-"}</span><span>キーワード：${ed.keyword || "-"}</span><span>判定：${ed.keyword ? keywordPlainSummary(ed.keyword, ed.theme) : "-"}</span><span>アレンジ：${ed.arrange || "-"}</span></div>`;
+  return `<div class="editor-summary"><b>制作内容</b><span>カテゴリ：${ed.type === "lyrics" ? "作詞" : "作曲"}</span><span>ジャンル狙い：${ed.mainGenreA || "-"} → ${ed.mainGenreB || "-"}</span><span>確率：${ed.mainGenreA && ed.mainGenreB ? genrePlanLabel(ed.mainGenreA, ed.mainGenreB, ed.arrange || "") : "-"}</span><span>歌詞：${ed.keyword || "-"}</span><span>アレンジ：${ed.arrange || "-"}</span></div>`;
 }
 function stepSongEditorBack(ed) {
   const backMap = {
-    newType: "menu",
-    newMain1: "newType",
-    newMain2: "newMain1",
-    newTheme: "newMain2",
-    newKeyword: "newTheme",
-    newArrange: "newKeyword",
-    newMember: "newArrange",
-    newTitle: "newMember",
-    boostSong: "menu",
-    boostType: "boostSong",
-    boostMember: "boostType",
-    arrangeSong: "menu",
-    arrangeForm: "arrangeSong",
-    draftSelect: "menu",
-    draftType: "draftSelect",
-    draftMember: "draftType"
+    composeMenu:"menu",
+    newType:"composeMenu",
+    newLyricsMember:"newType",
+    newLyricWords:"newLyricsMember",
+    newMusicMember:"newType",
+    newMain1:"newMusicMember",
+    newMain2:"newMain1",
+    newArrange:"newMain2",
+    newMusicConfirm:"newArrange",
+    draftSelect:"composeMenu",
+    draftType:"draftSelect",
+    draftLyricsMember:"draftType",
+    draftLyricWords:"draftLyricsMember",
+    draftMusicMember:"draftType",
+    draftMain1:"draftMusicMember",
+    draftMain2:"draftMain1",
+    draftMusicArrange:"draftMain2",
+    draftMusicConfirm:"draftMusicArrange",
+    draftFinalize:"composeMenu",
+    arrangeMenu:"menu",
+    boostSong:"arrangeMenu",
+    boostPtForm:"boostSong",
+    editSong:"arrangeMenu",
+    editForm:"editSong"
   };
   ed.step = backMap[ed.step] || "menu";
 }
-
+function collectLyricWordsFromInputs() {
+  return [1,2,3].map(i => (document.getElementById(`editorKeywordInput${i}`)?.value || "").trim()).filter(Boolean).join(" ");
+}
+function applyDraftMusicFields(d, mainGenreA, mainGenreB, arrange) {
+  if (!d) return;
+  const a = mainGenreA || d.mainGenre || MAIN_GENRES[0];
+  const b = mainGenreB || a;
+  const resolved = resolveSongGenrePair(a, b, arrange || d.arrange || ARRANGES[0]);
+  d.mainGenre = resolved.mainGenre;
+  d.subGenre = resolved.subGenre || "";
+  d.genre = resolved.subGenre || resolved.mainGenre;
+  d.sourceMainGenres = resolved.sourceMainGenres;
+  d.genreRollType = resolved.rollType;
+  d.genreChanceText = resolved.chanceText;
+  d.arrange = arrange || d.arrange || ARRANGES[0];
+}
 function handleSongEditorAction(action) {
   const ed = editorData();
   if (action === "editor:back") { stepSongEditorBack(ed); render(); return; }
   if (action === "editor:menu") { state.songEditor = { step:"menu" }; render(); return; }
+  if (action === "compose:menu") { state.songEditor = { step:"composeMenu" }; render(); return; }
+  if (action === "arrange:menu") { state.songEditor = { step:"arrangeMenu" }; render(); return; }
   if (action === "new:start" && state.turn === 2 && state.pendingDrafts.length) { showEventPopup("まず未完成曲を完成", `2ターン目は、1ターン目で作った未完成曲だけを選べる。
 作っていない作詞/作曲を選んで、曲が完成する流れを確認しよう。`, "event", "📝"); return; }
-  if (action === "boost:start" && state.turn === 2 && state.pendingDrafts.length) { showEventPopup("まず未完成曲を完成", "2ターン目は、曲強化より先に未完成曲を完成させよう。", "event", "📝"); return; }
-  if (action === "new:start") { state.songEditor = { step:"newType", title:"" }; render(); return; }
-  if (action === "boost:start") { state.songEditor = { step:"boostSong" }; render(); return; }
-  if (action === "arrange:start") { state.songEditor = { step:"arrangeSong" }; render(); return; }
+  if (action === "new:start") { state.songEditor = { step:"newType" }; render(); return; }
   if (action === "draft:start") { state.songEditor = { step:"draftSelect" }; render(); return; }
-  if (action === "new:titleRandom") { ed.title = randomSongTitleCandidate(ed); render(); return; }
+  if (action === "boost:start") { state.songEditor = { step:"boostSong" }; render(); return; }
+  if (action === "edit:start") { state.songEditor = { step:"editSong" }; render(); return; }
   if (action === "draft:titleRandom") { ed.title = randomSongTitleCandidate(ed); render(); return; }
+  let m;
+  if ((m = action.match(/^new:type:(lyrics|music)$/))) { ed.type = m[1]; ed.step = m[1] === "lyrics" ? "newLyricsMember" : "newMusicMember"; render(); return; }
+  if ((m = action.match(/^new:lyricsMember:(.+)$/))) { ed.memberId = m[1]; ed.step = "newLyricWords"; render(); return; }
+  if (action === "new:lyricsExecute") {
+    const words = collectLyricWordsFromInputs();
+    if (!words) { showEventPopup("歌詞が未入力", "3つの歌詞ワードを1つ以上入力してから完了しよう。", "warn", "✍️"); return; }
+    ed.keyword = words;
+    const member = activeMembers().find(x=>x.id===ed.memberId) || state.player;
+    createDraftAndAdvance("lyrics", member, null, null, "", words, "", provisionalDraftTitle("lyrics", ed));
+    completeSongcraftTutorial();
+    if (!state.songEditor || state.songEditor.step !== "draftFinalize") state.songEditor = { step:"composeMenu" };
+    render(); return;
+  }
+  if ((m = action.match(/^new:musicMember:(.+)$/))) { ed.memberId = m[1]; ed.step = "newMain1"; render(); return; }
+  if ((m = action.match(/^new:main1:(.+)$/))) { ed.mainGenreA = m[1]; ed.step = "newMain2"; render(); return; }
+  if ((m = action.match(/^new:main2:(.+)$/))) { ed.mainGenreB = m[1]; ed.step = "newArrange"; render(); return; }
+  if ((m = action.match(/^new:arrange:(.+)$/))) { ed.arrange = m[1]; ed.step = "newMusicConfirm"; render(); return; }
+  if (action === "new:musicExecute") {
+    const member = activeMembers().find(x=>x.id===ed.memberId) || state.player;
+    createDraftAndAdvance("music", member, ed.mainGenreA, ed.mainGenreB, "", "", ed.arrange, provisionalDraftTitle("music", ed));
+    completeSongcraftTutorial();
+    if (!state.songEditor || state.songEditor.step !== "draftFinalize") state.songEditor = { step:"composeMenu" };
+    render(); return;
+  }
+  if ((m = action.match(/^draft:select:(.+)$/))) { ed.draftId = m[1]; ed.step = "draftType"; render(); return; }
+  if ((m = action.match(/^draft:type:(lyrics|music)$/))) { ed.type = m[1]; ed.step = m[1] === "lyrics" ? "draftLyricsMember" : "draftMusicMember"; render(); return; }
+  if ((m = action.match(/^draft:lyricsMember:(.+)$/))) { ed.memberId = m[1]; ed.step = "draftLyricWords"; render(); return; }
+  if (action === "draft:lyricsExecute") {
+    const d = state.pendingDrafts.find(x=>x.id===ed.draftId);
+    if (!d) { log("制作中の曲が見つかりません。"); render(); return; }
+    const words = collectLyricWordsFromInputs();
+    if (!words) { showEventPopup("歌詞が未入力", "3つの歌詞ワードを1つ以上入力してから完了しよう。", "warn", "✍️"); return; }
+    d.keyword = words;
+    const member = activeMembers().find(x=>x.id===ed.memberId) || state.player;
+    advanceDraftById(ed.draftId, "lyrics", member);
+    completeSongcraftTutorial();
+    if (!state.songEditor || state.songEditor.step !== "draftFinalize") state.songEditor = { step:"composeMenu" };
+    render(); return;
+  }
+  if ((m = action.match(/^draft:musicMember:(.+)$/))) { ed.memberId = m[1]; ed.step = "draftMain1"; render(); return; }
+  if ((m = action.match(/^draft:main1:(.+)$/))) { ed.mainGenreA = m[1]; ed.step = "draftMain2"; render(); return; }
+  if ((m = action.match(/^draft:main2:(.+)$/))) { ed.mainGenreB = m[1]; ed.step = "draftMusicArrange"; render(); return; }
+  if ((m = action.match(/^draft:arrange:(.+)$/))) { ed.arrange = m[1]; ed.step = "draftMusicConfirm"; render(); return; }
+  if (action === "draft:musicExecute") {
+    const d = state.pendingDrafts.find(x=>x.id===ed.draftId);
+    if (!d) { log("制作中の曲が見つかりません。"); render(); return; }
+    applyDraftMusicFields(d, ed.mainGenreA, ed.mainGenreB, ed.arrange);
+    const member = activeMembers().find(x=>x.id===ed.memberId) || state.player;
+    advanceDraftById(ed.draftId, "music", member);
+    completeSongcraftTutorial();
+    if (!state.songEditor || state.songEditor.step !== "draftFinalize") state.songEditor = { step:"composeMenu" };
+    render(); return;
+  }
   if (action === "draft:finalize") {
     const d = state.pendingDrafts.find(x => x.id === ed.draftId);
     if (!d) { log("完成確認中の曲が見つかりません。"); render(); return; }
     d.titleHint = (document.getElementById("draftFinalTitle")?.value || "").trim() || d.titleHint || randomSongTitleCandidate(ed);
     d.theme = document.getElementById("draftFinalTheme")?.value || d.theme;
     finishDraft(d.id);
-    state.songEditor = { step:"menu" };
+    state.songEditor = { step:"composeMenu" };
     render(); return;
   }
-  if (action === "new:titleExecute") {
-    const title = (document.getElementById("editorSongTitle")?.value || "").trim();
-    ed.title = title || randomSongTitleCandidate(ed);
-    const member = activeMembers().find(x=>x.id===ed.memberId) || state.player;
-    createDraftAndAdvance(ed.type || "lyrics", member, ed.mainGenreA, ed.mainGenreB, ed.theme, ed.keyword, ed.arrange, ed.title);
+  if ((m = action.match(/^boost:song:(.+)$/))) { ed.songId = m[1]; ed.step = "boostPtForm"; render(); return; }
+  if (action === "boost:ptExecute") {
+    boostSongWithPointAllocation(ed.songId);
     completeSongcraftTutorial();
-    state.songEditor = { step:"menu" };
+    state.songEditor = { step:"arrangeMenu" };
     render(); return;
   }
-  let m;
-  if ((m = action.match(/^new:type:(lyrics|music)$/))) { ed.type = m[1]; ed.step = "newMain1"; render(); return; }
-  if ((m = action.match(/^new:main1:(.+)$/))) { ed.mainGenreA = m[1]; ed.step = "newMain2"; render(); return; }
-  if ((m = action.match(/^new:main2:(.+)$/))) { ed.mainGenreB = m[1]; ed.step = "newTheme"; render(); return; }
-  if ((m = action.match(/^new:theme:(.+)$/))) { ed.theme = m[1]; ed.step = "newKeyword"; render(); return; }
-  if (action === "new:keywordInputNext") {
-    const words = [1,2,3].map(i => (document.getElementById(`editorKeywordInput${i}`)?.value || "").trim()).filter(Boolean);
-    ed.keyword = words.join(" ") || KEYWORD_SUGGESTIONS[rand(0, KEYWORD_SUGGESTIONS.length-1)];
-    ed.step = "newArrange"; render(); return;
-  }
-  if ((m = action.match(/^new:keyword:(.+)$/))) { ed.keyword = m[1]; ed.step = "newArrange"; render(); return; }
-  if ((m = action.match(/^new:arrange:(.+)$/))) { ed.arrange = m[1]; ed.step = "newMember"; render(); return; }
-  if ((m = action.match(/^new:member:(.+)$/))) { ed.memberId = m[1]; ed.title = ed.title || randomSongTitleCandidate(ed); ed.step = "newTitle"; render(); return; }
-  if ((m = action.match(/^boost:song:(.+)$/))) { ed.songId = m[1]; ed.step = "boostType"; render(); return; }
-  if ((m = action.match(/^boost:type:(lyrics|music)$/))) { ed.type = m[1]; ed.step = "boostMember"; render(); return; }
-  if ((m = action.match(/^boost:member:(.+)$/))) {
-    const member = activeMembers().find(x=>x.id===m[1]) || state.player;
-    boostSong(ed.type || "lyrics", member, ed.songId);
+  if ((m = action.match(/^edit:song:(.+)$/))) { ed.songId = m[1]; ed.step = "editForm"; render(); return; }
+  if (action === "edit:execute") {
+    editSongMetadataFromEditor(ed.songId);
     completeSongcraftTutorial();
-    state.songEditor = { step:"menu" };
-    render(); return;
-  }
-  if ((m = action.match(/^arrange:song:(.+)$/))) { ed.songId = m[1]; ed.step = "arrangeForm"; render(); return; }
-  if (action === "arrange:execute") {
-    arrangeSongFromEditor(ed.songId);
-    completeSongcraftTutorial();
-    state.songEditor = { step:"menu" };
-    render(); return;
-  }
-  if ((m = action.match(/^draft:select:(.+)$/))) { ed.draftId = m[1]; ed.step = "draftType"; render(); return; }
-  if ((m = action.match(/^draft:type:(lyrics|music)$/))) { ed.type = m[1]; ed.step = "draftMember"; render(); return; }
-  if ((m = action.match(/^draft:member:(.+)$/))) {
-    const member = activeMembers().find(x=>x.id===m[1]) || state.player;
-    advanceDraftById(ed.draftId, ed.type || "lyrics", member);
-    completeSongcraftTutorial();
-    if (!state.songEditor || state.songEditor.step !== "draftFinalize") state.songEditor = { step:"menu" };
+    state.songEditor = { step:"arrangeMenu" };
     render(); return;
   }
 }
+
 
 function renderShopScreen() {
   const itemBadges = [
@@ -3177,6 +3282,14 @@ function bindEvents() {
     const input = document.getElementById(`editorKeywordInput${i}`);
     if (input) input.value = KEYWORD_SUGGESTIONS[rand(0, KEYWORD_SUGGESTIONS.length-1)];
   }));
+  document.querySelectorAll(".songPtInput").forEach(inp => inp.addEventListener("input", () => {
+    const twin = document.querySelector(`.songPtNumber[data-stat="${inp.dataset.stat}"]`);
+    if (twin) twin.value = inp.value;
+  }));
+  document.querySelectorAll(".songPtNumber").forEach(inp => inp.addEventListener("input", () => {
+    const twin = document.querySelector(`.songPtInput[data-stat="${inp.dataset.stat}"]`);
+    if (twin) twin.value = inp.value;
+  }));
   const songSortSelect = document.getElementById("songSortSelect");
   if (songSortSelect) songSortSelect.addEventListener("change", () => { state.songSortMode = songSortSelect.value; render(); });
   const liveBtn = document.getElementById("performLiveBtn");
@@ -3760,12 +3873,12 @@ function genreFit(m, mainGenre, subGenre) {
 }
 
 function createDraftAndAdvance(type, member, mainGenreA, mainGenreB, theme, keyword, arrange, inputTitle) {
-  const titleHint = inputTitle || makeTitle(keyword, theme);
+  const titleHint = inputTitle || makeTitle(keyword || "新しい言葉", theme || "自分");
   let draft = state.pendingDrafts.find(d => d.titleHint === titleHint);
   if (!draft) {
     const a = mainGenreA || MAIN_GENRES[0];
     const b = mainGenreB || a;
-    const resolved = resolveSongGenrePair(a, b, arrange);
+    const resolved = resolveSongGenrePair(a, b, arrange || ARRANGES[0]);
     draft = {
       id: `draft_${Date.now()}_${rand(100,999)}`,
       titleHint,
@@ -3775,7 +3888,9 @@ function createDraftAndAdvance(type, member, mainGenreA, mainGenreB, theme, keyw
       sourceMainGenres: resolved.sourceMainGenres,
       genreRollType: resolved.rollType,
       genreChanceText: resolved.chanceText,
-      theme, keyword, arrange,
+      theme: theme || "",
+      keyword: keyword || "",
+      arrange: arrange || "",
       lyricsDone: false, musicDone: false, lyricsScore: 0, musicScore: 0, tags: []
     };
     state.pendingDrafts.push(draft);
@@ -3784,6 +3899,8 @@ function createDraftAndAdvance(type, member, mainGenreA, mainGenreB, theme, keyw
   } else {
     log(`制作中の「${titleHint}」を続ける。`);
   }
+  if (type === "lyrics" && keyword) draft.keyword = keyword;
+  if (type === "music") applyDraftMusicFields(draft, mainGenreA, mainGenreB, arrange);
   advanceDraft(draft, type, member);
 }
 
@@ -3880,7 +3997,11 @@ function finishDraft(draftId) {
     lastLiveTurn: 0,
     lastLiveSlot: 0,
     consecutiveLiveUses: 0,
-    mannerism: 0
+    mannerism: 0,
+    songPt: 10,
+    theme: d.theme || "",
+    keyword: d.keyword || "",
+    arrange: d.arrange || ""
   };
   const greatSuccess = Math.random() < 0.10;
   if (greatSuccess) {
@@ -3934,6 +4055,56 @@ function registerGenreDiscovery(genre, songTitle="") {
   return { genre, rare: !!rare };
 }
 
+function boostSongWithPointAllocation(songId) {
+  const s = state.songs.find(x => x.id === songId);
+  if (!s) return;
+  const inputs = [...document.querySelectorAll(".songPtNumber")];
+  const allocations = {};
+  inputs.forEach(inp => {
+    const k = inp.dataset.stat;
+    allocations[k] = Math.max(0, Math.floor(Number(inp.value || 0)));
+  });
+  const total = Object.values(allocations).reduce((a,b)=>a+b,0);
+  const pt = s.songPt || 0;
+  if (total <= 0) { showEventPopup("曲Pt未使用", "伸ばしたいパラメータに曲Ptを振り分けてください。", "warn", "📈"); return; }
+  if (total > pt) { showEventPopup("曲Pt不足", `使用予定${total}Pt / 所持${pt}Pt。合計が曲Ptを超えています。`, "warn", "⚠️"); return; }
+  if (!applySongcraftFatigue("music", 10, state.player, "曲強化")) return;
+  const before = clone(s);
+  Object.entries(allocations).forEach(([k,v]) => { if (v > 0) s[k] = clamp((s[k] || 0) + v, 0, 99); });
+  s.songPt = Math.max(0, pt - total);
+  s.standardPoints = (s.standardPoints || 0) + Math.ceil(total / 10);
+  s.mannerism = Math.max(0, (s.mannerism || 0) - Math.ceil(total / 4));
+  const lines = Object.entries(allocations).filter(([,v])=>v>0).map(([k,v])=>`${statSongLabel(k)} +${v}`).join(" / ");
+  const bars = ["catchy","tempo","recognition","lyrics","performance","trend"].map(k => ({ label: statSongLabel(k), value: val(s[k]||0) }));
+  if ((s.standardPoints || 0) >= 5 && !hasTag(s, "定番")) { s.tags.push("定番"); s.mannerism = 0; }
+  showEventPopup("曲強化完了", `「${s.title}」を曲Ptで強化した。\n${lines}\n曲Pt ${pt} → ${s.songPt}`, "song", "📈", { bars });
+  log(`「${s.title}」を曲Ptで強化。${lines}。曲Pt${pt}→${s.songPt}`);
+}
+function editSongMetadataFromEditor(songId) {
+  const s = state.songs.find(x => x.id === songId);
+  if (!s) return;
+  if (!applySongcraftFatigue("music", 10, state.player, "曲編集")) return;
+  const oldTitle = s.title;
+  const oldGenre = genreDisplay(s);
+  const title = (document.getElementById("editSongTitle")?.value || "").trim();
+  const main = document.getElementById("editMainGenre")?.value || s.mainGenre || subParent(s.genre);
+  const arr = document.getElementById("editArrange")?.value || s.arrange || ARRANGES[0];
+  const theme = document.getElementById("editTheme")?.value || s.theme || THEMES[0];
+  const lyricsText = (document.getElementById("editLyricsText")?.value || s.keyword || "").trim();
+  if (title) s.title = title;
+  s.mainGenre = main;
+  s.subGenre = "";
+  s.genre = main;
+  s.arrange = arr;
+  s.theme = theme;
+  s.keyword = lyricsText;
+  const kw = analyzeKeywordText(lyricsText, theme);
+  if (kw.tags?.length) s.tags = [...new Set([...(s.tags||[]), ...kw.tags.slice(0,2)])];
+  s.mannerism = Math.max(0, (s.mannerism || 0) - 3);
+  const bars = ["catchy","tempo","recognition","lyrics","performance","trend"].map(k => ({ label: statSongLabel(k), value: val(s[k]||0) }));
+  showEventPopup("曲編集完了", `「${oldTitle}」を編集した。\n曲名：${oldTitle} → ${s.title}\nジャンル：${oldGenre} → ${genreDisplay(s)}\nテーマ：${theme}\n歌詞：${lyricsText || "-"}`, "song", "✏️", { bars });
+  log(`「${oldTitle}」を曲編集。ジャンル:${oldGenre}→${genreDisplay(s)}。`);
+}
 function boostSong(type, member, songId) {
   const s = state.songs.find(x => x.id === songId);
   if (!s) return;

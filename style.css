@@ -2257,3 +2257,21 @@ input, select, textarea, button { font-size:16px; }
   .modal-backdrop { align-items:center; justify-content:center; }
   .event-modal, .action-result-modal, .live-result-modal, .detail-modal, .live-picker-modal { width:min(94vw, 560px); max-height:88vh; }
 }
+
+/* v0.3.19 曲エディタ再構成 */
+.clear-lyric-grid { display:grid; gap:10px; }
+.lyric-word-row label { display:block; font-weight:700; font-size:.86rem; margin-bottom:4px; color:var(--muted); }
+.lyric-word-row .title-input-row { display:grid; grid-template-columns: minmax(0,1fr) 46px; gap:8px; align-items:center; }
+.lyric-word-row input { min-width:0; width:100%; font-size:16px; }
+.keywordDiceBtn, .dice-title-btn { min-height:42px; border-radius:12px; }
+.pt-slider-list { display:grid; gap:12px; margin:12px 0; }
+.pt-slider-row { display:grid; grid-template-columns: 1fr minmax(120px, 1.4fr) 68px; gap:8px; align-items:center; padding:10px; border:1px solid rgba(255,255,255,.08); border-radius:14px; background:rgba(255,255,255,.035); }
+.pt-slider-row label { font-weight:800; }
+.pt-slider-row label small { display:block; font-weight:500; color:var(--muted); margin-top:3px; }
+.pt-slider-row input[type="range"] { width:100%; }
+.pt-slider-row input[type="number"] { width:68px; min-width:0; text-align:center; font-size:16px; }
+.boost-pt-form .editor-summary, .arrange-form .editor-summary { margin-bottom:10px; }
+@media (max-width: 560px) {
+  .pt-slider-row { grid-template-columns: 1fr; }
+  .pt-slider-row input[type="number"] { width:100%; }
+}
