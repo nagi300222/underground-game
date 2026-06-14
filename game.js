@@ -1,10 +1,10 @@
 /*
-  アンダーグラウンド（仮） v0.3.24 prototype
+  アンダーグラウンド（仮） v0.3.25 prototype
   - 1ファイル内の DATA を差し替えるだけでキャラ・曲・サポート候補を変更できます。
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
 
-const VERSION = "v0.3.24";
+const VERSION = "v0.3.25";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -94,7 +94,14 @@ function availableThemes() {
   ];
 }
 
-const KEYWORD_SUGGESTIONS = ["夜", "夢", "雨", "終電", "屋上", "コンビニ", "街", "高架下", "ノイズ", "blue", "run away", "still alive"];
+const KEYWORD_SUGGESTIONS = [
+  "夜", "夢", "雨", "終電", "屋上", "コンビニ", "街", "高架下", "ノイズ", "blue", "run away", "still alive",
+  "午前二時", "改札", "路地裏", "駅前", "踏切", "自転車", "イヤホン", "缶コーヒー", "制服", "放課後", "帰り道", "月明かり",
+  "朝焼け", "夕立", "空っぽ", "約束", "透明", "心臓", "叫び", "火花", "サイレン", "ネオン", "地下室", "ガレージ",
+  "アンプ", "ピック", "リフ", "BPM", "フィードバック", "割れたスピーカー", "手拍子", "汗", "スポットライト", "ステージ袖", "客席", "アンコール",
+  "もう一回", "名前を呼んで", "逃げない", "まだ鳴ってる", "壊して", "抱きしめて", "忘れない", "言えなかった", "誰でもない", "ここにいる",
+  "青春", "反抗", "孤独", "居場所", "焦燥", "劣等感", "祈り", "救済", "覚醒", "革命", "ノーフューチャー", "光"
+];
 const KEYWORDS = KEYWORD_SUGGESTIONS;
 
 const SONG_TITLE_CANDIDATES = [
@@ -124,7 +131,64 @@ const KEYWORD_DICTIONARY = [
   { word:"blue", tags:["失恋","透明感","夜"], themes:["失恋","孤独"], add:{lyrics:3} },
   { word:"run away", tags:["逃避","反抗","疾走感"], themes:["反抗","焦燥感"], add:{tempo:3} },
   { word:"still alive", tags:["希望","自分","救済"], themes:["自分","希望","救済"], add:{lyrics:3} },
-  { word:"爆音", tags:["爆発力","ライブ","反抗"], themes:["反抗"], add:{performance:3} }
+  { word:"爆音", tags:["爆発力","ライブ","反抗"], themes:["反抗"], add:{performance:3} },
+  { word:"夢", tags:["希望","青春","自分"], themes:["応援","青春","自分"], add:{catchy:2} },
+  { word:"屋上", tags:["青春","孤独","空"], themes:["青春","孤独"], add:{lyrics:2} },
+  { word:"改札", tags:["日常","別れ","焦燥感"], themes:["失恋","日常"], add:{lyrics:2} },
+  { word:"路地裏", tags:["反抗","孤独","コア向け"], themes:["反抗","孤独"], add:{performance:2} },
+  { word:"踏切", tags:["焦燥感","日常","余韻"], themes:["日常","焦燥感"], add:{lyrics:2} },
+  { word:"自転車", tags:["青春","疾走感","日常"], themes:["青春","日常"], add:{tempo:2} },
+  { word:"イヤホン", tags:["日常","孤独","音楽"], themes:["日常","孤独"], add:{lyrics:2} },
+  { word:"缶コーヒー", tags:["日常","夜","疲労感"], themes:["日常","焦燥感"], add:{lyrics:2} },
+  { word:"制服", tags:["青春","劣等感","日常"], themes:["青春","劣等感"], add:{lyrics:2} },
+  { word:"放課後", tags:["青春","友情","居場所"], themes:["青春","友情","居場所"], add:{catchy:2} },
+  { word:"帰り道", tags:["日常","余韻","友情"], themes:["日常","友情"], add:{lyrics:2} },
+  { word:"朝焼け", tags:["希望","再出発","透明感"], themes:["応援","再出発","救済"], add:{lyrics:3} },
+  { word:"夕立", tags:["失恋","青春","透明感"], themes:["失恋","青春"], add:{lyrics:2} },
+  { word:"空っぽ", tags:["孤独","劣等感","余韻"], themes:["孤独","劣等感"], add:{lyrics:3} },
+  { word:"約束", tags:["友情","恋愛","祈り"], themes:["友情","恋愛","祈り"], add:{lyrics:2} },
+  { word:"透明", tags:["透明感","孤独","余韻"], themes:["孤独","喪失"], add:{lyrics:3} },
+  { word:"心臓", tags:["爆発力","焦燥感","ライブ"], themes:["焦燥感","覚醒"], add:{tempo:2} },
+  { word:"叫び", tags:["反抗","爆発力","コア向け"], themes:["反抗","怒り"], add:{performance:3} },
+  { word:"火花", tags:["爆発力","覚醒","ライブ"], themes:["覚醒","反抗"], add:{performance:2} },
+  { word:"サイレン", tags:["焦燥感","反抗","コア向け"], themes:["焦燥感","怒り"], add:{tempo:2} },
+  { word:"ネオン", tags:["夜","街","透明感"], themes:["日常","孤独"], add:{trend:2} },
+  { word:"地下室", tags:["バンド感","コア向け","反抗"], themes:["居場所","反抗"], add:{performance:2} },
+  { word:"ガレージ", tags:["バンド感","青春","ライブ"], themes:["青春","居場所"], add:{performance:2} },
+  { word:"アンプ", tags:["バンド感","爆発力","ライブ"], themes:["反抗","個性"], add:{performance:2} },
+  { word:"ピック", tags:["バンド感","日常","青春"], themes:["青春","日常"], add:{performance:1} },
+  { word:"リフ", tags:["バンド感","爆発力","疾走感"], themes:["個性","反抗"], add:{performance:3} },
+  { word:"BPM", tags:["疾走感","焦燥感","ライブ"], themes:["焦燥感","覚醒"], add:{tempo:3} },
+  { word:"フィードバック", tags:["ノイズ","コア向け","反抗"], themes:["反抗","個性"], add:{performance:3} },
+  { word:"割れたスピーカー", tags:["爆発力","コア向け","反抗"], themes:["反抗","破壊"], add:{performance:3} },
+  { word:"手拍子", tags:["ライブ","客受け","友情"], themes:["応援","友情"], add:{catchy:2} },
+  { word:"汗", tags:["ライブ","青春","熱量"], themes:["青春","応援"], add:{performance:2} },
+  { word:"スポットライト", tags:["ライブ","覚醒","希望"], themes:["覚醒","自分"], add:{trend:2} },
+  { word:"ステージ袖", tags:["ライブ","焦燥感","祈り"], themes:["焦燥感","祈り"], add:{lyrics:2} },
+  { word:"客席", tags:["ライブ","居場所","友情"], themes:["居場所","友情"], add:{catchy:2} },
+  { word:"アンコール", tags:["ライブ","希望","客受け"], themes:["応援","救済"], add:{catchy:3} },
+  { word:"もう一回", tags:["希望","再出発","ライブ"], themes:["応援","再出発"], add:{catchy:2} },
+  { word:"名前を呼んで", tags:["恋愛","孤独","祈り"], themes:["恋愛","孤独","祈り"], add:{lyrics:3} },
+  { word:"逃げない", tags:["自分","反抗","希望"], themes:["自分","反抗","覚醒"], add:{lyrics:3} },
+  { word:"まだ鳴ってる", tags:["余韻","バンド感","希望"], themes:["自分","救済"], add:{lyrics:3} },
+  { word:"壊して", tags:["破壊","反抗","爆発力"], themes:["破壊","反抗"], add:{performance:3} },
+  { word:"抱きしめて", tags:["恋愛","救済","余韻"], themes:["恋愛","救済"], add:{lyrics:3} },
+  { word:"忘れない", tags:["喪失","友情","祈り"], themes:["喪失","友情","祈り"], add:{lyrics:3} },
+  { word:"言えなかった", tags:["失恋","孤独","余韻"], themes:["失恋","孤独"], add:{lyrics:3} },
+  { word:"誰でもない", tags:["自分","個性","孤独"], themes:["自分","個性"], add:{lyrics:3} },
+  { word:"ここにいる", tags:["居場所","救済","希望"], themes:["居場所","救済","自分"], add:{lyrics:3} },
+  { word:"青春", tags:["青春","疾走感","友情"], themes:["青春","友情"], add:{catchy:2} },
+  { word:"反抗", tags:["反抗","爆発力","コア向け"], themes:["反抗","怒り"], add:{performance:2} },
+  { word:"孤独", tags:["孤独","余韻","夜"], themes:["孤独"], add:{lyrics:2} },
+  { word:"居場所", tags:["居場所","友情","救済"], themes:["居場所","友情"], add:{lyrics:2} },
+  { word:"焦燥", tags:["焦燥感","疾走感","夜"], themes:["焦燥感"], add:{tempo:2} },
+  { word:"劣等感", tags:["劣等感","反抗","自分"], themes:["劣等感","自分"], add:{lyrics:3} },
+  { word:"祈り", tags:["祈り","救済","余韻"], themes:["祈り","救済"], add:{lyrics:2} },
+  { word:"救済", tags:["救済","希望","祈り"], themes:["救済","祈り"], add:{lyrics:3} },
+  { word:"覚醒", tags:["覚醒","爆発力","希望"], themes:["覚醒"], add:{performance:2} },
+  { word:"革命", tags:["反抗","爆発力","反権力"], themes:["反権力","反抗"], add:{performance:3} },
+  { word:"ノーフューチャー", tags:["反抗","破壊","コア向け"], themes:["反抗","破壊"], add:{performance:3} },
+  { word:"光", tags:["希望","救済","透明感"], themes:["応援","救済"], add:{lyrics:2} }
 ];
 
 const ARRANGES = ["疾走ビート", "轟音ギター", "静かなイントロ", "ツインギター", "シンセ厚め", "ベース主導", "ドラム爆発", "DJミックス", "コーラス重視", "ピアノ主導"];
@@ -481,11 +545,11 @@ const DATA = {
     }
   ],
   coverSongs: [
-    { id: "cover_01", title: "コピー曲：定番ロック", isCover: true, catchy: 42, tempo: 40, mainGenre: "ロック", subGenre: "ギターロック", genre: "ギターロック", recognition: 42, lyrics: 30, performance: 42, trend: 32, tags: ["定番", "客受け"] },
-    { id: "cover_02", title: "コピー曲：疾走パンク", isCover: true, catchy: 38, tempo: 48, mainGenre: "パンク", subGenre: "青春パンク", genre: "青春パンク", recognition: 36, lyrics: 26, performance: 39, trend: 30, tags: ["疾走感", "爆発力"] },
-    { id: "cover_03", title: "コピー曲：夜のオルタナロック", isCover: true, catchy: 30, tempo: 25, mainGenre: "ロック", subGenre: "オルタナロック", genre: "オルタナロック", recognition: 34, lyrics: 42, performance: 35, trend: 30, tags: ["エモさ", "余韻"] },
-    { id: "cover_04", title: "コピー曲：フェス向けギターポップ", isCover: true, catchy: 48, tempo: 38, mainGenre: "ポップ", subGenre: "ギターポップ", genre: "ギターポップ", recognition: 46, lyrics: 28, performance: 36, trend: 45, tags: ["定番", "客受け"] },
-    { id: "cover_05", title: "コピー曲：重低音ラップロック", isCover: true, catchy: 34, tempo: 43, mainGenre: "ヒップホップ", subGenre: "ラップロック", genre: "ラップロック", recognition: 32, lyrics: 24, performance: 40, trend: 38, tags: ["個性", "爆発力"] }
+    { id: "cover_01", title: "コピー曲：定番ロック", isCover: true, catchy: 30, tempo: 28, mainGenre: "ロック", subGenre: "ギターロック", genre: "ギターロック", recognition: 24, lyrics: 20, performance: 28, trend: 18, tags: ["客受け"] },
+    { id: "cover_02", title: "コピー曲：疾走パンク", isCover: true, catchy: 27, tempo: 34, mainGenre: "パンク", subGenre: "青春パンク", genre: "青春パンク", recognition: 21, lyrics: 18, performance: 27, trend: 17, tags: ["疾走感"] },
+    { id: "cover_03", title: "コピー曲：夜のオルタナロック", isCover: true, catchy: 22, tempo: 20, mainGenre: "ロック", subGenre: "オルタナロック", genre: "オルタナロック", recognition: 20, lyrics: 30, performance: 24, trend: 16, tags: ["余韻"] },
+    { id: "cover_04", title: "コピー曲：フェス向けギターポップ", isCover: true, catchy: 34, tempo: 27, mainGenre: "ポップ", subGenre: "ギターポップ", genre: "ギターポップ", recognition: 26, lyrics: 19, performance: 24, trend: 24, tags: ["客受け"] },
+    { id: "cover_05", title: "コピー曲：重低音ラップロック", isCover: true, catchy: 24, tempo: 31, mainGenre: "ヒップホップ", subGenre: "ラップロック", genre: "ラップロック", recognition: 18, lyrics: 17, performance: 28, trend: 20, tags: ["個性"] }
   ],
   supportOptions: [
     { id: "sup_guitar", name: "サポートギター", instrument: "guitar", cost: 5000, score: 8, genres: ["ロック", "ギターロック", "オルタナロック", "メロディックパンク"] },
@@ -910,7 +974,7 @@ const SAVE_SLOT_COUNT = 2;
 const SAVE_SLOT_PREFIX = "underground_v0310_slot_";
 const AUTOSAVE_SLOT_PREFIX = "underground_v0310_autoslot_";
 const CURRENT_SLOT_KEY = "underground_v0310_current_slot";
-const SAVE_VERSION = "v0.3.24";
+const SAVE_VERSION = "v0.3.25";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -1286,8 +1350,18 @@ function nextLiveLabel() {
   return `${state.nextLiveTurn}T ${ev?.label || ev?.name || "ライブ"}`;
 }
 function turnsUntilNextLive() { return Math.max(0, state.nextLiveTurn - state.turn); }
+function firstDraftTutorialTargets() {
+  if (state.turn !== 2 || state.firstDraftTutorialPending === false) return [];
+  if (!Array.isArray(state.pendingDrafts) || !state.pendingDrafts.length) return [];
+  let ids = Array.isArray(state.firstDraftTutorialDraftIds) ? state.firstDraftTutorialDraftIds.filter(Boolean) : [];
+  if (!ids.length && state.firstDraftTutorialPending !== false) {
+    ids = [state.pendingDrafts[0]?.id].filter(Boolean);
+    state.firstDraftTutorialDraftIds = ids;
+  }
+  return ids.map(id => state.pendingDrafts.find(d => d.id === id)).filter(Boolean);
+}
 function mustCompleteFirstDraftTutorial() {
-  return state.turn === 2 && Array.isArray(state.pendingDrafts) && state.pendingDrafts.some(d => !(d.lyricsDone && d.musicDone));
+  return firstDraftTutorialTargets().length > 0;
 }
 function firstDraftTutorialPopup() {
   return {
@@ -1376,10 +1450,14 @@ function finishPendingTurnAdvance() {
   scheduleNextLive();
   state.turnNotice = { turn: state.turn, next: state.nextLiveTurn, label: currentLiveName(), remain: turnsUntilNextLive(), createdAt: Date.now() };
   state.songcraftUsedThisTurn = false;
-  if (mustCompleteFirstDraftTutorial()) {
-    state.view = "songs";
-    state.songEditor = { step:"composeMenu" };
-    if (!state.activePopup) state.activePopup = firstDraftTutorialPopup();
+  if (state.turn === 2 && Array.isArray(state.pendingDrafts) && state.pendingDrafts.some(d => !(d.lyricsDone && d.musicDone))) {
+    state.firstDraftTutorialDraftIds = state.pendingDrafts.filter(d => !(d.lyricsDone && d.musicDone)).map(d => d.id);
+    state.firstDraftTutorialPending = state.firstDraftTutorialDraftIds.length > 0;
+    state.firstDraftTutorialPopupShown = false;
+    if (!state.activePopup) {
+      state.activePopup = firstDraftTutorialPopup();
+      state.firstDraftTutorialPopupShown = true;
+    }
   }
   render();
 }
@@ -1642,6 +1720,10 @@ function normalizeState() {
   if (typeof state.deferPopupsUntilAfterLive === "undefined") state.deferPopupsUntilAfterLive = false;
   if (!Array.isArray(state.popupQueue)) state.popupQueue = [];
   if (typeof state.lastNoLivePlanWarnTurn === "undefined") state.lastNoLivePlanWarnTurn = 0;
+  if (typeof state.firstDraftTutorialPending === "undefined") state.firstDraftTutorialPending = state.turn === 2 && Array.isArray(state.pendingDrafts) && state.pendingDrafts.some(d => !(d.lyricsDone && d.musicDone));
+  if (!Array.isArray(state.firstDraftTutorialDraftIds)) state.firstDraftTutorialDraftIds = state.firstDraftTutorialPending && Array.isArray(state.pendingDrafts) ? state.pendingDrafts.filter(d => !(d.lyricsDone && d.musicDone)).slice(0,1).map(d => d.id) : [];
+  if (typeof state.firstDraftTutorialPopupShown === "undefined") state.firstDraftTutorialPopupShown = false;
+  if (state.turn !== 2 || !firstDraftTutorialTargets().length) state.firstDraftTutorialPending = false;
   if (state.turnNotice && (!state.turnNotice.createdAt || Date.now() - state.turnNotice.createdAt > 3200)) state.turnNotice = null;
   if (!state.discoveredGenres) state.discoveredGenres = {};
   if (!state.band) state.band = {};
@@ -1747,9 +1829,8 @@ function renderIntroScreen() {
 
 function maybeTriggerStoryEvents() {
   if (state.activePopup || state.actionResultModal || state.liveProgressModal || state.liveResultModal || state.bandNamePrompt) return;
-  if (mustCompleteFirstDraftTutorial() && state.view !== "songs") {
-    state.view = "songs";
-    state.songEditor = { step:"composeMenu" };
+  if (mustCompleteFirstDraftTutorial() && !state.firstDraftTutorialPopupShown) {
+    state.firstDraftTutorialPopupShown = true;
     state.activePopup = firstDraftTutorialPopup();
     return;
   }
@@ -1800,8 +1881,7 @@ function completeSongcraftTutorial() {
 function showTutorialBlocked(kind) {
   if (mustCompleteFirstDraftTutorial() && kind !== "song") {
     state.activePopup = firstDraftTutorialPopup();
-    state.view = "songs";
-    state.songEditor = { step:"composeMenu" };
+    state.view = "home";
     render();
     return true;
   }
@@ -1927,7 +2007,7 @@ function guideSignals() {
   const draftCount = (state.pendingDrafts || []).filter(d => !(d.lyricsDone && d.musicDone)).length;
   if (draftCount && !mustCompleteFirstDraftTutorial()) push("未完成曲あり", "info", "余力がある時に仕上げられる");
   const songPt = (state.songs || []).reduce((a,s)=>a + Number(s.songPt || 0), 0);
-  if (songPt >= 20) push("曲Ptあり", "info", "強化は任意。最適解ではない");
+  if (songPt >= 20) push("曲Ptあり", "info", "曲の強化が可能");
   if ((state.turn || 1) >= 25 && (state.turn || 1) < 30) push("UNDER接近", "warn", "条件と代表曲を確認");
   if ((state.turn || 1) >= 44 && (state.turn || 1) < 50) push("GRAND接近", "warn", "高評価狙いは会場相性も見る");
   const unique = [];
@@ -1943,7 +2023,7 @@ function renderGuideChips(limit=3) {
 function renderQuietGuidePanel() {
   const list = guideSignals();
   return `<div class="card tips-card quiet-guide-card">
-    <div class="section-title"><h2>状況メモ</h2><span class="badge">必要時だけ表示</span></div>
+    <div class="section-title"><h2>状況メモ</h2></div>
     <div class="quiet-guide-chips">${renderGuideChips(3)}</div>
     ${list.length ? `<small>${escapeHtml(list[0].detail || "色やタグは安全目安。最高値は自分で探す余地があります。")}</small>` : `<small>常時の指南は出しすぎず、危険時だけ色・タグ・確認で知らせます。</small>`}
   </div>`;
@@ -2011,7 +2091,7 @@ function renderSavePanel() {
 function renderPwaPanel() {
   return `<div class="pwa-panel">
     <b>スマホ確認</b>
-    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.24は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
+    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.25は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
   </div>`;
 }
 
@@ -2259,7 +2339,7 @@ function renderFesInfoPanel() {
 
 function openSongEditor(step="menu") {
   state.view = "songs";
-  state.songEditor = { step };
+  state.songEditor = { step: mustCompleteFirstDraftTutorial() ? "composeMenu" : step };
   render();
 }
 function resetSongEditor() { state.songEditor = { step: "menu" }; }
@@ -2423,9 +2503,9 @@ function renderSongEditorStep(ed) {
   }
   if (ed.step === "composeMenu") {
     const hasDrafts = state.pendingDrafts.length > 0;
-    const forceFirstDraft = state.turn === 2 && hasDrafts;
-    if (forceFirstDraft) {
-      return `<div class="editor-summary tutorial-box"><b>2ターン目：未完成曲を完成させよう</b><span>このターンは他の操作を一時ロック中。未完成曲を選び、作っていない作詞/作曲を進めると曲が完成します。</span></div><div class="choice-grid song-choice">${state.pendingDrafts.map(d=>choiceButton(`<b>${escapeHtml(d.titleHint)}</b>`, `draft:select:${d.id}`, "", draftProgressSmall(d))).join("")}</div>`;
+    const tutorialTargets = firstDraftTutorialTargets();
+    if (tutorialTargets.length) {
+      return `<div class="editor-summary tutorial-box"><b>2ターン目：未完成曲を完成させよう</b><span>ホームから作詞・作曲を開き、1ターン目の未完成曲を選ぼう。作っていない作詞/作曲を進め、最後に曲名とテーマを確認すると完了です。</span></div><div class="choice-grid song-choice">${tutorialTargets.map(d=>choiceButton(`<b>${escapeHtml(d.titleHint)}</b>`, `draft:select:${d.id}`, "", draftProgressSmall(d))).join("")}</div>`;
     }
     return `<div class="choice-grid main-choice-grid">
       ${choiceButton("<span>🆕</span><b>新曲作成</b>", "new:start", "", "作詞か作曲から始める")}
@@ -2550,26 +2630,28 @@ function handleSongEditorAction(action) {
     stepSongEditorBack(ed); render(); return;
   }
   if (action === "editor:menu") { state.songEditor = { step: mustCompleteFirstDraftTutorial() ? "composeMenu" : "menu" }; render(); return; }
-  if (action === "compose:menu") { state.songEditor = { step:"composeMenu" }; render(); return; }
-  if (action === "arrange:menu") { if (mustCompleteFirstDraftTutorial()) { state.songEditor = { step:"composeMenu" }; render(); return; } state.songEditor = { step:"arrangeMenu" }; render(); return; }
-  if (action === "new:start" && state.turn === 2 && state.pendingDrafts.length) { showEventPopup("まず未完成曲を完成", `2ターン目は、1ターン目で作った未完成曲だけを選べる。
+  if (action === "compose:menu") { if (!canStartAnySongcraft(["lyrics","music"], 20, "曲作成")) { render(); return; } state.songEditor = { step:"composeMenu" }; render(); return; }
+  if (action === "arrange:menu") { if (mustCompleteFirstDraftTutorial()) { state.songEditor = { step:"composeMenu" }; render(); return; } if (!canStartSongcraft("music", 10, "編曲/曲編集")) { render(); return; } state.songEditor = { step:"arrangeMenu" }; render(); return; }
+  if (action === "new:start" && mustCompleteFirstDraftTutorial()) { showEventPopup("まず未完成曲を完成", `2ターン目は、1ターン目で作った未完成曲だけを選べる。
 作っていない作詞/作曲を選んで、曲が完成する流れを確認しよう。`, "event", "📝"); return; }
-  if (action === "new:start") { state.songEditor = { step:"newType" }; render(); return; }
+  if (action === "new:start") { if (!canStartAnySongcraft(["lyrics","music"], 20, "新曲作成")) { render(); return; } state.songEditor = { step:"newType" }; render(); return; }
   if (action === "draft:start") { state.songEditor = { step:"draftSelect" }; render(); return; }
-  if (action === "boost:start") { if (mustCompleteFirstDraftTutorial()) { state.songEditor = { step:"composeMenu" }; render(); return; } state.songEditor = { step:"boostSong" }; render(); return; }
-  if (action === "edit:start") { if (mustCompleteFirstDraftTutorial()) { state.songEditor = { step:"composeMenu" }; render(); return; } state.songEditor = { step:"editSong" }; render(); return; }
+  if (action === "boost:start") { if (mustCompleteFirstDraftTutorial()) { state.songEditor = { step:"composeMenu" }; render(); return; } if (!canStartSongcraft("music", 10, "曲強化")) { render(); return; } state.songEditor = { step:"boostSong" }; render(); return; }
+  if (action === "edit:start") { if (mustCompleteFirstDraftTutorial()) { state.songEditor = { step:"composeMenu" }; render(); return; } if (!canStartSongcraft("music", 10, "曲編集")) { render(); return; } state.songEditor = { step:"editSong" }; render(); return; }
   if (action === "draft:titleRandom") { ed.title = randomSongTitleCandidate(ed); render(); return; }
   let m;
-  if ((m = action.match(/^new:type:(lyrics|music)$/))) { ed.type = m[1]; ed.step = m[1] === "lyrics" ? "newLyricsMember" : "newMusicMember"; render(); return; }
+  if ((m = action.match(/^new:type:(lyrics|music)$/))) { if (!canStartSongcraft(m[1], 20, m[1] === "lyrics" ? "作詞" : "作曲")) { render(); return; } ed.type = m[1]; ed.step = m[1] === "lyrics" ? "newLyricsMember" : "newMusicMember"; render(); return; }
   if ((m = action.match(/^new:lyricsMember:(.+)$/))) { ed.memberId = m[1]; ed.step = "newLyricWords"; render(); return; }
   if (action === "new:lyricsExecute") {
     const words = collectLyricWordsFromInputs();
     if (!words) { showEventPopup("歌詞が未入力", "3つの歌詞ワードを1つ以上入力してから完了しよう。", "warn", "✍️"); return; }
     ed.keyword = words;
     const member = activeMembers().find(x=>x.id===ed.memberId) || state.player;
-    createDraftAndAdvance("lyrics", member, null, null, "", words, "", provisionalDraftTitle("lyrics", ed));
-    completeSongcraftTutorial();
-    if (!state.songEditor || state.songEditor.step !== "draftFinalize") state.songEditor = { step:"composeMenu" };
+    const ok = createDraftAndAdvance("lyrics", member, null, null, "", words, "", provisionalDraftTitle("lyrics", ed));
+    if (ok) {
+      completeSongcraftTutorial();
+      if (!state.songEditor || state.songEditor.step !== "draftFinalize") state.songEditor = { step:"composeMenu" };
+    }
     render(); return;
   }
   if ((m = action.match(/^new:musicMember:(.+)$/))) { ed.memberId = m[1]; ed.step = "newMain1"; render(); return; }
@@ -2578,13 +2660,15 @@ function handleSongEditorAction(action) {
   if ((m = action.match(/^new:arrange:(.+)$/))) { ed.arrange = m[1]; ed.step = "newMusicConfirm"; render(); return; }
   if (action === "new:musicExecute") {
     const member = activeMembers().find(x=>x.id===ed.memberId) || state.player;
-    createDraftAndAdvance("music", member, ed.mainGenreA, ed.mainGenreB, "", "", ed.arrange, provisionalDraftTitle("music", ed));
-    completeSongcraftTutorial();
-    if (!state.songEditor || state.songEditor.step !== "draftFinalize") state.songEditor = { step:"composeMenu" };
+    const ok = createDraftAndAdvance("music", member, ed.mainGenreA, ed.mainGenreB, "", "", ed.arrange, provisionalDraftTitle("music", ed));
+    if (ok) {
+      completeSongcraftTutorial();
+      if (!state.songEditor || state.songEditor.step !== "draftFinalize") state.songEditor = { step:"composeMenu" };
+    }
     render(); return;
   }
-  if ((m = action.match(/^draft:select:(.+)$/))) { ed.draftId = m[1]; ed.step = "draftType"; render(); return; }
-  if ((m = action.match(/^draft:type:(lyrics|music)$/))) { ed.type = m[1]; ed.step = m[1] === "lyrics" ? "draftLyricsMember" : "draftMusicMember"; render(); return; }
+  if ((m = action.match(/^draft:select:(.+)$/))) { ed.draftId = m[1]; const d = state.pendingDrafts.find(x => x.id === ed.draftId); ed.step = d && d.lyricsDone && d.musicDone ? "draftFinalize" : "draftType"; render(); return; }
+  if ((m = action.match(/^draft:type:(lyrics|music)$/))) { if (!canStartSongcraft(m[1], 20, m[1] === "lyrics" ? "作詞" : "作曲")) { render(); return; } ed.type = m[1]; ed.step = m[1] === "lyrics" ? "draftLyricsMember" : "draftMusicMember"; render(); return; }
   if ((m = action.match(/^draft:lyricsMember:(.+)$/))) { ed.memberId = m[1]; ed.step = "draftLyricWords"; render(); return; }
   if (action === "draft:lyricsExecute") {
     const d = state.pendingDrafts.find(x=>x.id===ed.draftId);
@@ -2593,9 +2677,11 @@ function handleSongEditorAction(action) {
     if (!words) { showEventPopup("歌詞が未入力", "3つの歌詞ワードを1つ以上入力してから完了しよう。", "warn", "✍️"); return; }
     d.keyword = words;
     const member = activeMembers().find(x=>x.id===ed.memberId) || state.player;
-    advanceDraftById(ed.draftId, "lyrics", member);
-    completeSongcraftTutorial();
-    if (!state.songEditor || state.songEditor.step !== "draftFinalize") state.songEditor = { step:"composeMenu" };
+    const ok = advanceDraftById(ed.draftId, "lyrics", member);
+    if (ok) {
+      completeSongcraftTutorial();
+      if (!state.songEditor || state.songEditor.step !== "draftFinalize") state.songEditor = { step:"composeMenu" };
+    }
     render(); return;
   }
   if ((m = action.match(/^draft:musicMember:(.+)$/))) { ed.memberId = m[1]; ed.step = "draftMain1"; render(); return; }
@@ -2607,9 +2693,11 @@ function handleSongEditorAction(action) {
     if (!d) { log("制作中の曲が見つかりません。"); render(); return; }
     applyDraftMusicFields(d, ed.mainGenreA, ed.mainGenreB, ed.arrange);
     const member = activeMembers().find(x=>x.id===ed.memberId) || state.player;
-    advanceDraftById(ed.draftId, "music", member);
-    completeSongcraftTutorial();
-    if (!state.songEditor || state.songEditor.step !== "draftFinalize") state.songEditor = { step:"composeMenu" };
+    const ok = advanceDraftById(ed.draftId, "music", member);
+    if (ok) {
+      completeSongcraftTutorial();
+      if (!state.songEditor || state.songEditor.step !== "draftFinalize") state.songEditor = { step:"composeMenu" };
+    }
     render(); return;
   }
   if (action === "draft:finalize") {
@@ -4148,21 +4236,22 @@ function executeSongcraftFromForm() {
   const keyword = document.getElementById("craftKeyword")?.value || KEYWORDS[0];
   const arrange = document.getElementById("craftArrange")?.value || ARRANGES[0];
   const title = (document.getElementById("craftTitle")?.value || "").trim();
-  if (mode === "new") createDraftAndAdvance(type, member, mainGenre, mainGenre, theme, keyword, arrange, title);
+  let ok = false;
+  if (mode === "new") ok = createDraftAndAdvance(type, member, mainGenre, mainGenre, theme, keyword, arrange, title);
   if (mode === "draft") {
     const draftId = document.getElementById("craftDraft")?.value;
     if (!draftId || draftId === "none") log("進める制作中の曲がありません。");
-    else advanceDraftById(draftId, type, member);
+    else ok = advanceDraftById(draftId, type, member);
   }
-  if (mode === "boost") boostSong(type, member, document.getElementById("craftSong")?.value);
-  completeSongcraftTutorial();
+  if (mode === "boost") { boostSong(type, member, document.getElementById("craftSong")?.value); ok = true; }
+  if (ok) completeSongcraftTutorial();
   render();
 }
 
 function executeDraftCraft(draftId, type) {
   const member = activeMembers().find(m => m.id === document.getElementById("craftMember")?.value) || state.player;
-  advanceDraftById(draftId, type, member);
-  completeSongcraftTutorial();
+  const ok = advanceDraftById(draftId, type, member);
+  if (ok) completeSongcraftTutorial();
   render();
 }
 
@@ -4171,6 +4260,30 @@ function craftLevel(type) {
   if (xp >= 10) return 3;
   if (xp >= 4) return 2;
   return 1;
+}
+function plannedSongcraftFatigueCost(type, baseCost) {
+  if ((state.freeSongcraftCharge || 0) > 0) return 0;
+  const lv = craftLevel(type);
+  const skillReduce = (hasSkill("dual_songcraft") ? 2 : 0) + (hasSkill("shortcut_command") ? 1 : 0);
+  return Math.max(0, baseCost - lv - skillReduce);
+}
+function canStartSongcraft(type, baseCost, label) {
+  const cost = plannedSongcraftFatigueCost(type, baseCost);
+  if ((state.band.fatigue || 0) + cost > 100) {
+    showEventPopup("疲労限界", `${label}には疲労${cost}%が必要です。疲労が100％を超えるため、先に休憩かドリンクを使おう。`, "warn", "⚠️");
+    return false;
+  }
+  return true;
+}
+function canStartAnySongcraft(types, baseCost, label) {
+  const list = Array.isArray(types) ? types : [types];
+  const remaining = 100 - (state.band.fatigue || 0);
+  const minCost = Math.min(...list.map(t => plannedSongcraftFatigueCost(t, baseCost)));
+  if (remaining < minCost) {
+    showEventPopup("疲労限界", `${label}には最低でも疲労${minCost}%の余力が必要です。先に休憩かドリンクを使おう。`, "warn", "⚠️");
+    return false;
+  }
+  return true;
 }
 function songcraftFatigueCost(type, baseCost) {
   const lv = craftLevel(type);
@@ -4253,6 +4366,7 @@ function genreFit(m, mainGenre, subGenre) {
 }
 
 function createDraftAndAdvance(type, member, mainGenreA, mainGenreB, theme, keyword, arrange, inputTitle) {
+  if (!canStartSongcraft(type, 20, type === "lyrics" ? "作詞" : "作曲")) return false;
   const titleHint = inputTitle || makeTitle(keyword || "新しい言葉", theme || "自分");
   let draft = state.pendingDrafts.find(d => d.titleHint === titleHint);
   if (!draft) {
@@ -4281,19 +4395,19 @@ function createDraftAndAdvance(type, member, mainGenreA, mainGenreB, theme, keyw
   }
   if (type === "lyrics" && keyword) draft.keyword = keyword;
   if (type === "music") applyDraftMusicFields(draft, mainGenreA, mainGenreB, arrange);
-  advanceDraft(draft, type, member);
+  return advanceDraft(draft, type, member);
 }
 
 function advanceDraftById(draftId, type, member) {
   const draft = state.pendingDrafts.find(d => d.id === draftId);
-  if (!draft) { log("指定された制作中の曲が見つからなかった。"); return; }
-  advanceDraft(draft, type, member);
+  if (!draft) { log("指定された制作中の曲が見つからなかった。"); return false; }
+  return advanceDraft(draft, type, member);
 }
 
 function advanceDraft(d, type, member) {
-  if (type === "lyrics" && d.lyricsDone) { log(`「${d.titleHint}」の作詞はすでに完了している。未作成の作曲を選んでください。`); return; }
-  if (type === "music" && d.musicDone) { log(`「${d.titleHint}」の作曲はすでに完了している。未作成の作詞を選んでください。`); return; }
-  if (!applySongcraftFatigue(type, 20, member, type === "lyrics" ? "作詞" : "作曲")) return;
+  if (type === "lyrics" && d.lyricsDone) { log(`「${d.titleHint}」の作詞はすでに完了している。未作成の作曲を選んでください。`); return false; }
+  if (type === "music" && d.musicDone) { log(`「${d.titleHint}」の作曲はすでに完了している。未作成の作詞を選んでください。`); return false; }
+  if (!applySongcraftFatigue(type, 20, member, type === "lyrics" ? "作詞" : "作曲")) return false;
   const base = type === "lyrics" ? derivedLyrics(member) : derivedMusic(member);
   const kw = analyzeKeywordText(d.keyword, d.theme);
   const arrState = arrangeStatus(d.arrange || "");
@@ -4337,6 +4451,7 @@ ${bonus.length ? "ボーナス：" + bonus.join(" / ") + "\n" : ""}次は${next}
     state.lastSongcraftResult = { title:`${done} 50％完成！`, body:halfBody, bars };
     showEventPopup(`${done} 50％完成！`, halfBody, "song", d.lyricsDone ? "✍️" : "🎼", { bars });
   }
+  return true;
 }
 
 function makeTitle(keyword, theme) {
@@ -4397,6 +4512,10 @@ function finishDraft(draftId) {
   maybeUnlockProgressSkills("song");
   updateDirection(song.mainGenre, 5); if (song.subGenre) updateDirection(song.subGenre, 4);
   state.pendingDrafts.splice(idx, 1);
+  if (Array.isArray(state.firstDraftTutorialDraftIds) && state.firstDraftTutorialDraftIds.includes(draftId) && !firstDraftTutorialTargets().length) {
+    state.firstDraftTutorialPending = false;
+    state.firstDraftTutorialCompleted = true;
+  }
   const discovery = registerGenreDiscovery(song.subGenre, song.title);
   if (discovery) {
     showEventPopup(discovery.rare ? "RARE GENRE DISCOVERED!!" : "NEW GENRE DISCOVERED!!", `${discovery.rare ? "レア" : "新"}ジャンル「${discovery.genre}」を発見！\n「${song.title}」から生まれた新しい方向性。`, discovery.rare ? "rare" : "song", discovery.rare ? "⭐" : "💡");
@@ -4780,8 +4899,8 @@ function calculateLive(setlist, supports, merch, positions, vocalist, chorus) {
   const memberScaleBonus = Math.max(0, performers.length - 3) * 3;
   const memberScaleRisk = Math.max(0, performers.length - 4) * 5;
   const equipmentBonus = { performance:(state.items.usedGear||0)*2 + (state.items.effecter||0) + equipmentEffectSum("performance"), expression:(state.items.effecter||0)*2 + equipmentEffectSum("expression"), heat:(state.items.lightFx||0)*3 + equipmentEffectSum("heat"), strategy:(state.items.lightFx||0) + equipmentEffectSum("strategy"), stability:equipmentEffectSum("stability") };
-  const originalityBonus = originalCount === 5 ? 25 : originalCount === 4 ? 15 : originalCount === 3 ? 0 : -18;
-  const coverStability = coverCount * 7;
+  const originalityBonus = originalCount === 5 ? 25 : originalCount === 4 ? 13 : originalCount === 3 ? -6 : originalCount === 2 ? -24 : -34;
+  const coverStability = coverCount * 3;
   const fatigue = state.band.fatigue;
   const liveArrange = adlibResult(avgSense, avgTeam, avgMental, avgRhythm, state.band.trust, fatigue);
   const repeatInfo = resolveRepeatSetlist(analyzeRepeatSetlist(setlist), liveArrange);
@@ -4818,7 +4937,7 @@ function calculateLive(setlist, supports, merch, positions, vocalist, chorus) {
   strategy += liveArrange.strategy;
   stability += liveArrange.stability;
 
-  const finalPenalty = state.turn === state.maxTurn ? coverCount * 5 : coverCount * 2;
+  const finalPenalty = state.turn === state.maxTurn ? coverCount * 8 : coverCount * 5;
   const venueMatch = venueData.id === "big_stage" ? (setlistBonus.total + (originalCount >= 5 ? 6 : -8) - coverCount * 5) : setlistBonus.total * 0.65;
   const finalGoalPressure = state.turn >= 30 ? Math.max(0, venueShortage * 0.18) : 0;
   const rawTotal = performance + expression + heat + strategy + stability + venueMatch - finalPenalty - finalGoalPressure;
@@ -4892,11 +5011,11 @@ function instrumentSkillFor(member, instrument) {
 
 function scoreSongSlot(song, slot) {
   let score = 0;
-  if (slot === 1) score += song.catchy * .35 + song.tempo * .25 + song.recognition * .18 + (hasTag(song,"定番") ? 15 : 0) + (song.isCover ? 10 : 0) + (hasTag(song,"爆発力") ? 8 : 0);
-  if (slot === 2) score += song.performance * .32 + song.lyrics * .18 + song.tempo * .16 + genreDirectionFit(song.genre) + (song.isCover ? 3 : 0);
+  if (slot === 1) score += song.catchy * .35 + song.tempo * .25 + song.recognition * .18 + (hasTag(song,"定番") && !song.isCover ? 15 : 0) + (song.isCover ? 3 : 0) + (hasTag(song,"爆発力") ? 8 : 0);
+  if (slot === 2) score += song.performance * .32 + song.lyrics * .18 + song.tempo * .16 + genreDirectionFit(song.genre) + (song.isCover ? 1 : 0);
   if (slot === 3) score += song.lyrics * .34 + song.performance * .24 + (hasTag(song,"エモさ") ? 10 : 0) + (hasTag(song,"個性") ? 10 : 0);
-  if (slot === 4) score += song.performance * .22 + (hasTag(song,"余韻") ? 10 : 0) + (song.isCover ? 8 : 0) + (song.tempo < 60 ? 7 : 0);
-  if (slot === 5) score += song.recognition * .20 + song.lyrics * .23 + song.tempo * .18 + (hasTag(song,"代表曲候補") ? 20 : 0) + (hasTag(song,"定番") ? 15 : 0) + (hasTag(song,"爆発力") ? 15 : 0);
+  if (slot === 4) score += song.performance * .22 + (hasTag(song,"余韻") ? 10 : 0) + (song.isCover ? 2 : 0) + (song.tempo < 60 ? 7 : 0);
+  if (slot === 5) score += song.recognition * .20 + song.lyrics * .23 + song.tempo * .18 + (hasTag(song,"代表曲候補") ? 20 : 0) + (hasTag(song,"定番") && !song.isCover ? 15 : 0) + (hasTag(song,"爆発力") ? 15 : 0);
   return score;
 }
 function genreDirectionFit(genre) { return Math.min(16, (state.band.direction[genre] || 0) / 4); }
