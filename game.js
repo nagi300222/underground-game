@@ -1,10 +1,10 @@
 /*
-  アンダーグラウンド（仮） v0.3.29 prototype
+  アンダーグラウンド（仮） v0.3.30 prototype
   - 1ファイル内の DATA を差し替えるだけでキャラ・曲・サポート候補を変更できます。
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
 
-const VERSION = "v0.3.29";
+const VERSION = "v0.3.30";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -1099,7 +1099,7 @@ const SAVE_SLOT_COUNT = 2;
 const SAVE_SLOT_PREFIX = "underground_v0310_slot_";
 const AUTOSAVE_SLOT_PREFIX = "underground_v0310_autoslot_";
 const CURRENT_SLOT_KEY = "underground_v0310_current_slot";
-const SAVE_VERSION = "v0.3.29";
+const SAVE_VERSION = "v0.3.30";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -1529,21 +1529,46 @@ function log(msg, type="info") {
   state.lastLogType = type;
   state.telopFlash = Date.now();
 }
+function normalizePopupQueue() {
+  state.popupQueue = Array.isArray(state.popupQueue) ? state.popupQueue.filter(Boolean) : [];
+  const seen = new Set();
+  state.popupQueue = state.popupQueue.filter(p => {
+    const key = `${p.title || ""}|${String(p.body || "").slice(0, 42)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 18);
+}
+function nextPopupFromQueue() {
+  normalizePopupQueue();
+  if (!state.popupQueue.length) return null;
+  const batch = state.popupQueue.splice(0, 3).filter(Boolean);
+  if (batch.length === 1) return batch[0];
+  return {
+    title: "まとめて確認",
+    body: batch.map(p => `【${p.title || "通知"}】\n${p.body || ""}`).join("\n\n"),
+    type: batch.some(p => p.type === "warn" || p.type === "bad") ? "warn" : (batch.some(p => p.type === "rare") ? "rare" : "event"),
+    icon: "📌"
+  };
+}
 function showEventPopup(title, body, type="info", icon="🎸", payload={}) {
   const popup = { title, body, type, icon, ...(payload || {}) };
-  // ライブ演出中に通常ポップアップを出すと画面が重なるため、ライブ結果OK後に順番表示する。
+  if (title === "疲労が増えた" && !(String(body || "").includes("ライブ") || String(body || "").includes("打ち上げ"))) {
+    log(`${title}：${String(body || "").split("\n")[0]}`, "warn");
+    return;
+  }
   if (state.deferPopupsUntilAfterLive || state.liveProgressModal || state.pendingLiveResultModal || state.liveResultModal || state.actionResultModal || state.detailModal || state.pendingBooking || state.pendingBoostSong || state.pendingAfterparty || state.pendingPurchase || state.saveSlotModal || state.pendingCancelLive || state.activePopup) {
     state.popupQueue = state.popupQueue || [];
     state.popupQueue.push(popup);
+    normalizePopupQueue();
     return;
   }
   state.activePopup = popup;
 }
 function closeActivePopup() {
   state.activePopup = null;
-  if (Array.isArray(state.popupQueue) && state.popupQueue.length) {
-    state.activePopup = state.popupQueue.shift();
-  } else if (state.pendingEndingAfterLive) {
+  state.activePopup = nextPopupFromQueue();
+  if (!state.activePopup && state.pendingEndingAfterLive) {
     state.pendingEndingAfterLive = false;
     state.ended = true;
   }
@@ -1552,17 +1577,15 @@ function closeActivePopup() {
 function closeLiveResultModal() {
   state.liveResultModal = null;
   state.deferPopupsUntilAfterLive = false;
-  if (state.pendingAfterparty) {
-    render();
-    return;
-  }
+  if (state.pendingAfterparty) { render(); return; }
   if (state.postLiveStory) {
     const ev = state.postLiveStory;
     state.postLiveStory = null;
     state.activePopup = { title:ev.title, body:ev.body, type:"event", icon:ev.icon || "🕴️" };
-  } else if (Array.isArray(state.popupQueue) && state.popupQueue.length) {
-    state.activePopup = state.popupQueue.shift();
-  } else if (state.pendingEndingAfterLive) {
+  } else {
+    state.activePopup = nextPopupFromQueue();
+  }
+  if (!state.activePopup && state.pendingEndingAfterLive) {
     state.pendingEndingAfterLive = false;
     state.ended = true;
   }
@@ -1571,25 +1594,20 @@ function closeLiveResultModal() {
 function closeActionResultModal() {
   state.actionResultModal = null;
   state.lastSongcraftResult = null;
-  if (Array.isArray(state.popupQueue) && state.popupQueue.length && !state.activePopup) {
-    state.activePopup = state.popupQueue.shift();
-    render();
-    return;
+  if (!state.activePopup) {
+    const next = nextPopupFromQueue();
+    if (next) { state.activePopup = next; render(); return; }
   }
-  // 行動結果を確認してからターンを進める。
   if (state.pendingTurnAdvance) {
     const pending = state.pendingTurnAdvance;
-    if (pending.nextTurn === 5 && !state.band.name) {
-      state.bandNamePrompt = true;
-      render();
-      return;
-    }
+    if (pending.nextTurn === 5 && !state.band.name) { state.bandNamePrompt = true; render(); return; }
     finishPendingTurnAdvance();
     return;
   }
   state.turnNotice = null;
   render();
 }
+
 
 function finishPendingTurnAdvance() {
   const pending = state.pendingTurnAdvance;
@@ -1877,6 +1895,7 @@ function normalizeState() {
   if (!state.seenGuidePopups || typeof state.seenGuidePopups !== "object") state.seenGuidePopups = {};
   if (typeof state.quietGuideMode === "undefined") state.quietGuideMode = true;
   if (typeof state.skillPanelOpen === "undefined") state.skillPanelOpen = true;
+  if (typeof state.uiPrepNotesSeen === "undefined") state.uiPrepNotesSeen = false;
   (state.songs || []).forEach((song, idx) => {
     if (typeof song.createdTurn === "undefined") song.createdTurn = idx === 0 ? 0 : (state.turn || 1);
     if (typeof song.livePlays === "undefined") song.livePlays = 0;
@@ -1916,6 +1935,7 @@ function normalizeState() {
   if (typeof state.activeSaveSlot === "undefined") state.activeSaveSlot = selectedSaveSlot || 1;
   if (typeof state.saveSlotModal === "undefined") state.saveSlotModal = null;
   if (!Array.isArray(state.playerSkills)) state.playerSkills = [];
+  if (Array.isArray(state.logs) && state.logs.length > 180) state.logs = state.logs.slice(0, 180);
   if (!state.equipment || typeof state.equipment !== "object") state.equipment = {};
   EQUIPMENT_DATA.forEach(eq => { state.equipment[eq.id] = clamp(Number(state.equipment[eq.id] || 0), 0, 5); });
   if (typeof state.totalMerchSales === "undefined") state.totalMerchSales = 0;
@@ -2105,7 +2125,7 @@ function render() {
       <div class="hero">
         <div>
           <h1>アンダーグラウンド（仮） ${VERSION}</h1>
-          <p>テンポ改善・曲強化整理版。</p>
+          <p>UI前総合検証版：ライブ/スケジュール/交流/携帯/通知/曲テンポを一括統合。</p>
         </div>
         <div class="hero-actions"><button class="jumpTabBtn ghost-btn schedule-head-btn" data-view="schedule">予定</button><button id="refreshAppBtn" class="ghost-btn update-btn">最新版</button><button id="saveBtn" class="ghost-btn">セーブ</button><button id="loadBtn" class="ghost-btn">ロード</button><button id="titleBtn" class="ghost-btn">タイトルへ</button></div>
       </div>
@@ -2217,6 +2237,16 @@ function renderQuietGuidePanel() {
     ${list.length ? `<small>${escapeHtml(list[0].detail || "色やタグは安全目安。最高値は自分で探す余地があります。")}</small>` : `<small>常時の指南は出しすぎず、危険時だけ色・タグ・確認で知らせます。</small>`}
   </div>`;
 }
+function renderUiPrepSummaryPanel() {
+  const unread = unreadMailCount();
+  const next = (state.liveEvents || []).filter(e => !e.cancelled && e.turn >= state.turn).sort((a,b)=>a.turn-b.turn)[0];
+  const originals = (state.songs || []).filter(song => !song.isCover).length;
+  const pending = (state.pendingDrafts || []).length;
+  const offers = (state.liveOffers || []).filter(o => !o.accepted && !o.expired && o.turn > state.turn).length;
+  const chips = [next ? `次ライブ:${next.turn}T ${liveTypeMeta(next).short}` : "ライブ予定なし", `オリジナル${originals}曲`, pending ? `未完成${pending}曲` : "未完成なし", unread ? `未読メール${unread}` : "未読なし", offers ? `出演通知${offers}件` : "通知待ち"];
+  return `<div class="card tips-card ui-prep-panel"><div class="section-title"><h2>v0.3.30 UI前検証</h2><span class="badge good">総合確認版</span></div><div class="quiet-guide-chips">${chips.map(c=>`<span class="badge">${escapeHtml(c)}</span>`).join("")}</div><small>ライブ/スケジュール/交流/携帯/曲テンポ/通知を一括で通しプレイ確認する版です。</small></div>`;
+}
+
 function maybeShowGuidePopupOnce(key, title, body, type="event", icon="💡") {
   if (!state.seenGuidePopups || typeof state.seenGuidePopups !== "object") state.seenGuidePopups = {};
   if (state.seenGuidePopups[key]) return false;
@@ -2327,7 +2357,7 @@ function renderSnsPost(p) {
 function renderLiveHistoryList(limit=8) {
   const rows = (state.liveResultHistory || []).slice().reverse().slice(0, limit);
   if (!rows.length) return `<div class="empty-panel">ライブ結果はまだありません。</div>`;
-  return `<div class="live-history-list">${rows.map(r => `<div class="mail-row live-history-row"><b>${escapeHtml(r.title || r.liveTypeLabel || "ライブ")}：${escapeHtml(r.rank || "-")}</b><small>${escapeHtml(r.liveTypeLabel || "ライブ")} / ${escapeHtml(r.venue?.name || r.venue || "会場")}</small><p>総合${val(r.total || 0)} / 集客${Number(r.revenue?.attendees || 0)}人 / 利益${Number(r.revenue?.finalProfit || 0).toLocaleString()}円</p></div>`).join("")}</div>`;
+  return `<div class="live-history-list">${rows.map(r => `<div class="mail-row live-history-row"><b>${escapeHtml(r.title || r.liveTypeLabel || "ライブ")}：${escapeHtml(r.rank || "-")}</b><small>${escapeHtml(r.liveTypeLabel || "ライブ")} / ${escapeHtml(r.venue?.name || r.venue || "会場")}</small><p>総合${val(r.total || 0)} / 集客${Number(r.revenue?.attendees || 0)}人（自分目当て${Number(r.revenue?.ownAudience || 0)} / 他バンド${Number(r.revenue?.partnerAudience || 0)}） / 利益${Number(r.revenue?.finalProfit || 0).toLocaleString()}円</p>${r.mannerWarning ? `<small>交流注意：${escapeHtml(r.mannerWarning)}</small>` : ""}</div>`).join("")}</div>`;
 }
 function openMail(mailId) {
   const mail = (state.phoneMails || []).find(m => m.id === mailId);
@@ -2351,7 +2381,8 @@ function snsPost(kind="chat") {
   state.snsLastPostTurn = state.turn;
   state.snsPostCount = (state.snsPostCount || 0) + 1;
   if (state.snsPostCount >= 10) unlockSkill("sns_master", "SNS投稿10件");
-  log(`SNSに${kind === "notice" ? "ライブ告知" : "雑談"}を投稿した。`);
+  log(`SNSに${kind === "notice" ? "ライブ告知" : "雑談"}を投稿した。大きな即時効果はないが、投稿10件でSNS上手に近づく。`);
+  if (kind === "notice") addSnsPost("@listener_random", "告知見た。予定合えば行くかも。", "normal");
   render();
 }
 
@@ -2364,6 +2395,7 @@ function renderHomeScreen() {
         <div class="home-latest-log">${escapeHtml(latest)}</div>
       </div>
       ${renderQuietGuidePanel()}
+      ${renderUiPrepSummaryPanel()}
       <div class="card home-menu-card command-window">
         <div class="success-window-title"><span>MENU</span><b>今週やること</b><small>画面を選ぶ</small></div>
         <div class="home-menu-grid">
@@ -2411,33 +2443,74 @@ function renderPwaPanel() {
 }
 
 function renderSchedulePanel() {
-  const events = (state.liveEvents || []).filter(e => !e.cancelled && e.turn >= state.turn).sort((a,b)=>a.turn-b.turn);
+  const upcoming = (state.liveEvents || []).filter(e => !e.cancelled && e.turn >= state.turn).sort((a,b)=>a.turn-b.turn);
+  const reserved = upcoming.filter(e => !["booking_house","booking_band"].includes(e.liveType));
+  const participation = upcoming.filter(e => ["booking_house","booking_band"].includes(e.liveType));
   const canBook = canBookSchedules();
   const candidates = canBook ? buildLiveCandidates() : [];
   const houseCandidates = canBook ? buildHouseEventCandidates() : [];
-  return `<div class="schedule-screen-split extended-schedule">
+  const offers = (state.liveOffers || []).filter(o => !o.accepted && !o.expired && o.turn > state.turn).slice(0, 4);
+  const next = upcoming[0];
+  return `<div class="schedule-screen-split extended-schedule ui-prep-schedule">
     <section class="schedule-panel schedule-booked-panel">
-      <div class="section-title"><h3>ライブスケジュール</h3><span class="badge warn">自主企画は残り2ターン以内変更不可</span></div>
+      <div class="section-title"><h3>ライブスケジュール</h3><span class="badge good">予約/参加/過去ログを分離</span></div>
+      ${next ? renderNextLiveDetail(next) : `<div class="empty-panel">今後のライブ予定なし。ライブハウスイベントか自主企画を入れよう。</div>`}
+      <hr class="soft" />
+      <div class="section-title"><h3>自主企画・固定予定</h3><span class="badge warn">自主企画は残り2ターン以内変更不可</span></div>
       <div class="schedule-scroll-box"><div class="schedule-list-x booked-list">
-        ${events.map(e => renderScheduleEvent(e)).join("") || `<div class="schedule-event empty-panel">予定なし</div>`}
+        ${reserved.map(e => renderScheduleEvent(e)).join("") || `<div class="schedule-event empty-panel">自主企画/固定予定なし</div>`}
+      </div></div>
+      <div class="section-title"><h3>参加予定のブッキング</h3><span class="badge good">ライブハウス/他バンド企画</span></div>
+      <div class="schedule-scroll-box"><div class="schedule-list-x booked-list">
+        ${participation.map(e => renderScheduleEvent(e)).join("") || `<div class="schedule-event empty-panel">参加予定なし</div>`}
       </div></div>
       <hr class="soft" />
-      <h3>過去のライブ結果</h3>
-      ${renderLiveHistoryList(4)}
+      <h3>過去のライブ結果ログ</h3>
+      ${renderLiveHistoryList(6)}
     </section>
     <section class="live-candidates-panel">
+      <div class="section-title"><h3>出演通知メール</h3><span class="badge ${offers.length ? "good" : "warn"}">${offers.length ? `${offers.length}件` : "未着"}</span></div>
+      <div class="live-candidate-list offer-mini-list">
+        ${offers.map(renderLiveOfferMini).join("") || `<div class="empty-panel">出演通知はまだありません。宣伝・交流で届きやすくなります。</div>`}
+      </div>
+      <small>メールから参加可能。ブッキングは会場費ではなく参加費なので、序盤〜中盤の現実的な経験ルートです。</small>
+      <hr class="soft" />
       <div class="section-title"><h3>ライブハウスイベント</h3><span class="badge ${canBook ? "good" : "warn"}">${canBook ? "自分から参加可能" : "初ライブ後に解放"}</span></div>
       <div class="live-candidate-list">
         ${canBook ? houseCandidates.map(renderLiveCandidate).join("") || `<div class="empty-panel">今ターン参加申込できるライブハウスイベントはありません。メール通知も確認してみよう。</div>` : `<div class="empty-panel">初ライブ後から、ライブハウスイベントに自分から参加できます。</div>`}
       </div>
-      <small>ライブハウスイベントは会場費ではなく参加費。自主企画だけでやり切るより現実的に経験と交流を稼げます。</small>
       <hr class="soft" />
       <div class="section-title"><h3>自主企画の会場候補</h3><span class="badge ${canBook ? "good" : "warn"}">${canBook ? "ワンマン/対バン" : "初ライブ後に解放"}</span></div>
       <div class="live-candidate-list">
         ${canBook ? candidates.map(renderLiveCandidate).join("") || `<div class="empty-panel">予約可能な自主企画候補がありません。</div>` : `<div class="empty-panel">初ライブ後から、スケジュール帳で自主企画ライブを決定できます。</div>`}
       </div>
-      <small>ワンマンは自分たちだけの集客が必要。対バンは共演の集客が乗る代わりに報酬は分配寄りです。</small>
+      <small>ワンマンは高難度。対バンは交流と集客の助けがある代わりに報酬は分配寄りです。</small>
     </section>
+  </div>`;
+}
+function renderNextLiveDetail(ev) {
+  const v = venueById(ev.venueId);
+  const meta = liveTypeMeta(ev);
+  const prep = estimatePrepScore();
+  const bands = invitedBandsForEvent(ev);
+  const remaining = Math.max(0, ev.turn - state.turn);
+  return `<div class="next-live-detail schedule-event ${prep >= v.prepNeed ? "good" : "risk"}">
+    <strong>NEXT LIVE：${ev.turn}T / あと${remaining}T</strong>
+    <b>${escapeHtml(meta.label)} / ${escapeHtml(v.name)}</b>
+    <span>${escapeHtml(meta.short)}・キャパ${v.capacity}・${escapeHtml(meta.feeLabel)}${eventBaseCost(ev, v).toLocaleString()}円</span>
+    <small>準備 ${val(prep)} / 必要 ${v.prepNeed}${prep < v.prepNeed ? `（不足${val(v.prepNeed - prep)}）` : ""}</small>
+    ${bands.length ? `<small>共演：${bands.map(b => escapeHtml(b.name)).join(" / ")}</small>` : `<small>単独/固定イベント。自分たちの集客力が重要。</small>`}
+  </div>`;
+}
+function renderLiveOfferMini(offer) {
+  const v = venueById(offer.venueId);
+  const meta = liveTypeMeta(offer);
+  const bands = invitedBandsForEvent(offer);
+  const blocked = !!liveEventForTurn(offer.turn);
+  return `<div class="schedule-event candidate ${blocked ? "risk" : "good"}">
+    <b>${offer.turn}T ${escapeHtml(meta.short)}：${escapeHtml(v.name)}</b>
+    <small>${escapeHtml(meta.feeLabel)}${eventBaseCost(offer, v).toLocaleString()}円 / ${bands.length ? `共演：${bands.map(b=>escapeHtml(b.name)).join(" / ")}` : "出演枠"}</small>
+    <div class="modal-actions"><button class="acceptOfferBtn big-action" data-offer-id="${escapeHtml(offer.id)}" ${blocked ? "disabled" : ""}>参加</button><button class="declineOfferBtn ghost-btn" data-offer-id="${escapeHtml(offer.id)}">見送る</button></div>
   </div>`;
 }
 
@@ -2548,7 +2621,7 @@ function renderScheduleEvent(e) {
   const cancelBtn = canCancel ? `<button class="cancelLiveBtn ghost-btn" data-turn="${e.turn}">キャンセル</button>` : (!e.fixed ? `<small class="deadline-note">残り2ターン以内：変更不可</small>` : "");
   return `<div class="schedule-event ${cls}">
     <b>${e.turn}T ${escapeHtml(e.label || e.name || meta.short)}</b>
-    <span>${escapeHtml(meta.label)} / ${escapeHtml(v.name)}</span>
+    <span><span class="badge good">${escapeHtml(meta.short)}</span> ${escapeHtml(meta.label)} / ${escapeHtml(v.name)}</span>
     <small>キャパ${v.capacity} / ${escapeHtml(meta.feeLabel)}${cost.toLocaleString()}円 / 要準備${v.prepNeed}</small>
     ${bands.length ? `<small>共演：${bands.map(b=>escapeHtml(b.name)).join(" / ")}</small>` : ""}
     <em>${status}：現在準備${val(prep)}</em>
@@ -2691,7 +2764,7 @@ function renderBandScreen() {
     <div class="grid band-grid">
       <div class="card">
         <div class="section-title"><h2>${escapeHtml(state.band.name || "自身のバンド")} 情報</h2><span class="badge good">自分たち</span></div>
-        <p><small>バンド編成・主人公スキル・バンド名変更をここで確認します。改名すると認知度がごく少し下がります。</small></p>
+        <p><small>バンド編成・主人公スキル・バンド名変更をここで確認します。改名すると認知度がごく少し下がります。UI本格改修時は「自身のバンド情報」「ほかのバンド情報」に分岐予定。</small></p>
         <div class="kv"><b>バンド名</b><span>${escapeHtml(state.band.name || "未定")}</span><b>ファン</b><span>${state.band.fans}</span><b>知名度</b><span>${state.band.fame}</span><b>業界評価</b><span>${state.band.industry}</span><b>維持費目安</b><span>¥${upkeep.toLocaleString()}</span></div>
         <button id="renameBandBtn" class="ghost-btn">バンド名を変更</button>
         <hr class="soft" />
@@ -2714,7 +2787,11 @@ function renderBandScreen() {
   `;
 }
 function renderRivalBandDirectory(limit=99) {
-  return `<div class="rival-band-list">${RIVAL_BANDS.slice(0, limit).map(b => renderRivalBandCard(b)).join("")}</div>`;
+  const groups = [1,2,3,4,5,6].map(lv => {
+    const items = RIVAL_BANDS.filter(b => b.level === lv).slice(0, limit).map(b => renderRivalBandCard(b)).join("");
+    return items ? `<div class="rival-band-tier"><h3>Lv${lv} ${lv <= 2 ? "地元・常連" : lv <= 4 ? "中堅〜格上" : "有名・強豪"}</h3>${items}</div>` : "";
+  }).join("");
+  return `<div class="rival-band-list grouped">${groups}</div>`;
 }
 function rivalBandUpcomingText(id) {
   const ev = (state.liveEvents || []).find(e => !e.cancelled && e.turn >= state.turn && (e.invitedBandIds || []).includes(id));
@@ -2723,16 +2800,26 @@ function rivalBandUpcomingText(id) {
   if (offer) return `${offer.turn}T 出演通知あり`;
   return "予定未確認";
 }
+function rivalInviteReason(b) {
+  const rel = relationshipWithBand(b.id);
+  const power = popularity() + Number(state.band?.industry || 0) * 0.7 + Number(state.band?.trust || 0);
+  if (rel <= -25) return "交流が悪化していて来てくれにくい";
+  if (b.fame <= power + 55 + Math.max(0, rel)) return "対バン候補に入る";
+  if (rel >= 20) return "交流が深く、格上でも候補に入りうる";
+  return `まだ格上。認知度/業界評価/交流がもう少し必要（目安差${Math.max(0, Math.round(b.fame - power))}）`;
+}
 function renderRivalBandCard(b) {
   const rel = relationshipWithBand(b.id);
   const relCls = rel >= 25 ? "good" : rel < 0 ? "bad" : "warn";
   const canInvite = rel > -25 && b.fame <= popularity() + 55 + Math.max(0, rel);
+  const next = rivalBandUpcomingText(b.id);
   return `<div class="rival-band-card dict-row ${canInvite ? "" : "locked"}">
-    <b>${escapeHtml(b.name)}</b><span class="badge ${relCls}">交流${rel}</span><span class="badge">知名度${b.fame}</span><span class="badge">集客${b.audience}</span>
-    <small>${escapeHtml(b.genre)} / ${escapeHtml(b.mood)} / 今後:${escapeHtml(rivalBandUpcomingText(b.id))}</small>
-    <small>${canInvite ? "対バン候補" : "まだ呼びにくい。認知度か交流が必要。"}</small>
+    <b>${escapeHtml(b.name)}</b><span class="badge ${relCls}">交流${rel}</span><span class="badge">知名度${b.fame}</span><span class="badge">集客${b.audience}</span><span class="badge ${canInvite ? "good" : "warn"}">${canInvite ? "候補" : "遠い"}</span>
+    <small>${escapeHtml(b.genre)} / ${escapeHtml(b.mood)}</small>
+    <small>今後:${escapeHtml(next)} / ${escapeHtml(rivalInviteReason(b))}</small>
   </div>`;
 }
+
 
 function renderMemberStageSlot(m, slotIndex=0) {
   const role = m.id === "player" ? "主人公" : (m.joinStatus || "本加入");
@@ -3512,9 +3599,10 @@ function renderSongUsageMeta(song) {
   return `<p class="song-usage"><small>${parts.map(escapeHtml).join(" / ")}</small></p>`;
 }
 function renderSongCard(s) {
-  return `<div class="song"><h4>${s.title} ${s.isCover ? `<span class="badge bad">コピー</span>` : `<span class="badge good">オリジナル</span>`}</h4>
+  return `<div class="song"><h4>${s.title} ${s.isCover ? `<span class="badge bad">コピー</span>` : `<span class="badge good">オリジナル</span>`} ${!s.isCover ? `<span class="badge good">強化Lv${s.boostLevel || 0}</span>` : ""}</h4>
     <p><span class="badge warn">${genreDisplay(s)}</span> ${(s.tags||[]).map(t=>`<span class="badge">${t}</span>`).join(" ")}</p>
     ${renderSongUsageMeta(s)}
+    <small>ライブ使用${s.livePlays || 0}回 / マンネリ${s.mannerism || 0} / 最終使用${s.lastLiveTurn ? `${s.lastLiveTurn}T` : "なし"}</small>
     <div class="recommend-tags">${songRecommendTags(s).map(t => `<span class="badge good">${escapeHtml(t)}</span>`).join(" ")}</div>
     ${renderSongBars(s)}
   </div>`;
@@ -4327,8 +4415,12 @@ function bindEvents() {
     syncMerchQtyDom(id, current + delta);
     updateMerchPrepSummaryDom();
   }));
+  const renameBandBtn = document.getElementById("renameBandBtn");
+  if (renameBandBtn) renameBandBtn.addEventListener("click", () => { state.renameBandNamePrompt = true; render(); });
   const confirmBandNameBtn = document.getElementById("confirmBandNameBtn");
-  if (confirmBandNameBtn) confirmBandNameBtn.addEventListener("click", () => { const name = (document.getElementById("bandNameInput")?.value || "").trim() || "名無しの地下バンド"; state.band.name = name; state.bandNamePrompt = false; log(`バンド名を「${name}」に決めた。`); showEventPopup("バンド名決定", `今日からこの名前でライブハウスに出る。\n${name}`, "event", "🏷️"); if (state.pendingTurnAdvance) finishPendingTurnAdvance(); else render(); });
+  if (confirmBandNameBtn) confirmBandNameBtn.addEventListener("click", () => { const name = (document.getElementById("bandNameInput")?.value || "").trim() || "名無しの地下バンド"; const renaming = !!state.renameBandNamePrompt; state.band.name = name; state.bandNamePrompt = false; state.renameBandNamePrompt = false; if (renaming) state.band.fame = clamp(Number(state.band.fame || 0) - 2, 0, 999); log(`バンド名を「${name}」に${renaming ? "変更" : "決定"}した。${renaming ? "認知度が少し下がった。" : ""}`); showEventPopup(renaming ? "バンド名変更" : "バンド名決定", `${renaming ? "新しい名前で活動し直す。" : "今日からこの名前でライブハウスに出る。"}\n${name}${renaming ? "\n認知度-2" : ""}`, "event", "🏷️"); if (state.pendingTurnAdvance) finishPendingTurnAdvance(); else render(); });
+  const cancelBandNameBtn = document.getElementById("cancelBandNameBtn");
+  if (cancelBandNameBtn) cancelBandNameBtn.addEventListener("click", () => { state.renameBandNamePrompt = false; render(); });
   const confirmNoSongcraftBtn = document.getElementById("confirmNoSongcraftBtn");
   if (confirmNoSongcraftBtn) confirmNoSongcraftBtn.addEventListener("click", confirmNoSongcraftCommand);
   const cancelNoSongcraftBtn = document.getElementById("cancelNoSongcraftBtn");
@@ -4373,12 +4465,8 @@ function continuePostLiveFlow() {
     state.activePopup = { title:ev.title, body:ev.body, type:"event", icon:ev.icon || "🕴️" };
     return;
   }
-  if (Array.isArray(state.popupQueue) && state.popupQueue.length) {
-    const batch = state.popupQueue.splice(0, 3).filter(Boolean);
-    if (batch.length === 1) state.activePopup = batch[0];
-    else state.activePopup = { title:"まとめて確認", body:batch.map(p => `【${p.title}】\n${p.body}`).join("\n\n"), type:batch.some(p=>p.type === "warn") ? "warn" : (batch.some(p=>p.type === "rare") ? "rare" : "event"), icon:"📌" };
-    return;
-  }
+  const next = nextPopupFromQueue();
+  if (next) { state.activePopup = next; return; }
   if (state.pendingEndingAfterLive) {
     state.pendingEndingAfterLive = false;
     state.ended = true;
@@ -5589,7 +5677,7 @@ function calculateLive(setlist, supports, merch, positions, vocalist, chorus) {
   const memberScaleBonus = Math.max(0, performers.length - 3) * 3;
   const memberScaleRisk = Math.max(0, performers.length - 4) * 5;
   const equipmentBonus = { performance:(state.items.usedGear||0)*2 + (state.items.effecter||0) + equipmentEffectSum("performance"), expression:(state.items.effecter||0)*2 + equipmentEffectSum("expression"), heat:(state.items.lightFx||0)*3 + equipmentEffectSum("heat"), strategy:(state.items.lightFx||0) + equipmentEffectSum("strategy"), stability:equipmentEffectSum("stability") };
-  const originalityBonus = originalCount === 5 ? 28 : originalCount === 4 ? 12 : originalCount === 3 ? -12 : originalCount === 2 ? -32 : -48;
+  const originalityBonus = originalCount === 5 ? 28 : originalCount === 4 ? 8 : originalCount === 3 ? -18 : originalCount === 2 ? -38 : -56;
   const coverStability = coverCount * 1.5;
   const fatigue = state.band.fatigue;
   const liveArrange = adlibResult(avgSense, avgTeam, avgMental, avgRhythm, state.band.trust, fatigue);
@@ -5646,7 +5734,7 @@ function calculateLive(setlist, supports, merch, positions, vocalist, chorus) {
   strategy += liveArrange.strategy;
   stability += liveArrange.stability;
 
-  const finalPenalty = state.turn === state.maxTurn ? coverCount * 11 : coverCount * 8;
+  const finalPenalty = state.turn === state.maxTurn ? coverCount * 13 : coverCount * 10;
   const venueMatch = venueData.id === "big_stage" ? (setlistBonus.total + (originalCount >= 5 ? 6 : -8) - coverCount * 5) : setlistBonus.total * 0.65;
   const finalGoalPressure = state.turn >= 30 ? Math.max(0, venueShortage * 0.18) : 0;
   const rawTotal = performance + expression + heat + strategy + stability + venueMatch - finalPenalty - finalGoalPressure;
@@ -5754,7 +5842,7 @@ function adlibResult(sense, teamwork, mental, rhythm, trust, fatigue) {
   if (great) return { performance:8, expression:10, heat:12, strategy:15, stability:5, text:"ライブアレンジ大成功" };
   return { performance:5, expression:5, heat:5, strategy:10, stability:3, text:"ライブアレンジ成功" };
 }
-function rankFromScore(score) { if (score >= 85) return "S"; if (score >= 73) return "A"; if (score >= 62) return "B"; if (score >= 45) return "C"; if (score >= 30) return "D"; return "E"; }
+function rankFromScore(score) { if (score >= 88) return "S"; if (score >= 74) return "A"; if (score >= 62) return "B"; if (score >= 45) return "C"; if (score >= 30) return "D"; return "E"; }
 function rankMult(rank) { return { S:1.6, A:1.35, B:1.15, C:1.0, D:.78, E:.55 }[rank] || 1; }
 function venueFee() { return venueById(currentLiveEvent().venueId).fee; }
 function capacity() { return venueById(currentLiveEvent().venueId).capacity; }
