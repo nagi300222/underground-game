@@ -1,10 +1,10 @@
 /*
-  アンダーグラウンド（仮） v0.3.26 prototype
+  アンダーグラウンド（仮） v0.3.28 prototype
   - 1ファイル内の DATA を差し替えるだけでキャラ・曲・サポート候補を変更できます。
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
 
-const VERSION = "v0.3.27";
+const VERSION = "v0.3.28";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -392,10 +392,28 @@ const LIVE_TYPES = {
 
 const RIVAL_BANDS = [
   { id:"paper_moon", name:"Paper Moon Kids", fame:18, audience:18, genre:"青春パンク", level:1, mood:"面倒見がいい若手バンド" },
+  { id:"garage_soda", name:"Garage Soda", fame:20, audience:16, genre:"ガレージロック", level:1, mood:"近所の小箱でよく会う荒削りな同期" },
+  { id:"mikan_cassette", name:"みかんカセット", fame:22, audience:19, genre:"ギターポップ", level:1, mood:"ゆるいMCと人懐っこさでつながりやすい" },
+  { id:"silver_bicycle", name:"Silver Bicycle", fame:25, audience:21, genre:"パワーポップ", level:1, mood:"フットワークが軽い週末バンド" },
+
   { id:"neon_cider", name:"Neon Cider", fame:28, audience:26, genre:"ポップパンク", level:2, mood:"明るく客を連れてくる対バン常連" },
+  { id:"rainy_shortcake", name:"Rainy Shortcake", fame:33, audience:30, genre:"バラードポップ", level:2, mood:"女性客が多く、終演後の評判も丁寧" },
+  { id:"lowpass_radio", name:"Lowpass Radio", fame:36, audience:33, genre:"エレクトロロック", level:2, mood:"SNS告知がうまい宅録上がりのユニット" },
+  { id:"the_last_bus", name:"The Last Bus", fame:39, audience:35, genre:"メロディックパンク", level:2, mood:"終電ギリギリまで熱量で押すライブバンド" },
+
   { id:"iron_laundry", name:"Iron Laundry", fame:42, audience:36, genre:"オルタナロック", level:3, mood:"ライブハウス評価が高い中堅" },
+  { id:"subway_ghosts", name:"Subway Ghosts", fame:47, audience:42, genre:"シューゲイザー", level:3, mood:"音作りにこだわる浮遊感のあるバンド" },
+  { id:"karakuri_beats", name:"カラクリビーツ", fame:50, audience:45, genre:"ミクスチャー", level:3, mood:"DJとラップを混ぜる変化球枠" },
+  { id:"north_motel", name:"North Motel", fame:52, audience:46, genre:"エモ", level:3, mood:"地方ツアー帰りで現場慣れしている" },
+
   { id:"after_school_noise", name:"After School Noise", fame:54, audience:48, genre:"メロディックパンク", level:4, mood:"動員力のある格上バンド" },
+  { id:"plastic_riot", name:"Plastic Riot", fame:61, audience:55, genre:"パンク", level:4, mood:"客席を一気に巻き込む攻撃的なステージ" },
+  { id:"hollow_apartment", name:"Hollow Apartment", fame:66, audience:60, genre:"ポストロック", level:4, mood:"業界スタッフにも少し名前が届いている" },
+  { id:"tokyo_firefly", name:"Tokyo Firefly", fame:69, audience:63, genre:"シティポップ", level:4, mood:"洒落た曲と安定した集客力がある" },
+
   { id:"blue_terminal", name:"Blue Terminal", fame:72, audience:68, genre:"エモ", level:5, mood:"今かなり呼びにくい有名バンド" },
+  { id:"melted_siren", name:"Melted Siren", fame:82, audience:76, genre:"ポストハードコア", level:5, mood:"熱狂的なファンを抱える準強豪" },
+  { id:"starless_line", name:"Starless Line", fame:88, audience:84, genre:"プログレ", level:6, mood:"演奏力で黙らせるフェス常連候補" },
   { id:"zero_signal", name:"ZERO SIGNAL", fame:95, audience:92, genre:"ポストハードコア", level:6, mood:"業界評価も高い強豪" }
 ];
 
@@ -436,19 +454,32 @@ function setRelationshipWithBand(id, value) {
   if (!state.rivalRelations || typeof state.rivalRelations !== "object") state.rivalRelations = {};
   state.rivalRelations[id] = clamp(Math.round(value), -100, 100);
 }
-function availableRivalBands(limit=4) {
+function availableRivalBands(limit=99) {
   const power = popularity() + Number(state.band?.industry || 0) * 0.7 + Number(state.band?.trust || 0);
-  return RIVAL_BANDS.filter(b => relationshipWithBand(b.id) > -25 && (b.fame <= power + 55 || relationshipWithBand(b.id) >= 20)).slice(0, limit);
+  const pool = RIVAL_BANDS
+    .filter(b => relationshipWithBand(b.id) > -25 && (b.fame <= power + 55 || relationshipWithBand(b.id) >= 20))
+    .sort((a,b) => a.level - b.level || a.fame - b.fame);
+  return pool.slice(0, limit);
 }
 function pickRivalBands(count=2) {
-  const pool = availableRivalBands(6);
+  const power = popularity() + Number(state.band?.industry || 0) * 0.7 + Number(state.band?.trust || 0);
+  const pool = availableRivalBands(20).filter(b => b.fame <= power + 45 || relationshipWithBand(b.id) >= 12 || b.level <= 2);
   const picked = [];
-  const copy = pool.slice();
+  const copy = pool.length ? pool.slice() : availableRivalBands(20).slice(0, 6);
   while (copy.length && picked.length < count) {
-    const idx = rand(0, copy.length - 1);
-    picked.push(copy.splice(idx, 1)[0]);
+    const weights = copy.map(b => Math.max(1, 40 - b.level * 4 + relationshipWithBand(b.id) * 0.35 - Math.max(0, b.fame - power) * 0.18));
+    const total = sum(weights);
+    let roll = Math.random() * total;
+    let idx = 0;
+    for (; idx < weights.length; idx++) { roll -= weights[idx]; if (roll <= 0) break; }
+    picked.push(copy.splice(Math.min(idx, copy.length - 1), 1)[0]);
   }
   return picked;
+}
+function rivalBandExposureBonus(bands) {
+  const list = (bands || []).filter(Boolean);
+  if (!list.length) return 0;
+  return clamp(Math.round(avg(list.map(b => b.level || 1))), 1, 6);
 }
 function invitedBandsForEvent(ev) {
   const ids = Array.isArray(ev?.invitedBandIds) ? ev.invitedBandIds : [];
@@ -636,11 +667,11 @@ const DATA = {
     }
   ],
   coverSongs: [
-    { id: "cover_01", title: "コピー曲：定番ロック", isCover: true, catchy: 30, tempo: 28, mainGenre: "ロック", subGenre: "ギターロック", genre: "ギターロック", recognition: 24, lyrics: 20, performance: 28, trend: 18, tags: ["客受け"] },
-    { id: "cover_02", title: "コピー曲：疾走パンク", isCover: true, catchy: 27, tempo: 34, mainGenre: "パンク", subGenre: "青春パンク", genre: "青春パンク", recognition: 21, lyrics: 18, performance: 27, trend: 17, tags: ["疾走感"] },
-    { id: "cover_03", title: "コピー曲：夜のオルタナロック", isCover: true, catchy: 22, tempo: 20, mainGenre: "ロック", subGenre: "オルタナロック", genre: "オルタナロック", recognition: 20, lyrics: 30, performance: 24, trend: 16, tags: ["余韻"] },
-    { id: "cover_04", title: "コピー曲：フェス向けギターポップ", isCover: true, catchy: 34, tempo: 27, mainGenre: "ポップ", subGenre: "ギターポップ", genre: "ギターポップ", recognition: 26, lyrics: 19, performance: 24, trend: 24, tags: ["客受け"] },
-    { id: "cover_05", title: "コピー曲：重低音ラップロック", isCover: true, catchy: 24, tempo: 31, mainGenre: "ヒップホップ", subGenre: "ラップロック", genre: "ラップロック", recognition: 18, lyrics: 17, performance: 28, trend: 20, tags: ["個性"] }
+    { id: "cover_01", title: "コピー曲：定番ロック", isCover: true, catchy: 24, tempo: 23, mainGenre: "ロック", subGenre: "ギターロック", genre: "ギターロック", recognition: 17, lyrics: 14, performance: 22, trend: 12, tags: ["客受け"] },
+    { id: "cover_02", title: "コピー曲：疾走パンク", isCover: true, catchy: 22, tempo: 28, mainGenre: "パンク", subGenre: "青春パンク", genre: "青春パンク", recognition: 15, lyrics: 12, performance: 21, trend: 11, tags: ["疾走感"] },
+    { id: "cover_03", title: "コピー曲：夜のオルタナロック", isCover: true, catchy: 17, tempo: 16, mainGenre: "ロック", subGenre: "オルタナロック", genre: "オルタナロック", recognition: 14, lyrics: 23, performance: 19, trend: 10, tags: ["余韻"] },
+    { id: "cover_04", title: "コピー曲：フェス向けギターポップ", isCover: true, catchy: 27, tempo: 22, mainGenre: "ポップ", subGenre: "ギターポップ", genre: "ギターポップ", recognition: 18, lyrics: 13, performance: 19, trend: 16, tags: ["客受け"] },
+    { id: "cover_05", title: "コピー曲：重低音ラップロック", isCover: true, catchy: 19, tempo: 25, mainGenre: "ヒップホップ", subGenre: "ラップロック", genre: "ラップロック", recognition: 12, lyrics: 11, performance: 22, trend: 13, tags: ["個性"] }
   ],
   supportOptions: [
     { id: "sup_guitar", name: "サポートギター", instrument: "guitar", cost: 5000, score: 8, genres: ["ロック", "ギターロック", "オルタナロック", "メロディックパンク"] },
@@ -4059,7 +4090,7 @@ function renderAfterpartyOverlay() {
   return `<div class="modal-backdrop"><div class="event-modal event afterparty-modal">
     <div class="modal-icon">🍻</div>
     <div class="modal-copy"><h2>ライブ後の打ち上げに行く？</h2>
-      <p>${escapeHtml(p.title || "ライブ")}が終わった。参加すると交流・紹介・メンバー成長のチャンスがあるが、疲労がさらに20%増える。</p>
+      <p>${escapeHtml(p.title || "ライブ")}が終わった。参加すると、共演バンドとの交流イベント・紹介・メンバー成長のチャンスがあるが、疲労がさらに20%増える。</p>
       <p>現在疲労：${Math.round(fatigue)}% / 参加条件：疲労80%以下${canJoin ? "" : "（疲れすぎて参加不可）"}</p>
       ${bands.length ? `<p>共演：${bands.map(b=>escapeHtml(b.name)).join(" / ")}</p>` : `<p>今回は他バンド込みではないため、交流・紹介イベントは発生しない。</p>`}
       <small>二日酔い発生率は1〜20%。疲労が高いほど上がり、ライブ評価が高いほど下がる。</small>
@@ -4343,6 +4374,27 @@ function continuePostLiveFlow() {
     state.ended = true;
   }
 }
+function afterpartyEventForBands(bands, rank) {
+  const exposure = rivalBandExposureBonus(bands);
+  const high = ["S","A"].includes(rank);
+  const pool = [
+    { key:"contact", title:"連絡先交換", text:`${bands[0]?.name || "共演者"}と連絡先を交換した。次の出演通知が来やすくなる。`, rel:4 + exposure, applicant:0.10, stats:["charisma"] },
+    { key:"gear", title:"機材トーク", text:`終演後、音作りや機材の話で盛り上がった。格上の現場感を少し吸収した。`, rel:2 + Math.floor(exposure/2), applicant:0.08, stats:["technique","knowledge"] },
+    { key:"song", title:"曲作り相談", text:`新曲の作り方やライブで刺さる構成について話した。表現の引き出しが増えた。`, rel:3 + Math.floor(exposure/2), applicant:0.12, stats:["sense","teamwork"] },
+    { key:"intro", title:"紹介の話", text:`別のバンドやサポート候補の話題が出た。連絡先をもらえるかもしれない。`, rel:3 + exposure, applicant:0.38 + exposure * 0.035 + (high ? 0.08 : 0), stats:["teamwork","charisma"] },
+    { key:"local", title:"ライブハウス情報", text:`店長や常連の話から、次に出やすいイベントの空気が少し見えてきた。`, rel:3, applicant:0.16, stats:["knowledge","mental"] }
+  ];
+  if (exposure >= 5) pool.push({ key:"senior", title:"格上からの助言", text:`有名バンドの現場感に触れた。プレッシャーはあるが、伸びしろも大きい。`, rel:5 + exposure, applicant:0.22, stats:["technique","sense","charisma"] });
+  return pool[rand(0, pool.length - 1)];
+}
+function applyAfterpartyStatEvent(event, exposure, rank) {
+  const rankBonus = { S:2, A:2, B:1, C:1, D:0, E:0 }[rank] || 0;
+  const amount = Math.max(1, Math.floor((exposure + rankBonus) / 3));
+  activeMembers().forEach(m => {
+    (event.stats || []).forEach(k => { m.stats[k] = clamp((m.stats[k] || 1) + amount, 1, 99); });
+  });
+  return amount;
+}
 function hangoverChance(rank, fatigue) {
   const rankReduce = { S:-0.07, A:-0.05, B:-0.03, C:0, D:0.04, E:0.07 }[rank] || 0;
   return clamp(0.01 + fatigue / 520 + rankReduce, 0.01, 0.20);
@@ -4354,14 +4406,23 @@ function attendAfterparty() {
   state.band.fatigue = clamp(before + Math.round(20 * fatigueGainMultiplier()), 0, 100);
   const bands = (p.invitedBandIds || []).map(rivalById).filter(Boolean);
   const hasOtherBands = bands.length > 0;
-  const beforeStats = activeMembers().map(m => ({ id:m.id, name:m.name, teamwork:m.stats.teamwork, mental:m.stats.mental, charisma:m.stats.charisma }));
+  const beforeStats = activeMembers().map(m => ({ id:m.id, name:m.name, technique:m.stats.technique, rhythm:m.stats.rhythm, sense:m.stats.sense, mental:m.stats.mental, teamwork:m.stats.teamwork, stamina:m.stats.stamina, charisma:m.stats.charisma, knowledge:m.stats.knowledge }));
   let introText = "";
+  let partyEvent = null;
+  let partyStatAmount = 0;
   if (hasOtherBands) {
-    bands.forEach(b => setRelationshipWithBand(b.id, relationshipWithBand(b.id) + 8));
+    const exposure = rivalBandExposureBonus(bands);
+    partyEvent = afterpartyEventForBands(bands, p.rank);
+    bands.forEach(b => setRelationshipWithBand(b.id, relationshipWithBand(b.id) + 8 + (partyEvent.rel || 0)));
     activeMembers().forEach(m => { m.stats.teamwork = clamp(m.stats.teamwork + 1, 1, 99); m.stats.mental = clamp(m.stats.mental + 1, 1, 99); if (["S","A"].includes(p.rank)) m.stats.charisma = clamp(m.stats.charisma + 1, 1, 99); });
-    if (Math.random() < 0.35) {
+    partyStatAmount = applyAfterpartyStatEvent(partyEvent, exposure, p.rank);
+    const introChance = clamp(partyEvent.applicant || 0.12, 0.05, 0.75);
+    if (Math.random() < introChance) {
       const applicant = addApplicantFromCandidates("打ち上げ紹介");
-      if (applicant) { addMail("打ち上げで紹介されたメンバー候補", `${applicant.name}から連絡先をもらった。バンド情報から加入を検討できます。`, "member", { sender: bands[0]?.name || "打ち上げで知り合った人" }); introText = `\n紹介：${applicant.name}の連絡先をもらった。`; }
+      if (applicant) {
+        addMail("打ち上げで紹介されたメンバー候補", `${bands[0]?.name || "共演者"}から紹介された${applicant.name}です。\nライブ後に連絡先をもらいました。バンド情報から加入を検討できます。`, "member", { sender: bands[0]?.name || "打ち上げで知り合った人" });
+        introText = `\n紹介：${applicant.name}の連絡先をもらった。`;
+      }
     }
   }
   const chance = hangoverChance(p.rank, state.band.fatigue || 0);
@@ -4373,16 +4434,17 @@ function attendAfterparty() {
   }
   const statLines = hasOtherBands ? activeMembers().slice(0,5).map(m => {
     const b = beforeStats.find(x => x.id === m.id) || {};
-    const tw = Math.round((m.stats.teamwork||0) - (b.teamwork||0));
-    const mt = Math.round((m.stats.mental||0) - (b.mental||0));
-    const ch = Math.round((m.stats.charisma||0) - (b.charisma||0));
-    const parts = [tw?`協調+${tw}`:"", mt?`メンタル+${mt}`:"", ch?`カリスマ+${ch}`:""].filter(Boolean);
+    const labels = { technique:"技術", rhythm:"リズム", sense:"感性", mental:"メンタル", teamwork:"協調", stamina:"体力", charisma:"カリスマ", knowledge:"知識" };
+    const parts = Object.keys(labels).map(k => {
+      const diff = Math.round((m.stats[k] || 0) - (b[k] || 0));
+      return diff ? `${labels[k]}+${diff}` : "";
+    }).filter(Boolean);
     return parts.length ? `${m.name}：${parts.join(" / ")}` : "";
   }).filter(Boolean) : [];
-  const relText = hasOtherBands ? `交流：${bands.map(b=>`${b.name}+8`).join(" / ")}` : "ワンマン/単独後のため、他バンド交流・紹介は発生しなかった。";
+  const relText = hasOtherBands ? `交流：${bands.map(b=>`${b.name}+${8 + (partyEvent?.rel || 0)}`).join(" / ")}` : "ワンマン/単独後のため、他バンド交流・紹介は発生しなかった。";
   state.popupQueue = state.popupQueue || [];
-  state.popupQueue.push({ title:"打ち上げ結果", body:`${relText}${statLines.length ? "\n" + statLines.join("\n") : ""}${introText}\n疲労+${Math.round(state.band.fatigue-before)}%。二日酔い判定${Math.round(chance*100)}%${hungover ? " → 発生" : " → なし"}。`, type:hungover ? "warn" : "event", icon:"🍻" });
-  log(`打ち上げに参加した。${relText}${statLines.length ? " / " + statLines.join(" / ") : ""}${introText ? " / " + introText.trim() : ""} 疲労+${Math.round(state.band.fatigue-before)}%。二日酔い判定${Math.round(chance*100)}%${hungover ? " → 発生" : " → なし"}。`, hungover ? "warn" : "event");
+  state.popupQueue.push({ title:"打ち上げ結果", body:`${relText}${partyEvent ? `\nイベント：${partyEvent.title} - ${partyEvent.text}` : ""}${statLines.length ? "\n" + statLines.join("\n") : ""}${introText}\n疲労+${Math.round(state.band.fatigue-before)}%。二日酔い判定${Math.round(chance*100)}%${hungover ? " → 発生" : " → なし"}。`, type:hungover ? "warn" : "event", icon:"🍻" });
+  log(`打ち上げに参加した。${relText}${partyEvent ? " / " + partyEvent.title : ""}${statLines.length ? " / " + statLines.join(" / ") : ""}${introText ? " / " + introText.trim() : ""} 疲労+${Math.round(state.band.fatigue-before)}%。二日酔い判定${Math.round(chance*100)}%${hungover ? " → 発生" : " → なし"}。`, hungover ? "warn" : "event");
   state.pendingAfterparty = null;
   continuePostLiveFlow();
   render();
@@ -5439,7 +5501,7 @@ function analyzeSetlistBonus(setlist, liveArrange) {
     else if (newCount > 0 && existingCount > 0) { mixBonus = 5; mixLabel = `ミックスセトリ：新曲${newCount}＋既存曲${existingCount}`; }
     else { mixLabel = newCount >= 5 ? "新曲のみで荒いセトリ" : "既存曲のみで新鮮味が薄いセトリ"; }
   } else {
-    mixBonus = Math.max(0, (newCount > 0 && existingCount > 0 ? 5 : 0) - coverCount * 4);
+    mixBonus = Math.max(-18, (newCount > 0 && existingCount > 0 ? 3 : 0) - coverCount * 7);
     mixLabel = `コピー曲入り：セトリボーナス抑制（コピー${coverCount}曲）`;
   }
   const hist = setlistHistoryInfo(setlist);
@@ -5508,8 +5570,8 @@ function calculateLive(setlist, supports, merch, positions, vocalist, chorus) {
   const memberScaleBonus = Math.max(0, performers.length - 3) * 3;
   const memberScaleRisk = Math.max(0, performers.length - 4) * 5;
   const equipmentBonus = { performance:(state.items.usedGear||0)*2 + (state.items.effecter||0) + equipmentEffectSum("performance"), expression:(state.items.effecter||0)*2 + equipmentEffectSum("expression"), heat:(state.items.lightFx||0)*3 + equipmentEffectSum("heat"), strategy:(state.items.lightFx||0) + equipmentEffectSum("strategy"), stability:equipmentEffectSum("stability") };
-  const originalityBonus = originalCount === 5 ? 25 : originalCount === 4 ? 13 : originalCount === 3 ? -6 : originalCount === 2 ? -24 : -34;
-  const coverStability = coverCount * 3;
+  const originalityBonus = originalCount === 5 ? 28 : originalCount === 4 ? 12 : originalCount === 3 ? -12 : originalCount === 2 ? -32 : -48;
+  const coverStability = coverCount * 1.5;
   const fatigue = state.band.fatigue;
   const liveArrange = adlibResult(avgSense, avgTeam, avgMental, avgRhythm, state.band.trust, fatigue);
   const repeatInfo = resolveRepeatSetlist(analyzeRepeatSetlist(setlist), liveArrange);
@@ -5529,8 +5591,8 @@ function calculateLive(setlist, supports, merch, positions, vocalist, chorus) {
   const baseCatchy = avg(setlist.map((s, idx) => s.catchy * repeatInfo.multipliers[idx]));
   const baseRecognition = avg(setlist.map((s, idx) => s.recognition * repeatInfo.multipliers[idx]));
 
-  let performance = avgTech * .30 + avgRhythm * .13 + positionScore * .25 + baseSongPerformance * .30 + supportScore + combo.performance + coverStability + memberScaleBonus + equipmentBonus.performance - coverCount * 2 + rand(-8,8);
-  let expression = avgSense * .25 + avgKnowledge * .15 + baseLyrics * .35 + vocalLv * .15 + chorusBoost + equipmentBonus.expression + (hasSkill("mc_master") ? 5 : 0) + (tags.includes("エモさ") ? 8 : 0) + rand(-8,8);
+  let performance = avgTech * .30 + avgRhythm * .13 + positionScore * .25 + baseSongPerformance * .30 + supportScore + combo.performance + coverStability + memberScaleBonus + equipmentBonus.performance - coverCount * 4 + rand(-8,8);
+  let expression = avgSense * .25 + avgKnowledge * .15 + baseLyrics * .35 + vocalLv * .15 + chorusBoost + equipmentBonus.expression + (hasSkill("mc_master") ? 5 : 0) + (tags.includes("エモさ") ? 8 : 0) - coverCount * 3 + rand(-8,8);
   let heat = baseTempo * .23 + baseCatchy * .22 + avgCharisma * .22 + avgRhythm * .15 + avgStamina * .12 + memberScaleBonus + equipmentBonus.heat + venueData.heatBonus + (tags.includes("爆発力") ? 10 : 0) + (tags.includes("疾走感") ? 6 : 0) + rand(-8,8);
   let strategy = avg(slotScores) + combo.strategy + originalityBonus + setlistBonus.total + (hasSkill("setlist_sense") ? Math.max(0, setlistBonus.total) * 0.15 + 3 : 0) + baseRecognition * .12 + avg(setlist.map((s, idx)=>s.trend * repeatInfo.multipliers[idx])) * .10 + (supports.length ? 6 : 0) + equipmentBonus.strategy - venuePenalty * .65 + rand(-8,8);
   let stability = avgMental * .22 + avgStamina * .20 + avgTeam * .24 + state.band.trust * .24 + combo.stability + coverStability - fatigue * .78 - memberScaleRisk + supportScore * .35 - venuePenalty + rand(-10,6);
@@ -5544,10 +5606,10 @@ function calculateLive(setlist, supports, merch, positions, vocalist, chorus) {
 
   if (venue.liveType === "self_one_man") {
     const drawPower = popularity() + state.band.fame * 0.45 + state.band.fans * 0.25;
-    const audienceGap = Math.max(0, venueData.capacity * 0.72 - drawPower);
-    strategy += state.band.fame * 0.035 + state.band.fans * 0.018 - audienceGap * 0.055;
-    stability -= Math.max(0, venueData.capacity * 0.42 - popularity()) * 0.085;
-    heat -= audienceGap * 0.025;
+    const audienceGap = Math.max(0, venueData.capacity * 0.82 - drawPower);
+    strategy += state.band.fame * 0.030 + state.band.fans * 0.015 - audienceGap * 0.075;
+    stability -= Math.max(0, venueData.capacity * 0.50 - popularity()) * 0.105;
+    heat -= audienceGap * 0.040;
   }
   if (venue.liveType === "self_taiban") {
     heat += Math.min(18, eventPartnerAudience(venue) * 0.10);
@@ -5565,7 +5627,7 @@ function calculateLive(setlist, supports, merch, positions, vocalist, chorus) {
   strategy += liveArrange.strategy;
   stability += liveArrange.stability;
 
-  const finalPenalty = state.turn === state.maxTurn ? coverCount * 8 : coverCount * 5;
+  const finalPenalty = state.turn === state.maxTurn ? coverCount * 11 : coverCount * 8;
   const venueMatch = venueData.id === "big_stage" ? (setlistBonus.total + (originalCount >= 5 ? 6 : -8) - coverCount * 5) : setlistBonus.total * 0.65;
   const finalGoalPressure = state.turn >= 30 ? Math.max(0, venueShortage * 0.18) : 0;
   const rawTotal = performance + expression + heat + strategy + stability + venueMatch - finalPenalty - finalGoalPressure;
@@ -5671,7 +5733,7 @@ function adlibResult(sense, teamwork, mental, rhythm, trust, fatigue) {
   if (great) return { performance:8, expression:10, heat:12, strategy:15, stability:5, text:"ライブアレンジ大成功" };
   return { performance:5, expression:5, heat:5, strategy:10, stability:3, text:"ライブアレンジ成功" };
 }
-function rankFromScore(score) { if (score >= 80) return "S"; if (score >= 70) return "A"; if (score >= 60) return "B"; if (score >= 45) return "C"; if (score >= 30) return "D"; return "E"; }
+function rankFromScore(score) { if (score >= 85) return "S"; if (score >= 73) return "A"; if (score >= 62) return "B"; if (score >= 45) return "C"; if (score >= 30) return "D"; return "E"; }
 function rankMult(rank) { return { S:1.6, A:1.35, B:1.15, C:1.0, D:.78, E:.55 }[rank] || 1; }
 function venueFee() { return venueById(currentLiveEvent().venueId).fee; }
 function capacity() { return venueById(currentLiveEvent().venueId).capacity; }
@@ -5788,6 +5850,17 @@ function applyLiveResult(r, setlist, supports) {
     showEventPopup("UNDER FES情報入手", "ライブハウス店長から、選考に必要な最低ラインを聞いた。\nスケジュール帳でフェス条件を確認できるようになった。", "event", "📄");
   }
   activeMembers().filter(m => r.performers.includes(m.id)).forEach(m => growMemberAfterLive(m, r.rank, r.positions[m.id]));
+  const exposureBands = invitedBandsForEvent(ev);
+  if (exposureBands.length) {
+    const exposure = rivalBandExposureBonus(exposureBands);
+    const rankPlus = { S:2, A:2, B:1, C:1, D:0, E:0 }[r.rank] || 0;
+    activeMembers().filter(m => r.performers.includes(m.id)).forEach(m => {
+      m.stats.technique = clamp(m.stats.technique + Math.max(1, Math.floor(exposure / 2)), 1, 99);
+      m.stats.sense = clamp(m.stats.sense + Math.max(1, Math.floor((exposure + rankPlus) / 3)), 1, 99);
+      if (exposure >= 4 || rankPlus >= 2) m.stats.charisma = clamp(m.stats.charisma + 1, 1, 99);
+    });
+    r.exposureGrowth = `格上対バン刺激：Lv${exposure}相当`;
+  }
   supports.forEach(s => {
     const key = s.id;
     const old = b.direction[s.genres[0]] || 0;
@@ -5818,6 +5891,7 @@ function applyLiveResult(r, setlist, supports) {
     r.coreEvent ? `ライブ全体は完璧ではなかったが、刺さったコアなファンがいた。コア人気が伸びた。` : "",
     r.mannerWarning ? `交流注意:${r.mannerWarning}。対バン/ブッキングでは交流が下がる。` : "",
     invitedBandsForEvent(ev).length ? `交流変動:${invitedBandsForEvent(ev).map(b=>`${b.name}${r.relationDelta>=0?"+":""}${r.relationDelta}`).join(" / ")}` : "",
+    r.exposureGrowth ? r.exposureGrowth : "",
     `集客:${r.revenue.attendees}人（自分目当て${r.revenue.ownAudience} / 他バンド目当て${r.revenue.partnerAudience}） / チケット:${r.revenue.ticketRevenue.toLocaleString()}円 / 物販:${r.revenue.merch.salesRevenue.toLocaleString()}円 / 買い取り:${r.revenue.merch.buybackRevenue.toLocaleString()}円`,
     `${r.revenue.costLabel || "会場費"}:${r.revenue.venueFee.toLocaleString()}円 / サポート代:${r.revenue.supportCost.toLocaleString()}円 / 物販仕入れ:${r.revenue.merch.cost.toLocaleString()}円 / 最終利益:${r.revenue.finalProfit.toLocaleString()}円`
   ].filter(Boolean).join("\n");
