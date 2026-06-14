@@ -2415,3 +2415,18 @@ button:focus:not(:focus-visible), input:focus:not(:focus-visible), select:focus:
   .quiet-guide-chips { gap:4px; }
   .guide-chip, .guide-muted { font-size:.7rem; padding:3px 7px; }
 }
+
+/* v0.3.26 live system / phone diagnostics */
+.phone-screen { align-items:start; }
+.phone-card .mail-list, .phone-card .mail-offer-list { display:flex; flex-direction:column; gap:10px; }
+.mail-row, .sns-post, .diagnostic-row { border:1px solid rgba(255,255,255,.14); border-radius:14px; padding:12px; background:rgba(255,255,255,.045); display:flex; flex-direction:column; gap:6px; }
+.mail-row.offer { border-color:rgba(105,220,170,.42); background:rgba(105,220,170,.08); }
+.mail-row.warn { border-color:rgba(255,185,80,.42); }
+.sns-post { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.sns-post b::before { content:""; }
+.sns-post p { margin:0; line-height:1.55; }
+.sns-card { background:linear-gradient(180deg, rgba(40,80,120,.18), rgba(255,255,255,.035)); }
+.diagnostic-row { font-size:.92rem; }
+.diagnostic-row p { margin:0; }
+.afterparty-modal .modal-copy small { display:block; margin-top:8px; opacity:.8; }
+.result-summary-grid small { display:block; opacity:.72; font-size:.72rem; margin-top:2px; }

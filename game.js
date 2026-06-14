@@ -1,10 +1,10 @@
 /*
-  アンダーグラウンド（仮） v0.3.25 prototype
+  アンダーグラウンド（仮） v0.3.26 prototype
   - 1ファイル内の DATA を差し替えるだけでキャラ・曲・サポート候補を変更できます。
   - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
 */
 
-const VERSION = "v0.3.25";
+const VERSION = "v0.3.26";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -217,6 +217,7 @@ const SKILL_DATA = [
   { id:"merch_master", name:"物販の工夫", rarity:"通常", desc:"物販の売れやすさと買い取り条件が少し良くなる。", condition:"物販売上が一定以上" },
   { id:"midnight_inspiration", name:"深夜のひらめき", rarity:"通常", desc:"疲労が高い時、ひらめき獲得率と作詞/作曲の個性が上がる。", condition:"疲労70%以上で曲作り/会話" },
   { id:"dual_songcraft", name:"一気呵成", rarity:"レア", desc:"作詞/作曲の疲労がさらに軽くなり、未完成曲を仕上げやすい。", condition:"作詞Lv・作曲Lvが高い状態で曲完成" },
+  { id:"self_management", name:"段取り上手", rarity:"レア", desc:"一通りの行動を経験後、行動・曲作り・ライブ後行動の疲労増加が0.8倍になる。", condition:"練習/休憩/バイト/募集/宣伝/会話/曲作り/ライブを各1回" },
   { id:"shortcut_command", name:"段取りの鬼", rarity:"レア", desc:"練習・宣伝の疲労が少し減り、後半の作業負担を軽くする。", condition:"35ターン以降に複数行動を積み重ねる" }
 ];
 const ARRANGE_DATA = {
@@ -380,6 +381,23 @@ const VENUES = [
   { id: "big_stage", name: "プレフェス野外ステージ", capacity: 340, fee: 32000, prepNeed: 76, heatBonus: 14, note: "格上会場。誰でも出られるが成功率は低い" }
 ];
 
+const LIVE_TYPES = {
+  self_one_man: { label:"自主企画：ワンマン", short:"ワンマン", category:"自主企画", desc:"会場費は自己負担。集客は自分たちだけ。成功時の報酬と成長が大きい。", feeLabel:"会場費", risk:"高", growth:1.38, reward:1.18, inviteBoost:0, relation:0, booking:false },
+  self_taiban: { label:"自主企画：対バン企画", short:"対バン企画", category:"自主企画", desc:"2〜4バンドを呼ぶ。集客は安定するが、他バンド目当て分の報酬は引かれる。交流が深まる。", feeLabel:"会場費", risk:"中", growth:1.12, reward:0.90, inviteBoost:0.12, relation:8, booking:false },
+  booking_house: { label:"ブッキング：ライブハウスイベント", short:"ハウスイベント", category:"ブッキング", desc:"ライブハウスからのイベント通知。会場費なし、参加費あり。様々なバンドと出会える。", feeLabel:"参加費", risk:"低", growth:0.88, reward:0.72, inviteBoost:0.08, relation:5, booking:true },
+  booking_band: { label:"ブッキング：他バンド企画", short:"他バンド企画", category:"ブッキング", desc:"認知度や交流で呼ばれる企画。会場費なし、企画参加費あり。交流が伸びやすい。", feeLabel:"企画参加費", risk:"低", growth:0.96, reward:0.78, inviteBoost:0.16, relation:10, booking:true },
+  special: { label:"固定ライブ", short:"固定", category:"固定", desc:"物語上の固定ライブ。", feeLabel:"会場費", risk:"特", growth:1.0, reward:1.0, inviteBoost:0, relation:0, booking:false }
+};
+
+const RIVAL_BANDS = [
+  { id:"paper_moon", name:"Paper Moon Kids", fame:18, audience:18, genre:"青春パンク", level:1, mood:"面倒見がいい若手バンド" },
+  { id:"neon_cider", name:"Neon Cider", fame:28, audience:26, genre:"ポップパンク", level:2, mood:"明るく客を連れてくる対バン常連" },
+  { id:"iron_laundry", name:"Iron Laundry", fame:42, audience:36, genre:"オルタナロック", level:3, mood:"ライブハウス評価が高い中堅" },
+  { id:"after_school_noise", name:"After School Noise", fame:54, audience:48, genre:"メロディックパンク", level:4, mood:"動員力のある格上バンド" },
+  { id:"blue_terminal", name:"Blue Terminal", fame:72, audience:68, genre:"エモ", level:5, mood:"今かなり呼びにくい有名バンド" },
+  { id:"zero_signal", name:"ZERO SIGNAL", fame:95, audience:92, genre:"ポストハードコア", level:6, mood:"業界評価も高い強豪" }
+];
+
 const MERCH_ITEMS = [
   { id:"sticker", name:"ステッカー", cost:250, price:300, best:["友人・身内多め", "地下ライブ常連", "初見客多め"], desc:"安くて手に取りやすい。小箱・初見客・序盤向き。" },
   { id:"badge", name:"缶バッジ", cost:400, price:500, best:["友人・身内多め", "地下ライブ常連"], desc:"常連が買いやすい小物。熱量が高いライブで売れやすい。" },
@@ -399,7 +417,75 @@ function venueById(id) {
 }
 function fixedLiveEvent(turn, id, label, fixed=true) {
   const v = venueById(id);
-  return { turn, venueId:id, label, fixed, booked:true, cancelled:false, name:label, capacity:v.capacity, fee:v.fee, prepNeed:v.prepNeed };
+  return { turn, venueId:id, label, fixed, booked:true, cancelled:false, name:label, capacity:v.capacity, fee:v.fee, prepNeed:v.prepNeed, liveType:"special" };
+}
+
+function liveTypeMeta(typeOrEvent) {
+  const type = typeof typeOrEvent === "string" ? typeOrEvent : (typeOrEvent?.liveType || (typeOrEvent?.fixed ? "special" : "self_one_man"));
+  return LIVE_TYPES[type] || LIVE_TYPES.self_one_man;
+}
+function liveTypeLabel(ev) { return liveTypeMeta(ev).label; }
+function rivalById(id) { return RIVAL_BANDS.find(b => b.id === id) || null; }
+function relationshipWithBand(id) {
+  if (!state.rivalRelations || typeof state.rivalRelations !== "object") state.rivalRelations = {};
+  return Number(state.rivalRelations[id] || 0);
+}
+function setRelationshipWithBand(id, value) {
+  if (!id) return;
+  if (!state.rivalRelations || typeof state.rivalRelations !== "object") state.rivalRelations = {};
+  state.rivalRelations[id] = clamp(Math.round(value), -100, 100);
+}
+function availableRivalBands(limit=4) {
+  const power = popularity() + Number(state.band?.industry || 0) * 0.7 + Number(state.band?.trust || 0);
+  return RIVAL_BANDS.filter(b => relationshipWithBand(b.id) > -25 && (b.fame <= power + 55 || relationshipWithBand(b.id) >= 20)).slice(0, limit);
+}
+function pickRivalBands(count=2) {
+  const pool = availableRivalBands(6);
+  const picked = [];
+  const copy = pool.slice();
+  while (copy.length && picked.length < count) {
+    const idx = rand(0, copy.length - 1);
+    picked.push(copy.splice(idx, 1)[0]);
+  }
+  return picked;
+}
+function invitedBandsForEvent(ev) {
+  const ids = Array.isArray(ev?.invitedBandIds) ? ev.invitedBandIds : [];
+  return ids.map(rivalById).filter(Boolean);
+}
+function eventPartnerAudience(ev) { return sum(invitedBandsForEvent(ev).map(b => b.audience + Math.round(relationshipWithBand(b.id) / 8))); }
+function eventEntryFee(ev, venue) {
+  const type = ev?.liveType || "self_one_man";
+  if (type === "booking_house") return Math.max(1500, Math.round((venue?.fee || 6000) * 0.35));
+  if (type === "booking_band") return Math.max(2000, Math.round((venue?.fee || 6000) * 0.28));
+  return 0;
+}
+function eventBaseCost(ev, venue) {
+  const type = ev?.liveType || "self_one_man";
+  if (type === "booking_house" || type === "booking_band") return eventEntryFee(ev, venue);
+  return venue?.fee || 0;
+}
+function liveEventTitle(ev) {
+  if (!ev) return "ライブ";
+  const v = venueById(ev.venueId);
+  return `${liveTypeMeta(ev).short} / ${v.name}`;
+}
+function liveDiagnosticsPush(title, data={}) {
+  state.liveDiagnostics = Array.isArray(state.liveDiagnostics) ? state.liveDiagnostics : [];
+  state.liveDiagnostics.unshift({ turn: state.turn, title, data, at: new Date().toLocaleString() });
+  state.liveDiagnostics = state.liveDiagnostics.slice(0, 20);
+}
+function addMail(subject, body, kind="info", payload={}) {
+  state.phoneMails = Array.isArray(state.phoneMails) ? state.phoneMails : [];
+  const id = payload.id || `mail_${Date.now()}_${Math.floor(Math.random()*9999)}`;
+  state.phoneMails.unshift({ id, turn: state.turn, subject, body, kind, read:false, payload });
+  state.phoneMails = state.phoneMails.slice(0, 40);
+  return id;
+}
+function addSnsPost(author, body, mood="normal") {
+  state.snsPosts = Array.isArray(state.snsPosts) ? state.snsPosts : [];
+  state.snsPosts.unshift({ id:`sns_${Date.now()}_${Math.floor(Math.random()*9999)}`, turn: state.turn, author, body, mood });
+  state.snsPosts = state.snsPosts.slice(0, 50);
 }
 
 const DATA = {
@@ -963,6 +1049,8 @@ function maybeUnlockProgressSkills(context="") {
   if ((state.totalMerchSales || 0) >= 45000) unlockSkill("merch_master", "物販の反応を掴んだ");
   if ((state.band?.fatigue || 0) >= 70 && ((cc.talk || 0) >= 1 || (state.playerCraft?.lyricsXp || 0) + (state.playerCraft?.musicXp || 0) >= 4)) unlockSkill("midnight_inspiration", "疲れた夜に言葉が降ってきた");
   if (craftLevel("lyrics") >= 6 && craftLevel("music") >= 6 && (state.songs || []).length >= 6) unlockSkill("dual_songcraft", "作詞作曲の型ができてきた");
+  const allBasics = ["practice","rest","parttime","recruit","promo","talk"].every(k => (cc[k] || 0) >= 1);
+  if (allBasics && (state.playerCraft?.lyricsXp || 0) + (state.playerCraft?.musicXp || 0) >= 1 && (state.liveCount || 0) >= 1) unlockSkill("self_management", "バンド生活の一通りを経験した");
   if ((state.turn || 1) >= 35 && ((cc.practice || 0) + (cc.promo || 0) + (cc.talk || 0)) >= 16) unlockSkill("shortcut_command", "後半の段取りが身についた");
 }
 function initials(name) { return String(name).replace(/[（(].*?[）)]/g, "").slice(0, 2); }
@@ -974,7 +1062,7 @@ const SAVE_SLOT_COUNT = 2;
 const SAVE_SLOT_PREFIX = "underground_v0310_slot_";
 const AUTOSAVE_SLOT_PREFIX = "underground_v0310_autoslot_";
 const CURRENT_SLOT_KEY = "underground_v0310_current_slot";
-const SAVE_VERSION = "v0.3.25";
+const SAVE_VERSION = "v0.3.26";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -1209,7 +1297,17 @@ function createInitialState() {
       direction: { "パンク": 18, "青春パンク": 12, "ロック": 8 }
     },
     supportAffinity: {},
-    logs: ["地下のスタジオから、最大50ターンの育成が始まった。初ライブは5ターン目固定。初回ライブ後は、自分でライブスケジュールを予約する方式。予約・キャンセルは残り2ターン以内になると不可。"],
+    rivalRelations: {},
+    liveOffers: [],
+    phoneMails: [],
+    snsPosts: [],
+    liveDiagnostics: [],
+    liveReservationCandidates: [],
+    reservationCandidateTurn: 0,
+    notificationTurns: [],
+    pendingAfterparty: null,
+    hangoverTurn: 0,
+    logs: ["地下のスタジオから、最大50ターンの育成が始まった。初ライブは5ターン目固定。初回ライブ後は、自主企画の会場予約と、携帯に届くブッキング通知からライブ予定を組める。"],
     lastApplicant: null,
     applicants: [],
     dismissedApplicantIds: [],
@@ -1358,7 +1456,7 @@ function firstDraftTutorialTargets() {
     ids = [state.pendingDrafts[0]?.id].filter(Boolean);
     state.firstDraftTutorialDraftIds = ids;
   }
-  return ids.map(id => state.pendingDrafts.find(d => d.id === id)).filter(Boolean);
+  return ids.map(id => state.pendingDrafts.find(d => d.id === id)).filter(d => d && !(d.lyricsDone && d.musicDone));
 }
 function mustCompleteFirstDraftTutorial() {
   return firstDraftTutorialTargets().length > 0;
@@ -1386,7 +1484,7 @@ function log(msg, type="info") {
 function showEventPopup(title, body, type="info", icon="🎸", payload={}) {
   const popup = { title, body, type, icon, ...(payload || {}) };
   // ライブ演出中に通常ポップアップを出すと画面が重なるため、ライブ結果OK後に順番表示する。
-  if (state.deferPopupsUntilAfterLive || state.liveProgressModal || state.pendingLiveResultModal || state.liveResultModal || state.actionResultModal || state.detailModal || state.pendingBooking || state.pendingPurchase || state.saveSlotModal || state.pendingCancelLive || state.activePopup) {
+  if (state.deferPopupsUntilAfterLive || state.liveProgressModal || state.pendingLiveResultModal || state.liveResultModal || state.actionResultModal || state.detailModal || state.pendingBooking || state.pendingAfterparty || state.pendingPurchase || state.saveSlotModal || state.pendingCancelLive || state.activePopup) {
     state.popupQueue = state.popupQueue || [];
     state.popupQueue.push(popup);
     return;
@@ -1406,6 +1504,10 @@ function closeActivePopup() {
 function closeLiveResultModal() {
   state.liveResultModal = null;
   state.deferPopupsUntilAfterLive = false;
+  if (state.pendingAfterparty) {
+    render();
+    return;
+  }
   if (state.postLiveStory) {
     const ev = state.postLiveStory;
     state.postLiveStory = null;
@@ -1448,8 +1550,13 @@ function finishPendingTurnAdvance() {
   state.turn = pending.nextTurn;
   state.view = "home";
   scheduleNextLive();
+  processNewTurnNotifications("turn");
   state.turnNotice = { turn: state.turn, next: state.nextLiveTurn, label: currentLiveName(), remain: turnsUntilNextLive(), createdAt: Date.now() };
   state.songcraftUsedThisTurn = false;
+  if (state.hangoverTurn === state.turn) {
+    state.popupQueue = state.popupQueue || [];
+    state.popupQueue.push({ title:"二日酔い", body:"昨日の打ち上げが響いている。\nこのターンは休憩しかできない。", type:"warn", icon:"😵" });
+  }
   if (state.turn === 2 && Array.isArray(state.pendingDrafts) && state.pendingDrafts.some(d => !(d.lyricsDone && d.musicDone))) {
     state.firstDraftTutorialDraftIds = state.pendingDrafts.filter(d => !(d.lyricsDone && d.musicDone)).map(d => d.id);
     state.firstDraftTutorialPending = state.firstDraftTutorialDraftIds.length > 0;
@@ -1674,6 +1781,20 @@ function normalizeState() {
   if (!Array.isArray(state.applicants)) state.applicants = state.lastApplicant ? [state.lastApplicant] : [];
   if (!Array.isArray(state.dismissedApplicantIds)) state.dismissedApplicantIds = [];
   if (typeof state.promoRecruitTurns === "undefined") state.promoRecruitTurns = 0;
+  if (!state.rivalRelations || typeof state.rivalRelations !== "object") state.rivalRelations = {};
+  if (!Array.isArray(state.liveOffers)) state.liveOffers = [];
+  if (!Array.isArray(state.phoneMails)) state.phoneMails = [];
+  if (!Array.isArray(state.snsPosts)) state.snsPosts = [];
+  if (!Array.isArray(state.liveDiagnostics)) state.liveDiagnostics = [];
+  if (!Array.isArray(state.liveReservationCandidates)) state.liveReservationCandidates = [];
+  if (typeof state.reservationCandidateTurn === "undefined") state.reservationCandidateTurn = 0;
+  if (!Array.isArray(state.notificationTurns)) state.notificationTurns = [];
+  if (typeof state.bookingInviteBoostTurns === "undefined") state.bookingInviteBoostTurns = 0;
+  if (typeof state.pendingAfterparty === "undefined") state.pendingAfterparty = null;
+  if (typeof state.hangoverTurn === "undefined") state.hangoverTurn = 0;
+  state.liveOffers = state.liveOffers.filter(o => o && !o.accepted && !o.expired && Number(o.turn || 0) > (state.turn || 1) + 1).slice(0, 12);
+  state.phoneMails = state.phoneMails.slice(0, 40);
+  state.snsPosts = state.snsPosts.slice(0, 50);
   state.maxTurn = 50;
   if (!state.playerCraft) state.playerCraft = { lyricsXp: 0, musicXp: 0 };
   if (typeof state.freeSongcraftCharge === "undefined") state.freeSongcraftCharge = 0;
@@ -1684,6 +1805,12 @@ function normalizeState() {
     state.liveEvents = state.liveEvents.filter(e => !(e.fixed && String(e.label || e.name || "").includes("GRAND UNDER FES")));
     if (!hasUnder30) state.liveEvents.push(fixedLiveEvent(30, "big_stage", "UNDER FES", true));
     if (!hasGrand50) state.liveEvents.push(fixedLiveEvent(50, "big_stage", "GRAND UNDER FES", true));
+    state.liveEvents.forEach(e => {
+      const v = venueById(e.venueId);
+      if (!e.liveType) e.liveType = e.fixed ? "special" : "self_one_man";
+      if (!e.label || e.label === "自主予約ライブ") e.label = e.liveType === "self_taiban" ? "自主企画：対バン" : e.liveType === "self_one_man" ? "自主企画：ワンマン" : (e.label || liveTypeMeta(e).short);
+      e.capacity = v.capacity; e.fee = v.fee; e.prepNeed = v.prepNeed;
+    });
   }
   mergeLatestCandidatesIntoState();
   if (!state.scheduleTutorialStage) state.scheduleTutorialStage = "none";
@@ -1828,7 +1955,7 @@ function renderIntroScreen() {
 }
 
 function maybeTriggerStoryEvents() {
-  if (state.activePopup || state.actionResultModal || state.liveProgressModal || state.liveResultModal || state.bandNamePrompt) return;
+  if (state.activePopup || state.actionResultModal || state.liveProgressModal || state.liveResultModal || state.pendingAfterparty || state.bandNamePrompt) return;
   if (mustCompleteFirstDraftTutorial() && !state.firstDraftTutorialPopupShown) {
     state.firstDraftTutorialPopupShown = true;
     state.activePopup = firstDraftTutorialPopup();
@@ -1879,6 +2006,11 @@ function completeSongcraftTutorial() {
 }
 
 function showTutorialBlocked(kind) {
+  if (state.hangoverTurn === state.turn && kind !== "command") {
+    state.activePopup = { title:"二日酔い", body:"このターンは休憩しかできない。\n曲作りやライブ予約は、休んでからにしよう。", type:"warn", icon:"😵" };
+    render();
+    return true;
+  }
   if (mustCompleteFirstDraftTutorial() && kind !== "song") {
     state.activePopup = firstDraftTutorialPopup();
     state.view = "home";
@@ -1961,6 +2093,7 @@ function renderNav(liveMode=false) {
     ["band", "バンド編成", "👥"],
     ["songs", "曲", "🎼"],
     ["schedule", "予定", "📅"],
+    ["phone", "携帯", "📱"],
     ["shop", "ショップ", "🛒"],
     ["log", "ログ", "📺"],
     ["library", "図鑑", "📚"]
@@ -1977,6 +2110,7 @@ function renderMainContent() {
   else if (state.view === "band") html = renderBandScreen();
   else if (state.view === "songs") html = renderSongsScreen();
   else if (state.view === "schedule") html = renderScheduleScreen();
+  else if (state.view === "phone") html = renderPhoneScreen();
   else if (state.view === "shop") html = renderShopScreen();
   else if (state.view === "log") html = renderLogScreen();
   else if (state.view === "library") html = renderLibraryScreen();
@@ -2041,6 +2175,60 @@ function quietGuideLine() {
   return "必要な警告だけ表示。安全目安は破綻防止で、最高値はセトリや物販の読みで伸ばせる。";
 }
 
+function unreadMailCount() { return (state.phoneMails || []).filter(m => !m.read).length; }
+function renderPhoneScreen() {
+  const mails = state.phoneMails || [];
+  const offers = (state.liveOffers || []).filter(o => !o.accepted && !o.expired && o.turn > state.turn + 1);
+  const sns = state.snsPosts || [];
+  const diag = state.liveDiagnostics || [];
+  return `<div class="phone-screen grid">
+    <div class="card phone-card mail-card">
+      <div class="section-title"><h2>メール</h2><span class="badge ${unreadMailCount() ? "warn" : "good"}">${unreadMailCount()}件未読</span></div>
+      ${offers.length ? `<div class="mail-offer-list"><h3>出演通知</h3>${offers.map(renderLiveOfferMail).join("")}</div>` : `<p><small>現在、参加できるブッキング通知はありません。宣伝や交流で届きやすくなります。</small></p>`}
+      <h3>受信箱</h3>
+      <div class="mail-list">${mails.length ? mails.map(renderMailRow).join("") : `<div class="empty-panel">メールなし</div>`}</div>
+    </div>
+    <div class="card phone-card sns-card">
+      <div class="section-title"><h2>SNS</h2><span class="badge">旧Twitter風</span></div>
+      ${sns.length ? sns.map(renderSnsPost).join("") : `<div class="empty-panel">まだ投稿は流れていません。ライブ後やターン開始時に口コミ・流行が増えます。</div>`}
+    </div>
+    <div class="card phone-card diagnostic-card">
+      <div class="section-title"><h2>ライブ診断ログ</h2><span class="badge warn">原因確認</span></div>
+      <p><small>ライブ追加後に評価や収支が変だった時、ここで「種別・会場・集客・費用・セトリ・準備不足」を追えます。</small></p>
+      ${diag.length ? diag.slice(0,6).map(renderDiagnosticRow).join("") : `<div class="empty-panel">まだ診断ログはありません。ライブ後に追加されます。</div>`}
+    </div>
+  </div>`;
+}
+function renderLiveOfferMail(o) {
+  const v = venueById(o.venueId);
+  const meta = liveTypeMeta(o);
+  const bands = invitedBandsForEvent(o);
+  return `<div class="mail-row offer">
+    <b>${o.turn}T ${escapeHtml(meta.label)}</b>
+    <span>${escapeHtml(v.name)} / ${escapeHtml(meta.feeLabel)}${eventBaseCost(o, v).toLocaleString()}円</span>
+    ${bands.length ? `<small>共演：${bands.map(b=>escapeHtml(b.name)).join(" / ")}</small>` : `<small>ライブハウスイベント。共演バンドと出会える。</small>`}
+    <div class="row"><button class="acceptOfferBtn big-action" data-offer-id="${escapeHtml(o.id)}">参加する</button><button class="declineOfferBtn ghost-btn" data-offer-id="${escapeHtml(o.id)}">見送る</button></div>
+  </div>`;
+}
+function renderMailRow(m) {
+  return `<div class="mail-row ${m.kind || "info"}"><b>${escapeHtml(m.subject || "無題")}</b><small>${m.turn || "?"}T / ${escapeHtml(m.kind || "info")}</small><p>${escapeHtml(m.body || "").replace(/\n/g,"<br>")}</p></div>`;
+}
+function renderSnsPost(p) {
+  return `<div class="sns-post ${escapeHtml(p.mood || "normal")}"><b>${escapeHtml(p.author || "@unknown")}</b><small>${p.turn || "?"}T</small><p>${escapeHtml(p.body || "")}</p></div>`;
+}
+function renderDiagnosticRow(d) {
+  const data = d.data || {};
+  const money = data.money || {};
+  const venue = data.venue || {};
+  const audience = data.audience || {};
+  const songs = data.songs || {};
+  return `<div class="diagnostic-row"><b>${escapeHtml(d.title || "ライブ診断")}</b><small>${escapeHtml(d.at || "")}</small>
+    <p>種別:${escapeHtml(data.liveType || "-")} / 準備:${venue.prepScore ?? "-"}/${venue.prepNeed ?? "-"} 不足${venue.shortage ?? 0}</p>
+    <p>集客:自分${audience.own ?? 0}・他${audience.partner ?? 0}・合計${audience.total ?? 0} / 曲:オリジナル${songs.originalCount ?? 0}・コピー${songs.coverCount ?? 0}</p>
+    <p>収支:チケット${Number(money.ticketRevenue || 0).toLocaleString()} / 費用${Number(money.cost || 0).toLocaleString()} / 利益${Number(money.finalProfit || 0).toLocaleString()}</p>
+  </div>`;
+}
+
 function renderHomeScreen() {
   const latest = firstLine(state.logs[0]);
   return `
@@ -2056,7 +2244,8 @@ function renderHomeScreen() {
           ${homeMenuButton("command", "⚡", "今週の行動へ", "練習・休憩・募集など")}
           ${homeMenuButton("band", "👥", "バンドの編成", "主人公・仲間・スキル確認")}
           ${homeSongMenuButton()}
-          ${homeMenuButton("schedule", "📅", "スケジュール帳", canBookSchedules() ? "ライブ予約・キャンセル" : "初ライブ後に解放", !canBookSchedules())}
+          ${homeMenuButton("schedule", "📅", "スケジュール帳", canBookSchedules() ? "自主企画予約・キャンセル" : "初ライブ後に解放", !canBookSchedules())}
+          ${homeMenuButton("phone", "📱", "携帯", "メール・SNS・ライブ通知", false)}
           ${homeMenuButton("shop", "🛒", "ショップ", "回復・機材・演出アイテム")}
           ${homeMenuButton("log", "📺", "ログ", "イベント履歴を見る")}
           ${homeMenuButton("library", "📚", "図鑑", "発見済みジャンル・スキル・歴代バンド")}
@@ -2091,7 +2280,7 @@ function renderSavePanel() {
 function renderPwaPanel() {
   return `<div class="pwa-panel">
     <b>スマホ確認</b>
-    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.25は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
+    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.26は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
   </div>`;
 }
 
@@ -2110,11 +2299,11 @@ function renderSchedulePanel() {
       </div>
     </section>
     <section class="live-candidates-panel">
-      <div class="section-title"><h3>出演できるライブ候補</h3><span class="badge ${canBook ? "good" : "warn"}">${canBook ? "選択して予約" : "初ライブ後に解放"}</span></div>
+      <div class="section-title"><h3>自主企画の会場候補</h3><span class="badge ${canBook ? "good" : "warn"}">${canBook ? "ワンマン/対バンを決定" : "初ライブ後に解放"}</span></div>
       <div class="live-candidate-list">
-        ${canBook ? candidates.map(renderLiveCandidate).join("") || `<div class="empty-panel">予約可能なライブ候補がありません。</div>` : `<div class="empty-panel">初ライブ後から、スケジュール帳で出たいライブを選んで予約できます。</div>`}
+        ${canBook ? candidates.map(renderLiveCandidate).join("") || `<div class="empty-panel">予約可能な自主企画候補がありません。ブッキング通知は携帯のメールに届きます。</div>` : `<div class="empty-panel">初ライブ後から、スケジュール帳で自主企画ライブを決定できます。ブッキング通知は携帯に届きます。</div>`}
       </div>
-      <small>${canBook ? "タグは安全目安。高評価狙いは疲労・機材・セトリを見てあえて攻める余地あり。" : "まずは5ターン目の初ライブを目標に準備しましょう。"}</small>
+      <small>${canBook ? "自主企画は会場費自己負担。ブッキングは携帯のメールから参加できます。" : "まずは5ターン目の初ライブを目標に準備しましょう。"}</small>
     </section>
   </div>`;
 }
@@ -2140,28 +2329,54 @@ function renderRiskBadges(profile) {
   return `<span class="badge ${profile.cls}">${escapeHtml(profile.label)}</span>${(profile.notes || []).slice(0,2).map(n => `<span class="badge ${profile.cls === "bad" ? "bad" : "warn"}">${escapeHtml(n)}</span>`).join("")}`;
 }
 
-function buildLiveCandidates() {
-  const turns = [];
-  for (let t = state.turn + 3; t < (state.maxTurn || 50) && turns.length < 3; t++) {
-    if (!liveEventForTurn(t)) turns.push(t);
-  }
-  const list = [];
+function seededPick(arr, salt=0) {
+  if (!arr.length) return null;
+  const seed = Math.abs(Math.sin(((state.turn || 1) * 999 + salt * 313) * 12.9898) * 43758.5453);
+  return arr[Math.floor((seed - Math.floor(seed)) * arr.length) % arr.length];
+}
+function generateReservationCandidatesForTurn() {
   const availableVenues = VENUES.filter(v => (state.turn >= 30 || !["big_stage"].includes(v.id)) && (state.turn >= 16 || !["warehouse"].includes(v.id)));
-  turns.forEach(t => availableVenues.forEach(v => list.push({ turn:t, venueId:v.id })));
-  return list;
+  const openTurns = [];
+  for (let t = state.turn + 3; t < (state.maxTurn || 50) && openTurns.length < 7; t++) {
+    if (!liveEventForTurn(t)) openTurns.push(t);
+  }
+  const candidates = [];
+  const usedCaps = new Set();
+  for (let i = 0; i < openTurns.length && candidates.length < 4; i++) {
+    const turn = openTurns[i];
+    const venuePool = availableVenues.filter(v => !usedCaps.has(v.capacity) || i > 2);
+    const v = seededPick(venuePool.length ? venuePool : availableVenues, i + candidates.length);
+    if (!v) continue;
+    usedCaps.add(v.capacity);
+    const type = (i % 2 === 0) ? "self_one_man" : "self_taiban";
+    const invitedCount = type === "self_taiban" ? clamp(2 + ((state.turn + i) % 3), 2, 4) : 0;
+    candidates.push({ turn, venueId:v.id, liveType:type, invitedBandIds:type === "self_taiban" ? pickRivalBands(invitedCount).map(b=>b.id) : [] });
+  }
+  return candidates;
+}
+function buildLiveCandidates() {
+  if (!Array.isArray(state.liveReservationCandidates) || state.reservationCandidateTurn !== state.turn) {
+    state.reservationCandidateTurn = state.turn;
+    state.liveReservationCandidates = generateReservationCandidatesForTurn();
+  }
+  return state.liveReservationCandidates.filter(c => c.turn > state.turn + 2 && !liveEventForTurn(c.turn));
 }
 function renderLiveCandidate(c) {
   const v = venueById(c.venueId);
+  const ev = { ...c, fixed:false };
   const profile = liveRiskProfile(v);
   const cls = profile.cls === "good" ? "good" : profile.cls === "bad" ? "risk" : "warn";
-  return `<button class="liveCandidateBtn schedule-event candidate ${cls}" data-turn="${c.turn}" data-venue="${v.id}">
+  const meta = liveTypeMeta(ev);
+  const fee = eventBaseCost(ev, v);
+  const bands = invitedBandsForEvent(ev);
+  return `<button class="liveCandidateBtn schedule-event candidate ${cls}" data-turn="${c.turn}" data-venue="${v.id}" data-live-type="${escapeHtml(c.liveType || "self_one_man")}" data-bands="${escapeHtml((c.invitedBandIds || []).join(","))}">
     <strong class="candidate-turn">${c.turn}ターン</strong>
-    <b>${v.name}</b>
-    <span class="candidate-meta"><em>キャパ${v.capacity}</em><em class="fee-pill">¥${v.fee.toLocaleString()}</em></span>
-    <div class="quiet-guide-chips candidate-risk">${renderRiskBadges(profile)}</div>
+    <b>${escapeHtml(meta.short)}：${escapeHtml(v.name)}</b>
+    <span class="candidate-meta"><em>キャパ${v.capacity}</em><em class="fee-pill">${escapeHtml(meta.feeLabel)} ¥${fee.toLocaleString()}</em></span>
+    <div class="quiet-guide-chips candidate-risk">${renderRiskBadges(profile)}<span class="badge">リスク:${escapeHtml(meta.risk)}</span></div>
     <small>要準備${v.prepNeed} / 現在${val(profile.prep)} / ${escapeHtml(audienceProfileForVenue(v).label)}</small>
-    <small>${escapeHtml(v.note || "")}</small>
-    <small>${escapeHtml(venueRequirementText(v))}</small>
+    <small>${escapeHtml(meta.desc)}</small>
+    ${bands.length ? `<small>候補対バン：${bands.map(b=>escapeHtml(b.name)).join(" / ")}</small>` : ""}
   </button>`;
 }
 function renderScheduleEvent(e) {
@@ -2172,11 +2387,15 @@ function renderScheduleEvent(e) {
   const cls = e.fixed ? "fixed" : diff >= 0 ? "good" : "risk";
   const remaining = e.turn - state.turn;
   const canCancel = !e.fixed && remaining > 2;
+  const meta = liveTypeMeta(e);
+  const cost = eventBaseCost(e, v);
+  const bands = invitedBandsForEvent(e);
   const cancelBtn = canCancel ? `<button class="cancelLiveBtn ghost-btn" data-turn="${e.turn}">キャンセル</button>` : (!e.fixed ? `<small class="deadline-note">残り2ターン以内：変更不可</small>` : "");
   return `<div class="schedule-event ${cls}">
-    <b>${e.turn}T ${e.label || e.name}</b>
-    <span>${v.name}</span>
-    <small>キャパ${v.capacity} / 会場費${v.fee.toLocaleString()}円 / 要準備${v.prepNeed}</small>
+    <b>${e.turn}T ${escapeHtml(e.label || e.name || meta.short)}</b>
+    <span>${escapeHtml(meta.label)} / ${escapeHtml(v.name)}</span>
+    <small>キャパ${v.capacity} / ${escapeHtml(meta.feeLabel)}${cost.toLocaleString()}円 / 要準備${v.prepNeed}</small>
+    ${bands.length ? `<small>共演：${bands.map(b=>escapeHtml(b.name)).join(" / ")}</small>` : ""}
     <em>${status}：現在準備${val(prep)}</em>
     ${cancelBtn}
   </div>`;
@@ -2185,6 +2404,79 @@ function estimatePrepScore() {
   const originals = state.songs.filter(s=>!s.isCover).length;
   const avgRec = avg(state.songs.map(s=>s.recognition));
   return state.band.fame * 0.35 + state.band.fans * 0.20 + state.band.industry * 0.30 + state.band.trust * 0.18 + originals * 4 + avgRec * 0.20 + equipmentPrepBonus();
+}
+
+function inviteChanceBonus() {
+  const promo = Number(state.bookingInviteBoostTurns || 0) > 0 ? 0.16 : 0;
+  const fame = clamp(Number(state.band?.fame || 0) / 700, 0, 0.18);
+  const relation = clamp(avg(Object.values(state.rivalRelations || {}).map(Number)) / 250, 0, 0.12);
+  return promo + fame + relation;
+}
+function processNewTurnNotifications(reason="turn") {
+  if (!canBookSchedules() || state.turn >= state.maxTurn) return;
+  state.notificationTurns = Array.isArray(state.notificationTurns) ? state.notificationTurns : [];
+  if (state.notificationTurns.includes(state.turn)) return;
+  state.notificationTurns.push(state.turn);
+  if ((state.bookingInviteBoostTurns || 0) > 0) state.bookingInviteBoostTurns -= 1;
+  const chance = clamp(0.32 + inviteChanceBonus(), 0.18, 0.75);
+  if (Math.random() < chance) generateLiveOffer(reason);
+  if (Math.random() < 0.42) generateSnsTrendPost();
+}
+function firstOpenTurn(from=3) {
+  for (let i = from; i <= from + 7; i++) {
+    const t = state.turn + i;
+    if (t < (state.maxTurn || 50) && !liveEventForTurn(t)) return t;
+  }
+  return 0;
+}
+function generateLiveOffer(reason="turn") {
+  const turn = firstOpenTurn(rand(3, 6));
+  if (!turn) return null;
+  const venuePool = VENUES.filter(v => v.id !== "big_stage" && (state.turn >= 16 || v.id !== "warehouse"));
+  const v = venuePool[rand(0, venuePool.length - 1)] || VENUES[0];
+  const type = Math.random() < (0.45 + inviteChanceBonus()) ? "booking_band" : "booking_house";
+  const bands = type === "booking_band" ? pickRivalBands(1 + (Math.random() < 0.35 ? 1 : 0)) : pickRivalBands(2 + (Math.random() < 0.35 ? 1 : 0));
+  const offer = { id:`offer_${state.turn}_${Date.now()}_${Math.floor(Math.random()*9999)}`, turn, venueId:v.id, liveType:type, invitedBandIds:bands.map(b=>b.id), accepted:false, createdTurn:state.turn };
+  state.liveOffers = Array.isArray(state.liveOffers) ? state.liveOffers : [];
+  state.liveOffers.unshift(offer);
+  state.liveOffers = state.liveOffers.slice(0, 12);
+  const meta = liveTypeMeta(type);
+  const fee = eventBaseCost(offer, v);
+  addMail(`${meta.short}の出演通知`, `${turn}ターン目、${v.name}の${meta.short}に出演できます。
+${meta.feeLabel}：${fee.toLocaleString()}円
+共演：${bands.map(b=>b.name).join(" / ") || "ライブハウスイベント枠"}
+携帯のメールから参加できます。`, "live_offer", { offerId:offer.id });
+  addSnsPost("@livehouse_info", `${turn}T ${v.name}で${meta.short}あり。若手バンドの出演枠、まだ動いてるっぽい。`, "event");
+  log(`携帯にライブ出演通知が届いた：${turn}T ${v.name} / ${meta.short}`, "event");
+  return offer;
+}
+function generateSnsTrendPost() {
+  const genres = ["青春パンク", "メロディックパンク", "オルタナロック", "エモ", "ポップパンク", "ガレージロック"];
+  const words = ["夜", "焦燥", "帰り道", "ネオン", "叫び", "青春", "革命", "居場所"];
+  const g = genres[rand(0, genres.length - 1)];
+  const w = words[rand(0, words.length - 1)];
+  addSnsPost("@underground_feed", `今週、${g}と「${w}」っぽい歌詞の反応が少し良い。ライブ後の口コミもその辺りに寄ってる。`, "trend");
+}
+function acceptLiveOffer(offerId) {
+  const offer = (state.liveOffers || []).find(o => o.id === offerId);
+  if (!offer) { log("対象の出演通知が見つからない。", "warn"); render(); return; }
+  if (liveEventForTurn(offer.turn)) { offer.expired = true; log("そのターンは既に別のライブ予定があるため、出演通知を見送った。", "warn"); render(); return; }
+  const v = venueById(offer.venueId);
+  const meta = liveTypeMeta(offer);
+  const ev = { ...offer, label:meta.label, name:meta.label, fixed:false, booked:true, cancelled:false, capacity:v.capacity, fee:v.fee, prepNeed:v.prepNeed, accepted:true };
+  state.liveEvents.push(ev);
+  offer.accepted = true;
+  refreshLiveSchedule();
+  scheduleNextLive();
+  log(`${offer.turn}Tの「${meta.label} / ${v.name}」に参加することにした。${meta.feeLabel}${eventBaseCost(ev, v).toLocaleString()}円。`, "event");
+  addSnsPost("@our_band", `${offer.turn}T ${v.name}、出演決定。${meta.short}で一本やります。`, "self");
+  render();
+}
+function declineLiveOffer(offerId) {
+  const offer = (state.liveOffers || []).find(o => o.id === offerId);
+  if (offer) offer.expired = true;
+  log("出演通知を見送った。", "info");
+  render();
 }
 
 function goalChip(label, ok, value="") {
@@ -2505,7 +2797,7 @@ function renderSongEditorStep(ed) {
     const hasDrafts = state.pendingDrafts.length > 0;
     const tutorialTargets = firstDraftTutorialTargets();
     if (tutorialTargets.length) {
-      return `<div class="editor-summary tutorial-box"><b>2ターン目：未完成曲を完成させよう</b><span>ホームから作詞・作曲を開き、1ターン目の未完成曲を選ぼう。作っていない作詞/作曲を進め、最後に曲名とテーマを確認すると完了です。</span></div><div class="choice-grid song-choice">${tutorialTargets.map(d=>choiceButton(`<b>${escapeHtml(d.titleHint)}</b>`, `draft:select:${d.id}`, "", draftProgressSmall(d))).join("")}</div>`;
+      return `<div class="editor-summary tutorial-box"><b>2ターン目：未完成曲を完成させよう</b><span>ホームから作詞・作曲を開き、1ターン目の未完成曲を選ぼう。作っていない作詞/作曲を進めると曲が完成します。</span></div><div class="choice-grid song-choice">${tutorialTargets.map(d=>choiceButton(`<b>${escapeHtml(d.titleHint)}</b>`, `draft:select:${d.id}`, "", draftProgressSmall(d))).join("")}</div>`;
     }
     return `<div class="choice-grid main-choice-grid">
       ${choiceButton("<span>🆕</span><b>新曲作成</b>", "new:start", "", "作詞か作曲から始める")}
@@ -2667,7 +2959,7 @@ function handleSongEditorAction(action) {
     }
     render(); return;
   }
-  if ((m = action.match(/^draft:select:(.+)$/))) { ed.draftId = m[1]; const d = state.pendingDrafts.find(x => x.id === ed.draftId); ed.step = d && d.lyricsDone && d.musicDone ? "draftFinalize" : "draftType"; render(); return; }
+  if ((m = action.match(/^draft:select:(.+)$/))) { ed.draftId = m[1]; ed.step = "draftType"; render(); return; }
   if ((m = action.match(/^draft:type:(lyrics|music)$/))) { if (!canStartSongcraft(m[1], 20, m[1] === "lyrics" ? "作詞" : "作曲")) { render(); return; } ed.type = m[1]; ed.step = m[1] === "lyrics" ? "draftLyricsMember" : "draftMusicMember"; render(); return; }
   if ((m = action.match(/^draft:lyricsMember:(.+)$/))) { ed.memberId = m[1]; ed.step = "draftLyricWords"; render(); return; }
   if (action === "draft:lyricsExecute") {
@@ -3109,6 +3401,7 @@ function renderLivePrep() {
   const supports = DATA.supportOptions.map(s => `<label class="check-card"><input type="checkbox" class="supportCheck" value="${s.id}" ${selectedSupports.has(s.id) ? "checked" : ""} /> ${s.name}<br><small>${s.cost.toLocaleString()}円 / ${s.genres.join("・")}</small></label>`).join("");
   const ev = currentLiveEvent();
   const v = venueById(ev.venueId);
+  const liveMeta = liveTypeMeta(ev);
   const prep = estimatePrepScore();
   const riskProfile = liveRiskProfile(v);
   const prepState = riskProfile.label;
@@ -3116,8 +3409,8 @@ function renderLivePrep() {
   const mixHint = "セトリボーナスは新曲2＋既存曲3、または新曲1＋既存曲4が狙い目。コピー曲は対象外。";
   return `
     <div class="card live-panel">
-      <div class="section-title"><h2>${currentLiveName()}：ライブ準備</h2><span class="badge warn">${v.name} / ${prepState}</span></div>
-      <div class="venue-info"><b>${v.name}</b><span>キャパ${v.capacity} / 会場費${v.fee.toLocaleString()}円 / 要準備${v.prepNeed} / 現在準備${val(prep)}</span><div class="quiet-guide-chips">${renderRiskBadges(riskProfile)}</div><small>${v.note}</small><small>${escapeHtml(venueRequirementText(v))}</small></div>
+      <div class="section-title"><h2>${currentLiveName()}：ライブ準備</h2><span class="badge warn">${escapeHtml(liveMeta.short)} / ${v.name} / ${prepState}</span></div>
+      <div class="venue-info"><b>${escapeHtml(liveMeta.label)} / ${v.name}</b><span>キャパ${v.capacity} / ${escapeHtml(liveMeta.feeLabel)}${eventBaseCost(ev, v).toLocaleString()}円 / 要準備${v.prepNeed} / 現在準備${val(prep)}</span><div class="quiet-guide-chips">${renderRiskBadges(riskProfile)}</div><small>${escapeHtml(liveMeta.desc)}</small><small>${escapeHtml(v.note)}</small><small>${escapeHtml(venueRequirementText(v))}</small></div>
       <div class="venue-info audience-info"><b>客層：${escapeHtml(audience.label)}</b><span>${escapeHtml(audience.detail)}</span><small>${mixHint}</small></div>
       <div class="setlist-hint-panel"><b>セトリ自動ヒント</b>${livePrepAutoHints(ensureLivePrepSetlist().map(id=>songById(id)).filter(Boolean), v, audience).map(h=>`<span>${escapeHtml(h)}</span>`).join("")}</div>
       <p><small>ボーカルはコーラス不可。初ライブだけ主人公Vo固定。その他メンバーの担当楽器をライブごとに決められます。</small></p>
@@ -3458,6 +3751,7 @@ function renderOverlays() {
   if (state.bandNamePrompt) return renderBandNameOverlay();
   if (state.liveProgressModal) return renderLiveProgressOverlay();
   if (state.liveResultModal) return renderLiveResultOverlay();
+  if (state.pendingAfterparty) return renderAfterpartyOverlay();
   if (state.actionResultModal) return renderActionResultOverlay();
   if (state.detailModal) return renderDetailModalOverlay();
   if (state.livePrepPickerSlot) return renderLiveSongPickerOverlay();
@@ -3559,17 +3853,37 @@ function renderSaveSlotOverlay() {
 function renderBookingConfirmOverlay() {
   const b = state.pendingBooking;
   const v = venueById(b.venueId);
+  const ev = { ...b, fixed:false };
+  const meta = liveTypeMeta(ev);
+  const bands = invitedBandsForEvent(ev);
   const prep = estimatePrepScore();
   const shortage = Math.max(0, v.prepNeed - prep);
   const riskProfile = liveRiskProfile(v);
   return `<div class="modal-backdrop">
     <div class="event-modal event booking-modal">
       <div class="modal-icon">📅</div>
-      <div class="modal-copy"><h2>${b.turn}ターン目のライブを予約する？</h2><p>${escapeHtml(v.name)} / キャパ${v.capacity} / 会場費${v.fee.toLocaleString()}円</p><p>準備要求：${v.prepNeed} / 現在準備：${val(prep)}${shortage ? ` / 不足${val(shortage)}` : " / 準備OK"}</p><div class="quiet-guide-chips">${renderRiskBadges(riskProfile)}</div><p>予約後、残り2ターン以内は通常キャンセル不可。当日ドタキャンは会場費＋損料が必要。</p></div>
-      <div class="modal-actions"><button id="confirmBookingBtn" class="big-action">予約する</button><button id="cancelBookingBtn" class="ghost-btn">戻る</button></div>
+      <div class="modal-copy"><h2>${b.turn}ターン目の${escapeHtml(meta.short)}を入れる？</h2><p>${escapeHtml(v.name)} / キャパ${v.capacity} / ${escapeHtml(meta.feeLabel)}${eventBaseCost(ev, v).toLocaleString()}円</p><p>準備要求：${v.prepNeed} / 現在準備：${val(prep)}${shortage ? ` / 不足${val(shortage)}` : " / 準備OK"}</p><div class="quiet-guide-chips">${renderRiskBadges(riskProfile)}</div>${bands.length ? `<p>呼ぶ/共演候補：${bands.map(x=>escapeHtml(x.name)).join(" / ")}</p>` : ""}<p>${escapeHtml(meta.desc)}</p><p>予約後、残り2ターン以内は通常キャンセル不可。当日ドタキャンは会場費＋損料が必要。</p></div>
+      <div class="modal-actions"><button id="confirmBookingBtn" class="big-action">決定する</button><button id="cancelBookingBtn" class="ghost-btn">戻る</button></div>
     </div>
   </div>`;
 }
+function renderAfterpartyOverlay() {
+  const p = state.pendingAfterparty || {};
+  const fatigue = Number(state.band?.fatigue || 0);
+  const canJoin = fatigue <= 80;
+  const bands = (p.invitedBandIds || []).map(rivalById).filter(Boolean);
+  return `<div class="modal-backdrop"><div class="event-modal event afterparty-modal">
+    <div class="modal-icon">🍻</div>
+    <div class="modal-copy"><h2>ライブ後の打ち上げに行く？</h2>
+      <p>${escapeHtml(p.title || "ライブ")}が終わった。参加すると交流・紹介・メンバー成長のチャンスがあるが、疲労がさらに20%増える。</p>
+      <p>現在疲労：${Math.round(fatigue)}% / 参加条件：疲労80%以下${canJoin ? "" : "（疲れすぎて参加不可）"}</p>
+      ${bands.length ? `<p>共演：${bands.map(b=>escapeHtml(b.name)).join(" / ")}</p>` : `<p>共演バンドやライブハウス関係者と話せるかもしれない。</p>`}
+      <small>二日酔い発生率は1〜20%。疲労が高いほど上がり、ライブ評価が高いほど下がる。</small>
+    </div>
+    <div class="modal-actions confirm-wide"><button id="joinAfterpartyBtn" class="big-action" ${canJoin ? "" : "disabled"}>参加する</button><button id="skipAfterpartyBtn" class="ghost-btn">帰る</button></div>
+  </div></div>`;
+}
+
 function renderActionResultOverlay() {
   const r = state.actionResultModal;
   return `<div class="modal-backdrop result-backdrop">
@@ -3621,7 +3935,7 @@ function renderLiveResultOverlay() {
     <div class="live-result-modal rank-${escapeHtml(r.rank || "C")}">
       <div class="rank-burst">${escapeHtml(r.rank || "-")}</div>
       <div class="result-header"><span>LIVE RESULT</span><b>${escapeHtml(r.title || "ライブ結果")}</b><em>${escapeHtml(r.venue || "ライブハウス")}</em></div>
-      <div class="result-score"><b>${val(r.total || 0)}</b><span>総合評価</span></div>
+      <div class="result-score"><b>${val(r.total || 0)}</b><span>総合評価</span><small>${escapeHtml(r.liveTypeLabel || "ライブ")}</small></div>
       <div class="result-bars">
         ${resultBar("演奏", val(r.performance || 0))}
         ${resultBar("表現", val(r.expression || 0))}
@@ -3630,8 +3944,8 @@ function renderLiveResultOverlay() {
         ${resultBar("安定", val(r.stability || 0))}
       </div>
       <div class="result-summary-grid">
-        <div><b>集客</b><span>${val(r.attendees || 0)}人</span></div>
-        <div><b>利益</b><span>${Number(gains.funds || r.profit || 0).toLocaleString()}円</span></div>
+        <div><b>集客</b><span>${val(r.attendees || 0)}人</span><small>自分${val(r.ownAudience || 0)} / 他${val(r.partnerAudience || 0)}</small></div>
+        <div><b>利益</b><span>${Number(gains.funds || r.profit || 0).toLocaleString()}円</span><small>${escapeHtml(r.costLabel || "費用")}${Number(r.costValue || 0).toLocaleString()}円</small></div>
         <div><b>ファン</b><span>+${val(gains.fans || 0)}</span></div>
         <div><b>知名度</b><span>+${val(gains.fame || 0)}</span></div>
         <div><b>業界評価</b><span>+${val(gains.industry || 0)}</span></div>
@@ -3644,6 +3958,7 @@ function renderLiveResultOverlay() {
         <p>同一曲：${escapeHtml(r.repeatText || "なし")}</p>
         <p>物販：${escapeHtml(r.merchSummary || "なし")}</p>
         ${r.coreEvent ? `<p>完璧ではないが、コアなファンに強く刺さった。</p>` : ""}
+        ${r.mannerWarning ? `<p>交流注意：${escapeHtml(r.mannerWarning)}</p>` : ""}
       </div>
       <div class="modal-actions"><button id="downloadSetlistImageBtn" class="ghost-btn">セトリ画像を保存</button><button class="liveResultCloseBtn big-action">OK</button></div>
     </div>
@@ -3793,12 +4108,18 @@ function bindEvents() {
   document.querySelectorAll(".liveResultCloseBtn").forEach(btn => btn.addEventListener("click", closeLiveResultModal));
   const bookLiveBtn = document.getElementById("bookLiveBtn");
   if (bookLiveBtn) bookLiveBtn.addEventListener("click", () => bookLiveFromHome());
-  document.querySelectorAll(".liveCandidateBtn").forEach(btn => btn.addEventListener("click", () => { state.pendingBooking = { turn:Number(btn.dataset.turn), venueId:btn.dataset.venue }; render(); }));
+  document.querySelectorAll(".liveCandidateBtn").forEach(btn => btn.addEventListener("click", () => { state.pendingBooking = { turn:Number(btn.dataset.turn), venueId:btn.dataset.venue, liveType:btn.dataset.liveType || "self_one_man", invitedBandIds:(btn.dataset.bands || "").split(",").filter(Boolean) }; render(); }));
+  document.querySelectorAll(".acceptOfferBtn").forEach(btn => btn.addEventListener("click", () => acceptLiveOffer(btn.dataset.offerId)));
+  document.querySelectorAll(".declineOfferBtn").forEach(btn => btn.addEventListener("click", () => declineLiveOffer(btn.dataset.offerId)));
   document.getElementById("downloadSetlistImageBtn")?.addEventListener("click", downloadSetlistImage);
   const confirmBookingBtn = document.getElementById("confirmBookingBtn");
-  if (confirmBookingBtn) confirmBookingBtn.addEventListener("click", () => { const b = state.pendingBooking; state.pendingBooking = null; if (b) bookLiveFromHome(b.turn, b.venueId, true); });
+  if (confirmBookingBtn) confirmBookingBtn.addEventListener("click", () => { const b = state.pendingBooking; state.pendingBooking = null; if (b) bookLiveFromHome(b.turn, b.venueId, true, b.liveType, b.invitedBandIds); });
   const cancelBookingBtn = document.getElementById("cancelBookingBtn");
   if (cancelBookingBtn) cancelBookingBtn.addEventListener("click", () => { state.pendingBooking = null; render(); });
+  const joinAfterpartyBtn = document.getElementById("joinAfterpartyBtn");
+  if (joinAfterpartyBtn) joinAfterpartyBtn.addEventListener("click", attendAfterparty);
+  const skipAfterpartyBtn = document.getElementById("skipAfterpartyBtn");
+  if (skipAfterpartyBtn) skipAfterpartyBtn.addEventListener("click", skipAfterparty);
   const cancelCancelLiveBtn = document.getElementById("cancelCancelLiveBtn");
   if (cancelCancelLiveBtn) cancelCancelLiveBtn.addEventListener("click", () => { state.pendingCancelLive = null; render(); });
   const confirmCancelLiveBtn = document.getElementById("confirmCancelLiveBtn");
@@ -3814,7 +4135,60 @@ function bindEvents() {
   document.querySelectorAll(".chorusSelect").forEach(sel => sel.addEventListener("change", enforceChorusRule));
 }
 
-function bookLiveFromHome(turnArg=null, venueArg=null, confirmed=false) {
+function continuePostLiveFlow() {
+  if (state.postLiveStory) {
+    const ev = state.postLiveStory;
+    state.postLiveStory = null;
+    state.activePopup = { title:ev.title, body:ev.body, type:"event", icon:ev.icon || "🕴️" };
+    return;
+  }
+  if (Array.isArray(state.popupQueue) && state.popupQueue.length) {
+    state.activePopup = state.popupQueue.shift();
+    return;
+  }
+  if (state.pendingEndingAfterLive) {
+    state.pendingEndingAfterLive = false;
+    state.ended = true;
+  }
+}
+
+function hangoverChance(rank, fatigue) {
+  const rankReduce = { S:-0.07, A:-0.05, B:-0.03, C:0, D:0.04, E:0.07 }[rank] || 0;
+  return clamp(0.01 + fatigue / 520 + rankReduce, 0.01, 0.20);
+}
+function attendAfterparty() {
+  const p = state.pendingAfterparty || {};
+  if ((state.band.fatigue || 0) > 80) { log("疲労が高すぎて打ち上げには行けない。", "warn"); state.pendingAfterparty = null; continuePostLiveFlow(); render(); return; }
+  const before = state.band.fatigue || 0;
+  state.band.fatigue = clamp(before + Math.round(20 * fatigueGainMultiplier()), 0, 100);
+  const bands = (p.invitedBandIds || []).map(rivalById).filter(Boolean);
+  bands.forEach(b => setRelationshipWithBand(b.id, relationshipWithBand(b.id) + 8));
+  activeMembers().forEach(m => { m.stats.teamwork = clamp(m.stats.teamwork + 1, 1, 99); m.stats.mental = clamp(m.stats.mental + 1, 1, 99); });
+  if (Math.random() < 0.30) {
+    const applicant = addApplicantFromCandidates("打ち上げ紹介");
+    if (applicant) addMail("打ち上げで紹介されたメンバー候補", `${applicant.name}から連絡先をもらった。バンド編成から加入を検討できます。`, "member", {});
+  }
+  const chance = hangoverChance(p.rank, state.band.fatigue || 0);
+  const hungover = Math.random() < chance;
+  if (hungover) {
+    state.hangoverTurn = state.turn;
+    addMail("二日酔い", "昨日の打ち上げが響いた。次のターンは休憩しかできない。", "warn", {});
+    state.popupQueue = state.popupQueue || [];
+    state.popupQueue.push({ title:"二日酔い", body:"打ち上げの疲れが残っている。\nこのターンは休憩しかできない。", type:"warn", icon:"😵" });
+  }
+  log(`打ち上げに参加した。交流とメンバーの空気が少し良くなった。疲労+${Math.round(state.band.fatigue-before)}%。二日酔い判定${Math.round(chance*100)}%${hungover ? " → 発生" : " → なし"}。`, hungover ? "warn" : "event");
+  state.pendingAfterparty = null;
+  continuePostLiveFlow();
+  render();
+}
+function skipAfterparty() {
+  state.pendingAfterparty = null;
+  log("打ち上げには行かず、今日は帰ることにした。", "info");
+  continuePostLiveFlow();
+  render();
+}
+
+function bookLiveFromHome(turnArg=null, venueArg=null, confirmed=false, liveTypeArg="self_one_man", invitedBandIdsArg=[]) {
   if (!canBookSchedules()) {
     log("初ライブ後からライブ予約ができるようになります。");
     render();
@@ -3822,6 +4196,8 @@ function bookLiveFromHome(turnArg=null, venueArg=null, confirmed=false) {
   }
   const turn = Number(turnArg || document.getElementById("scheduleTurnSelect")?.value || 0);
   const venueId = venueArg || document.getElementById("scheduleVenueSelect")?.value || VENUES[0].id;
+  const liveType = liveTypeArg || "self_one_man";
+  const invitedBandIds = Array.isArray(invitedBandIdsArg) ? invitedBandIdsArg : String(invitedBandIdsArg || "").split(",").filter(Boolean);
   if (!turn || turn <= state.turn + 2 || turn >= state.maxTurn) {
     log("ライブ予約は残り2ターン以内になると不可。3ターン以上先の予定から選びます。");
     render();
@@ -3832,12 +4208,15 @@ function bookLiveFromHome(turnArg=null, venueArg=null, confirmed=false) {
     render();
     return;
   }
-  if (!confirmed && turnArg && venueArg) { state.pendingBooking = { turn, venueId }; render(); return; }
+  if (!confirmed && turnArg && venueArg) { state.pendingBooking = { turn, venueId, liveType, invitedBandIds }; render(); return; }
   const v = venueById(venueId);
-  state.liveEvents.push({ turn, venueId, label:"自主予約ライブ", fixed:false, booked:true, cancelled:false, name:"自主予約ライブ", capacity:v.capacity, fee:v.fee, prepNeed:v.prepNeed });
+  const meta = liveTypeMeta(liveType);
+  const finalBandIds = liveType === "self_taiban" ? (invitedBandIds.length ? invitedBandIds : pickRivalBands(2).map(b=>b.id)) : [];
+  state.liveEvents.push({ turn, venueId, liveType, invitedBandIds:finalBandIds, label:meta.label, fixed:false, booked:true, cancelled:false, name:meta.label, capacity:v.capacity, fee:v.fee, prepNeed:v.prepNeed });
   refreshLiveSchedule();
   scheduleNextLive();
-  log(`${turn}ターン目に「${v.name}」を予約した。キャパ${v.capacity}、会場費${v.fee.toLocaleString()}円。`);
+  state.liveReservationCandidates = (state.liveReservationCandidates || []).filter(c => !(c.turn === turn && c.venueId === venueId && c.liveType === liveType));
+  log(`${turn}ターン目に「${meta.label} / ${v.name}」を決定した。キャパ${v.capacity}、${meta.feeLabel}${eventBaseCost({ liveType }, v).toLocaleString()}円。`);
   render();
 }
 function cancelBookedLive(turn, noShow=false) {
@@ -3893,6 +4272,11 @@ function enforceChorusRule() {
 
 function handleCommandClick(command) {
   if (showTutorialBlocked("command")) return;
+  if (state.hangoverTurn === state.turn && command !== "rest") {
+    state.activePopup = { title:"二日酔い", body:"このターンは休憩しかできない。\n休憩を選ぶと通常行動に戻ります。", type:"warn", icon:"😵" };
+    render();
+    return;
+  }
   if (!state.songcraftUsedThisTurn) {
     state.pendingNoSongcraftCommand = command;
     render();
@@ -4055,11 +4439,12 @@ function executeCommand(command) {
       if (inst) inst.lv = clamp(inst.lv + rand(2,5) * (inst.growth || 1), 1, inst.potentialCap || inst.cap);
     });
     state.songs.forEach(s => s.performance = clamp(s.performance + Math.max(0, Math.round(rand(1,3) * fatigueEffectMultiplier())), 0, 99));
-    b.fatigue = clamp(b.fatigue + 14 - (hasSkill("shortcut_command") ? 2 : 0), 0, 100);
+    addFatigue(14 - (hasSkill("shortcut_command") ? 2 : 0));
     b.trust = clamp(b.trust + 2, 0, 100);
     log(`練習した。技術・リズム・楽器Lv・曲の演奏が少し上がった。費用-${cost.toLocaleString()}円、疲労も増えた。`);
   }
   if (command === "rest") {
+    if (state.hangoverTurn === state.turn) state.hangoverTurn = 0;
     b.fatigue = 0;
     b.trust = clamp(b.trust + 4, 0, 100);
     activeMembers().forEach(m => m.stats.mental = clamp(m.stats.mental + rand(1,3), 1, 99));
@@ -4067,7 +4452,7 @@ function executeCommand(command) {
   }
   if (command === "parttime") {
     b.funds += 18000;
-    b.fatigue = clamp(b.fatigue + 18, 0, 100);
+    addFatigue(18);
     b.trust = clamp(b.trust - 1, 0, 100);
     log("バイトした。資金+18,000円。ただし疲労が増えた。 ");
   }
@@ -4090,7 +4475,9 @@ function executeCommand(command) {
     state.songs.forEach(s => s.recognition = clamp(s.recognition + Math.max(0, Math.round(rand(1,3) * eff)), 0, 99));
     if (eff < 1) log(`疲労が高く、宣伝効率が${Math.round(eff*100)}%まで落ちている。`, "warn");
     state.promoRecruitTurns = 3;
-    log(`宣伝した。知名度と曲の認知度が上がった。宣伝費-${cost.toLocaleString()}円。3ターンの間、60%で加入希望が来る可能性がある。`);
+    state.bookingInviteBoostTurns = 3;
+    addSnsPost("@our_band", "次のライブに向けて告知中。ブッキングの声もかかりやすくなりそう。", "self");
+    log(`宣伝した。知名度と曲の認知度が上がった。宣伝費-${cost.toLocaleString()}円。3ターンの間、加入希望とライブ招待が来やすくなる。`);
   }
   if (command === "talk") {
     b.trust = clamp(b.trust + rand(7,12), 0, 100);
@@ -4265,7 +4652,7 @@ function plannedSongcraftFatigueCost(type, baseCost) {
   if ((state.freeSongcraftCharge || 0) > 0) return 0;
   const lv = craftLevel(type);
   const skillReduce = (hasSkill("dual_songcraft") ? 2 : 0) + (hasSkill("shortcut_command") ? 1 : 0);
-  return Math.max(0, baseCost - lv - skillReduce);
+  return Math.round(Math.max(0, baseCost - lv - skillReduce) * fatigueGainMultiplier());
 }
 function canStartSongcraft(type, baseCost, label) {
   const cost = plannedSongcraftFatigueCost(type, baseCost);
@@ -4292,7 +4679,7 @@ function songcraftFatigueCost(type, baseCost) {
   if ((state.freeSongcraftCharge || 0) > 0) { state.freeSongcraftCharge -= 1; return { cost:0, free:true, reason:"ひらめきストック" }; }
   if (Math.random() < freeChance) return { cost:0, free:true, reason:"作詞作曲Lv" };
   const skillReduce = (hasSkill("dual_songcraft") ? 2 : 0) + (hasSkill("shortcut_command") ? 1 : 0);
-  return { cost:Math.max(0, baseCost - lv - skillReduce), free:false, reason:"" };
+  return { cost:Math.round(Math.max(0, baseCost - lv - skillReduce) * fatigueGainMultiplier()), free:false, reason:"" };
 }
 function applySongcraftFatigue(type, baseCost, member, label) {
   const r = songcraftFatigueCost(type, baseCost);
@@ -4337,6 +4724,14 @@ function fatigueEffectMultiplier() {
   if (f >= 70) return 0.75;
   if (f >= 60) return 0.90;
   return 1;
+}
+function fatigueGainMultiplier() { return hasSkill("self_management") ? 0.8 : 1; }
+function addFatigue(amount, reason="") {
+  const before = state.band.fatigue || 0;
+  const inc = Math.round(Number(amount || 0) * fatigueGainMultiplier());
+  state.band.fatigue = clamp(before + inc, 0, 100);
+  if (reason) log(`${reason} 疲労+${inc}%${hasSkill("self_management") ? "（段取り上手で軽減）" : ""}。`);
+  return { before, after:state.band.fatigue, inc };
 }
 function derivedLyrics(m) { return (m.stats.knowledge + m.stats.sense + m.stats.mental + m.stats.charisma) / 4; }
 function derivedMusic(m) { return (m.stats.rhythm + m.stats.sense + m.stats.knowledge + m.stats.technique) / 4; }
@@ -4749,6 +5144,7 @@ function performLive() {
     state.turn += 1;
     state.view = "home";
     scheduleNextLive();
+    processNewTurnNotifications("post_live");
   }
   render();
 }
@@ -4907,6 +5303,8 @@ function calculateLive(setlist, supports, merch, positions, vocalist, chorus) {
   const setlistBonus = analyzeSetlistBonus(setlist, liveArrange);
   const venue = currentLiveEvent();
   const venueData = venueById(venue.venueId);
+  const liveMeta = liveTypeMeta(venue);
+  const invitedBands = invitedBandsForEvent(venue);
   const prepScore = estimatePrepScore();
   const venueShortage = Math.max(0, venueData.prepNeed - prepScore);
   const venuePenalty = venueShortage * 0.55;
@@ -4931,6 +5329,20 @@ function calculateLive(setlist, supports, merch, positions, vocalist, chorus) {
     expression += repeatInfo.boomBoost * 0.35;
   }
 
+  if (venue.liveType === "self_one_man") {
+    strategy += state.band.fame * 0.04 + state.band.fans * 0.025 - Math.max(0, venueData.capacity - (state.band.fans + state.band.fame)) * 0.015;
+    stability -= Math.max(0, venueData.capacity * 0.25 - popularity()) * 0.05;
+  }
+  if (venue.liveType === "self_taiban") {
+    heat += Math.min(18, eventPartnerAudience(venue) * 0.10);
+    stability += 5 + invitedBands.length * 2;
+    strategy -= coverCount >= 4 ? 8 : 0;
+  }
+  if (venue.liveType === "booking_house" || venue.liveType === "booking_band") {
+    stability += 8;
+    strategy += Math.min(10, eventPartnerAudience(venue) * 0.06);
+  }
+
   performance += liveArrange.performance;
   expression += liveArrange.expression;
   heat += liveArrange.heat;
@@ -4946,8 +5358,16 @@ function calculateLive(setlist, supports, merch, positions, vocalist, chorus) {
   const revenue = calculateRevenue(total, rank, merch, supports, setlist, originalCount, coverCount);
   const coreEvent = shouldCoreFanEvent(rank, expression, heat, tags, coverCount);
   const positionText = performers.map(m => `${m.name}:${instLabel(positions[m.id])}`).join(" / ");
+  const diagnostics = {
+    liveType: liveMeta.label,
+    score: { performance:val(performance), expression:val(expression), heat:val(heat), strategy:val(strategy), stability:val(stability), rawTotal:val(rawTotal), total:val(total) },
+    venue: { id:venueData.id, prepNeed:venueData.prepNeed, prepScore:val(prepScore), shortage:val(venueShortage), penalty:val(venuePenalty) },
+    songs: { originalCount, coverCount, setlistBonus:val(setlistBonus.total), repeatText:repeatInfo.text },
+    audience: { own:revenue.ownAudience, partner:revenue.partnerAudience, total:revenue.attendees },
+    money: { ticketRevenue:revenue.ticketRevenue, bonus:revenue.bonus, cost:revenue.baseCost, supportCost:revenue.supportCost, merchCost:revenue.merch.cost, finalProfit:revenue.finalProfit }
+  };
 
-  return { performance, expression, heat, strategy, stability, total, rank, revenue, originalCount, coverCount, adlib: liveArrange, liveArrange, repeatInfo, setlistBonus, coreEvent, supports, merch, venue: venueData, prepScore, venueShortage, vocalistName: vocalist.name, chorusName: chorusList.length ? chorusList.map(ch => ch.name).join(" / ") : "なし", positions, performers: performers.map(m => m.id), positionText };
+  return { performance, expression, heat, strategy, stability, total, rank, revenue, originalCount, coverCount, adlib: liveArrange, liveArrange, repeatInfo, setlistBonus, coreEvent, supports, merch, venue: venueData, liveType:venue.liveType || "self_one_man", liveTypeLabel: liveMeta.label, invitedBands: invitedBands.map(b=>b.name), prepScore, venueShortage, diagnostics, vocalistName: vocalist.name, chorusName: chorusList.length ? chorusList.map(ch => ch.name).join(" / ") : "なし", positions, performers: performers.map(m => m.id), positionText };
 }
 
 function analyzeRepeatSetlist(setlist) {
@@ -5040,15 +5460,25 @@ function rankMult(rank) { return { S:1.6, A:1.35, B:1.15, C:1.0, D:.78, E:.55 }[
 function venueFee() { return venueById(currentLiveEvent().venueId).fee; }
 function capacity() { return venueById(currentLiveEvent().venueId).capacity; }
 function calculateRevenue(total, rank, merch, supports, setlist) {
-  const cap = capacity();
-  const attendees = clamp(Math.round(10 + state.band.fans * .45 + state.band.fame * .55 + total * .45), 5, cap);
-  const ticket = 1500;
-  const ticketRevenue = attendees * ticket;
-  const bonus = Math.max(0, Math.round((total - 45) * 180));
+  const ev = currentLiveEvent();
+  const venue = venueById(ev.venueId);
+  const meta = liveTypeMeta(ev);
+  const cap = venue.capacity;
+  const selfAudienceRaw = Math.round(10 + state.band.fans * .45 + state.band.fame * .55 + total * .45);
+  const partnerAudienceRaw = ["self_taiban", "booking_house", "booking_band"].includes(ev.liveType) ? eventPartnerAudience(ev) : 0;
+  const attendees = clamp(selfAudienceRaw + partnerAudienceRaw, 5, cap);
+  const partnerAudience = Math.min(partnerAudienceRaw, Math.max(0, attendees - Math.min(selfAudienceRaw, attendees)));
+  const ownAudience = Math.max(0, attendees - partnerAudience);
+  const ticket = ev.liveType === "big_stage" ? 2200 : 1500;
+  const partnerShare = ev.liveType === "self_taiban" ? 0.35 : ev.liveType === "booking_band" ? 0.25 : ev.liveType === "booking_house" ? 0.30 : 1.0;
+  const selfShare = ev.liveType === "booking_house" ? 0.55 : ev.liveType === "booking_band" ? 0.62 : 1.0;
+  const ticketRevenue = Math.round(ownAudience * ticket * selfShare + partnerAudience * ticket * partnerShare);
+  const bonus = Math.max(0, Math.round((total - 45) * 180 * (meta.reward || 1)));
   const merchData = merchRevenue(merch, attendees, rank, setlist);
   const supportCost = sum(supports.map(s => s.cost));
-  const finalProfit = ticketRevenue + bonus + merchData.revenue - venueFee() - supportCost - merchData.cost;
-  return { attendees, ticketRevenue, bonus, merch: merchData, supportCost, venueFee: venueFee(), finalProfit };
+  const baseCost = eventBaseCost(ev, venue);
+  const finalProfit = ticketRevenue + bonus + merchData.revenue - baseCost - supportCost - merchData.cost;
+  return { attendees, ownAudience, partnerAudience, ticketRevenue, ticket, ticketShare:selfShare, partnerShare, bonus, merch: merchData, supportCost, venueFee: baseCost, baseCost, costLabel: meta.feeLabel, liveTypeLabel: meta.label, finalProfit };
 }
 function merchRevenue(ordersRaw, attendees, rank, setlist) {
   const orders = normalizeMerchOrders(ordersRaw);
@@ -5080,26 +5510,51 @@ function merchRevenue(ordersRaw, attendees, rank, setlist) {
 }
 function shouldCoreFanEvent(rank, expression, heat, tags) { return ["C","D","E"].includes(rank) && (expression > 70 || tags.includes("エモさ") || tags.includes("個性") || heat > 85) && Math.random() < 0.62; }
 
+function analyzeLiveManners(setlist, result) {
+  const unique = new Set(setlist.map(s => s.id || s.title)).size;
+  const coverCount = setlist.filter(s => s.isCover).length;
+  const reasons = [];
+  let penalty = 0;
+  if (coverCount >= 5) { penalty += 12; reasons.push("全曲コピー曲"); }
+  else if (coverCount >= 4) { penalty += 5; reasons.push("コピー曲が多い"); }
+  if (unique <= 2) { penalty += 10; reasons.push("同じ曲に偏りすぎ"); }
+  if ((result?.setlistBonus?.history?.exactStreak || 0) >= 2) { penalty += 6; reasons.push("同じセトリ連発"); }
+  if (["D","E"].includes(result?.rank) && coverCount >= 3) { penalty += 4; reasons.push("手抜きに見えやすい低評価"); }
+  return { penalty, reasons };
+}
+
 function applyLiveResult(r, setlist, supports) {
   const b = state.band;
+  const ev = currentLiveEvent();
+  const meta = liveTypeMeta(ev);
+  const manners = analyzeLiveManners(setlist, r);
   const fanGainBase = { S:45, A:30, B:18, C:8, D:2, E:0 }[r.rank] || 0;
   const fameGainBase = { S:22, A:14, B:8, C:3, D:1, E:0 }[r.rank] || 0;
   const industryGainBase = { S:24, A:16, B:9, C:2, D:0, E:0 }[r.rank] || 0;
-  let fanGain = fanGainBase + Math.round(r.total / 50) + (r.coreEvent ? 3 : 0) + (hasSkill("mc_master") ? 2 : 0);
-  let fameGain = fameGainBase + (r.revenue.attendees > 50 ? 2 : 0);
-  let coreGain = { S:12, A:8, B:5, C:2, D:1, E:0 }[r.rank] || 0;
-  let industryGain = industryGainBase + (r.originalCount >= 4 ? 4 : 0) - (state.turn === state.maxTurn ? r.coverCount * 2 : 0);
+  let fanGain = (fanGainBase + Math.round(r.total / 50) + (r.coreEvent ? 3 : 0) + (hasSkill("mc_master") ? 2 : 0)) * (meta.growth || 1);
+  let fameGain = (fameGainBase + (r.revenue.ownAudience > 50 ? 2 : 0)) * (meta.growth || 1);
+  let coreGain = ({ S:12, A:8, B:5, C:2, D:1, E:0 }[r.rank] || 0) * (meta.growth || 1);
+  let industryGain = (industryGainBase + (r.originalCount >= 4 ? 4 : 0) - (state.turn === state.maxTurn ? r.coverCount * 2 : 0)) * (meta.growth || 1);
+  if (ev.liveType === "self_one_man" && ["S","A"].includes(r.rank)) { fanGain += 12; fameGain += 8; industryGain += 6; }
   if (r.coreEvent) { coreGain += 10; fanGain += 2; }
-  r.gains = { fans: Math.max(0, fanGain), fame: Math.max(0, fameGain), core: Math.max(0, coreGain), industry: Math.max(0, industryGain), funds: r.revenue.finalProfit };
-  b.fans += Math.max(0, fanGain);
-  b.fame += Math.max(0, fameGain);
-  b.core += Math.max(0, coreGain);
-  b.industry += Math.max(0, industryGain);
+  const relationDeltaBase = (meta.relation || 0) + ({ S:6, A:4, B:2, C:0, D:-3, E:-6 }[r.rank] || 0) - Math.round(manners.penalty / 3);
+  invitedBandsForEvent(ev).forEach(band => setRelationshipWithBand(band.id, relationshipWithBand(band.id) + relationDeltaBase));
+  if (manners.penalty) {
+    b.trust = clamp(b.trust - Math.ceil(manners.penalty / 5), 0, 100);
+    r.mannerWarning = manners.reasons.join(" / ");
+  }
+  r.relationDelta = relationDeltaBase;
+  r.gains = { fans: Math.max(0, Math.round(fanGain)), fame: Math.max(0, Math.round(fameGain)), core: Math.max(0, Math.round(coreGain)), industry: Math.max(0, Math.round(industryGain)), funds: r.revenue.finalProfit };
+  b.fans += r.gains.fans;
+  b.fame += r.gains.fame;
+  b.core += r.gains.core;
+  b.industry += r.gains.industry;
   b.funds += r.revenue.finalProfit;
   state.totalMerchSales = (state.totalMerchSales || 0) + Number(r.revenue?.merch?.salesRevenue || 0);
   b.trust = clamp(b.trust + ({ S:8, A:5, B:3, C:0, D:-3, E:-6 }[r.rank] || 0), 0, 100);
   const fatigueBeforeLive = b.fatigue;
-  b.fatigue = clamp(b.fatigue + 18 + Math.round(avg(setlist.map(s => s.tempo)) / 9) + Math.max(0, activeMembers().length - 4) * 5 - avg(activeMembers().map(m=>m.stats.stamina)) / 16, 0, 100);
+  const liveFatigue = 18 + Math.round(avg(setlist.map(s => s.tempo)) / 9) + Math.max(0, activeMembers().length - 4) * 5 - avg(activeMembers().map(m=>m.stats.stamina)) / 16;
+  b.fatigue = clamp(b.fatigue + Math.round(liveFatigue * fatigueGainMultiplier()), 0, 100);
   maybeShowFatigueIncreasePopup(fatigueBeforeLive, b.fatigue, "ライブ本番で疲労が増えた。");
   setlist.forEach((song, idx) => {
     const prevTurn = song.lastLiveTurn || 0;
@@ -5121,9 +5576,22 @@ function applyLiveResult(r, setlist, supports) {
     const old = b.direction[s.genres[0]] || 0;
     state.supportAffinity[key] = (state.supportAffinity[key] || 0) + ({ S:15, A:11, B:7, C:3, D:1, E:0 }[r.rank] || 0) + (old > 20 ? 2 : 0);
   });
+  liveDiagnosticsPush(`${currentLiveName()} / ${r.rank}`, r.diagnostics || {});
+  if (["self_taiban", "booking_house", "booking_band"].includes(ev.liveType)) {
+    addSnsPost("@live_after", `${currentLiveName()}終了。${r.rank}評価、${r.revenue.attendees}人。${r.mannerWarning ? "セトリ面はちょっと気になる声も。" : "対バンの空気は悪くなさそう。"}`, r.rank);
+  }
+  if (["S","A","B"].includes(r.rank) && Math.random() < 0.60) {
+    addMail("ライブの感想が届いています", `昨日のライブ、${setlist[0]?.title || "1曲目"}が特に良かったです。
+次も観に行きます。
+
+効果：ファンメールにより表現力/認知度が少し伸びました。`, "fan_mail", {});
+    state.band.fame = clamp(state.band.fame + 1, 0, 999);
+    activeMembers().forEach(m => m.stats.charisma = clamp(m.stats.charisma + 1, 1, 99));
+  }
+  state.pendingAfterparty = { rank:r.rank, total:val(r.total), liveType:ev.liveType || "special", invitedBandIds:Array.isArray(ev.invitedBandIds) ? ev.invitedBandIds.slice() : [], title:currentLiveName(), fatigueAfterLive:Math.round(state.band.fatigue || 0) };
   const summary = [
     `【${currentLiveName()} 結果】評価:${r.rank} / 総合:${val(r.total)}`,
-    `演奏${val(r.performance)} 表現${val(r.expression)} 熱量${val(r.heat)} 戦略${val(r.strategy)} 安定${val(r.stability)}`,
+    `ライブ種別:${r.liveTypeLabel || liveTypeMeta(ev).label} / 演奏${val(r.performance)} 表現${val(r.expression)} 熱量${val(r.heat)} 戦略${val(r.strategy)} 安定${val(r.stability)}`,
     `会場:${r.venue.name} / キャパ${r.venue.capacity} / 準備${val(r.prepScore)}${r.venueShortage > 0 ? `（不足${val(r.venueShortage)}）` : ""}`,
     `配置:${r.positionText}`,
     activeMembers().length > 4 ? `大所帯ボーナス：人数で熱量は上がったが、管理コストと事故リスクも増えた。` : "",
@@ -5132,8 +5600,10 @@ function applyLiveResult(r, setlist, supports) {
     r.adlib.text !== "なし" ? `ライブアレンジ:${r.adlib.text}。マンネリや同一曲の不利を一部無視した。` : `ライブアレンジは起きなかった。`,
     r.repeatInfo?.hasRepeats ? `${r.repeatInfo.boom ? "同一曲再演ボーナス" : "同一曲再演ペナルティ"}：${r.repeatInfo.text}` : "",
     r.coreEvent ? `ライブ全体は完璧ではなかったが、刺さったコアなファンがいた。コア人気が伸びた。` : "",
-    `集客:${r.revenue.attendees}人 / チケット:${r.revenue.ticketRevenue.toLocaleString()}円 / 物販:${r.revenue.merch.salesRevenue.toLocaleString()}円 / 買い取り:${r.revenue.merch.buybackRevenue.toLocaleString()}円`,
-    `会場費:${r.revenue.venueFee.toLocaleString()}円 / サポート代:${r.revenue.supportCost.toLocaleString()}円 / 物販仕入れ:${r.revenue.merch.cost.toLocaleString()}円 / 最終利益:${r.revenue.finalProfit.toLocaleString()}円`
+    r.mannerWarning ? `交流注意:${r.mannerWarning}。対バン/ブッキングでは交流が下がる。` : "",
+    invitedBandsForEvent(ev).length ? `交流変動:${invitedBandsForEvent(ev).map(b=>`${b.name}${r.relationDelta>=0?"+":""}${r.relationDelta}`).join(" / ")}` : "",
+    `集客:${r.revenue.attendees}人（自分目当て${r.revenue.ownAudience} / 他バンド目当て${r.revenue.partnerAudience}） / チケット:${r.revenue.ticketRevenue.toLocaleString()}円 / 物販:${r.revenue.merch.salesRevenue.toLocaleString()}円 / 買い取り:${r.revenue.merch.buybackRevenue.toLocaleString()}円`,
+    `${r.revenue.costLabel || "会場費"}:${r.revenue.venueFee.toLocaleString()}円 / サポート代:${r.revenue.supportCost.toLocaleString()}円 / 物販仕入れ:${r.revenue.merch.cost.toLocaleString()}円 / 最終利益:${r.revenue.finalProfit.toLocaleString()}円`
   ].filter(Boolean).join("\n");
   log(summary, "live");
 }
@@ -5150,13 +5620,19 @@ function makeLiveResultModal(r, setlist) {
     strategy: val(r.strategy),
     stability: val(r.stability),
     venue: r.venue.name,
+    liveTypeLabel: r.liveTypeLabel || r.revenue.liveTypeLabel || "ライブ",
     attendees: r.revenue.attendees,
+    ownAudience: r.revenue.ownAudience || r.revenue.attendees,
+    partnerAudience: r.revenue.partnerAudience || 0,
+    costLabel: r.revenue.costLabel || "会場費",
+    costValue: r.revenue.venueFee || 0,
     profit: r.revenue.finalProfit,
     originalCount: r.originalCount,
     coverCount: r.coverCount,
     adlib: r.adlib.text,
     setlistBonusText: setlistBonusText(r.setlistBonus),
     repeatText: r.repeatInfo?.hasRepeats ? r.repeatInfo.text : "なし",
+    mannerWarning: r.mannerWarning || "",
     merchSummary: `${r.revenue.merch.label} / 売上${Number(r.revenue.merch.salesRevenue || 0).toLocaleString()}円 / 買い取り${Number(r.revenue.merch.buybackRevenue || 0).toLocaleString()}円`,
     coreEvent: !!r.coreEvent,
     gains: r.gains || {},
