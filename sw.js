@@ -1,12 +1,10 @@
-const CACHE_NAME = "underground-v0-3-30";
+const CACHE_NAME = "underground-v0-3-50";
 const ASSETS = [
   "./",
   "./index.html",
   "./style.css",
   "./game.js",
-  "./manifest.json",
-  "./icon-192.png",
-  "./icon-512.png"
+  "./manifest.json"
 ];
 
 self.addEventListener("install", event => {
