@@ -2535,3 +2535,19 @@ button:focus:not(:focus-visible), input:focus:not(:focus-visible), select:focus:
   .story-silhouette{height:62%}
   .story-text{font-size:16px}
 }
+
+
+/* ===== v0.3.62-fix2 mail actions / novel touch position ===== */
+.mail-offer-actions,.mail-member-actions{margin-top:12px;padding:12px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);display:grid;gap:8px}
+.mail-offer-actions b,.mail-member-actions b{display:block;color:#ffe66d}
+.mail-offer-actions small,.mail-member-actions small{display:block;color:var(--muted);line-height:1.45}
+.mail-action-modal .modal-copy p{white-space:pre-line}
+.story-actors{inset:0 0 210px 0}
+.story-dialogue{bottom:calc(58px + env(safe-area-inset-bottom));padding-bottom:14px}
+.story-result-card{bottom:calc(58px + env(safe-area-inset-bottom))}
+.story-actions{position:sticky;bottom:0;padding-top:8px;background:linear-gradient(180deg,rgba(9,12,20,0),rgba(9,12,20,.96) 35%)}
+@media (max-height:720px){
+  .story-dialogue{bottom:calc(38px + env(safe-area-inset-bottom))}
+  .story-result-card{bottom:calc(38px + env(safe-area-inset-bottom));max-height:68vh}
+  .story-actors{inset:0 0 190px 0}
+}

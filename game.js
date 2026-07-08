@@ -1,10 +1,10 @@
 /*
-  アンダーグラウンド（仮） v0.3.62-novel-dev-draft
-  - v0.3.61-member-draft-fix6を土台に、簡易ノベルイベントUIと開発用モードを追加した試作版。
+  アンダーグラウンド（仮） v0.3.66-balance-draft-fix1
+  - v0.3.64-growth-type-draftを土台に、v0.3.65相当の他バンドイベント土台とv0.3.66相当のバランス基準/DEV補助を追加。
   - 旧「（仮）」候補ブロックとPaper Moon Kids系コードは、旧セーブ互換/退避用に残すが、有効候補はMEMBER_DATABASEで上書きする。
 */
 
-const VERSION = "v0.3.62-novel-dev-draft-fix1";
+const VERSION = "v0.3.66-balance-draft-fix1";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -1109,6 +1109,113 @@ const BAND_EVENT_DATABASE = Object.freeze({
       setFlags: ["flag_lact_name_dropped"]
     },
     unlockSkillId: null
+  },
+  event_triple_arrows_after_invite_rematch: {
+    id: "event_triple_arrows_after_invite_rematch", bandId: "triple_arrows", type: "encounter",
+    startTurn: 10, endTurn: 32, repeatable: false, priority: 64,
+    conditions: {
+      hasFlag: "flag_triple_arrows_invite_done",
+      minBattleCountWithBand: { bandId: "triple_arrows", count: 2 },
+      lastBattleBandId: "triple_arrows"
+    },
+    effects: {
+      relationAdd: 12,
+      addLog: "Triple Arrowsとの再戦後、タカナシたちと次のステージについて話した。"
+    },
+    unlockSkillId: null
+  },
+  event_carbons_return_talk: {
+    id: "event_carbons_return_talk", bandId: "carbons", type: "encounter",
+    startTurn: 12, endTurn: 34, repeatable: false, priority: 63,
+    conditions: {
+      hasFlag: "flag_carbons_return",
+      minBattleCountWithBand: { bandId: "carbons", count: 1 }
+    },
+    effects: {
+      relationAdd: 10,
+      addLog: "CARBONSのナキリから、尖りを磨くための課題をもらった。"
+    },
+    unlockSkillId: null
+  },
+  event_pachi_pachi_floor_sign: {
+    id: "event_pachi_pachi_floor_sign", bandId: "pachi_pachi", type: "encounter",
+    startTurn: 22, endTurn: 40, repeatable: false, priority: 62,
+    conditions: {
+      eventSeen: "event_pachi_pachi_second_success",
+      minBattleCountWithBand: { bandId: "pachi_pachi", count: 2 }
+    },
+    effects: {
+      relationAdd: 10,
+      addLog: "Pachi-Pachiのミケから、客席との合図の作り方を聞いた。"
+    },
+    unlockSkillId: null
+  },
+  event_shelter_backstage_advice: {
+    id: "event_shelter_backstage_advice", bandId: "shelter", type: "encounter",
+    startTurn: 28, endTurn: 46, repeatable: false, priority: 62,
+    conditions: {
+      eventSeen: "event_shelter_after_live_talk",
+      minLastLiveScore: 75
+    },
+    effects: {
+      relationAdd: 10,
+      addLog: "SHELTERのクリオから、大きなステージで崩れない準備について助言を受けた。"
+    },
+    unlockSkillId: null
+  },
+  event_kiwi_greenroom_talk: {
+    id: "event_kiwi_greenroom_talk", bandId: "kiwi", type: "encounter",
+    startTurn: 6, endTurn: 28, repeatable: false, priority: 48,
+    conditions: {
+      eventSeen: "event_kiwi_random_battle",
+      lastBattleBandId: "kiwi"
+    },
+    effects: {
+      relationAdd: 8,
+      addLog: "Kiwiとの対バン後、楽屋で肩の力を抜くライブの作り方を聞いた。"
+    },
+    unlockSkillId: null
+  },
+  event_magnet_wolf_dirty_riff: {
+    id: "event_magnet_wolf_dirty_riff", bandId: "magnet_wolf", type: "encounter",
+    startTurn: 10, endTurn: 36, repeatable: false, priority: 48,
+    conditions: {
+      eventSeen: "event_magnet_wolf_battle",
+      lastBattleBandId: "magnet_wolf",
+      lastBattleResult: "success"
+    },
+    effects: {
+      relationAdd: 8,
+      addLog: "magnet wolfのダイドウジから、荒いリフのまま客席に刺す感覚を教わった。"
+    },
+    unlockSkillId: null
+  },
+  event_kaede_one_phrase: {
+    id: "event_kaede_one_phrase", bandId: "kaede", type: "encounter",
+    startTurn: 26, endTurn: 46, repeatable: false, priority: 52,
+    conditions: {
+      eventSeen: "event_kaede_acoustic_encounter",
+      minIndustryRep: 65
+    },
+    effects: {
+      relationAdd: 10,
+      addLog: "KAEDEから、歌詞の一行で空気を変えるステージングについて聞いた。"
+    },
+    unlockSkillId: null
+  },
+  event_lact_backstage_shadow: {
+    id: "event_lact_backstage_shadow", bandId: "lact", type: "encounter",
+    startTurn: 44, endTurn: 50, repeatable: false, priority: 58,
+    conditions: {
+      eventSeen: "event_lact_name_drop",
+      minFans: 150,
+      minIndustryRep: 110
+    },
+    effects: {
+      relationAdd: 5,
+      addLog: "GRAND UNDER FESの控室導線で、LACTの存在感を遠くに感じた。"
+    },
+    unlockSkillId: null
   }
 });
 
@@ -1240,7 +1347,7 @@ function bandSkillById(id) { return BAND_SKILL_DATABASE[id] || null; }
 function ownedBandSkillRec(id) { return (state.ownedBandSkills || {})[id] || null; }
 function bandSkillLevel(id) { return Number(ownedBandSkillRec(id)?.level || 0); }
 
-function grantBandSkill(skillId, sourceBandId, reason = "") {
+function grantBandSkill(skillId, sourceBandId, reason = "", opts = {}) {
   if (!bandSystemOn()) return false;
   const sk = bandSkillById(skillId);
   if (!sk) return false;
@@ -1273,7 +1380,7 @@ function grantBandSkill(skillId, sourceBandId, reason = "") {
   promoteBandState(sourceBandId, "skill_unlocked");
   const notImpl = sk.effectImplemented ? "" : "\n※効果は次バージョン実装予定。今は獲得記録のみ。";
   log(`交流スキル獲得：${sk.name}${levelText}${reason ? `（${reason}）` : ""}`, "event");
-  showEventPopup("交流スキル獲得", `${sk.name}${levelText}\n${sk.description}${notImpl}`, "rare", "🎁");
+  if (!opts.silentPopup) showEventPopup("交流スキル獲得", `${sk.name}${levelText}\n${sk.description}${notImpl}`, "rare", "🎁");
   return true;
 }
 
@@ -1335,6 +1442,50 @@ function rankToBattleResult(rank) {
   return "normal";
 }
 const BATTLE_RESULT_ORDER = { normal: 0, success: 1, great_success: 2 };
+
+const BALANCE_BASELINE_PROFILES = Object.freeze({
+  under_border: {
+    label: "30T UNDER目安", turn: 30, fans: 70, fame: 70, industry: 60, trust: 42, fatigue: 28,
+    songs: 5, representative: 1, fresh: 1, lastRank: "B", lastTotal: 72
+  },
+  grand_border: {
+    label: "50T GRAND最低条件", turn: 50, fans: 180, fame: 135, industry: 118, trust: 55, fatigue: 25,
+    songs: 7, representative: 3, fresh: 1, lastRank: "A", lastTotal: 80
+  },
+  grand_strong: {
+    label: "50T GRAND注目枠目安", turn: 50, fans: 230, fame: 180, industry: 165, trust: 68, fatigue: 18,
+    songs: 8, representative: 4, fresh: 1, lastRank: "S", lastTotal: 84
+  }
+});
+
+function originalSongCountForBalance() {
+  return (state.songs || []).filter(s => !s.isCover).length;
+}
+function representativeSongCountForBalance() {
+  return (state.songs || []).filter(s => hasTag(s, "代表曲候補") || hasTag(s, "定番")).length;
+}
+function freshSongCountForBalance() {
+  return (state.songs || []).filter(s => !s.isCover && (s.livePlays || 0) <= 1 && (state.turn || 1) - (s.createdTurn || 0) <= 10).length;
+}
+function grandConditionSnapshot() {
+  const last = (state.liveResultHistory || [])[state.liveResultHistory.length - 1] || null;
+  const rows = [
+    { label:"直近A評価以上", ok:!!last && ["A","S"].includes(last.rank), value:last ? last.rank : "なし", target:"A以上" },
+    { label:"直近総合80以上", ok:!!last && Number(last.total || 0) >= 80, value:last ? val(last.total || 0) : "なし", target:"80" },
+    { label:"ファン180以上", ok:Number(state.band?.fans || 0) >= 180, value:Number(state.band?.fans || 0), target:"180" },
+    { label:"知名度135以上", ok:Number(state.band?.fame || 0) >= 135, value:Number(state.band?.fame || 0), target:"135" },
+    { label:"業界評価118以上", ok:Number(state.band?.industry || 0) >= 118, value:Number(state.band?.industry || 0), target:"118" },
+    { label:"オリジナル7曲以上", ok:originalSongCountForBalance() >= 7, value:`${originalSongCountForBalance()}曲`, target:"7曲" },
+    { label:"代表/定番3曲以上", ok:representativeSongCountForBalance() >= 3, value:`${representativeSongCountForBalance()}曲`, target:"3曲" },
+    { label:"新しめ1曲以上", ok:freshSongCountForBalance() >= 1, value:`${freshSongCountForBalance()}曲`, target:"1曲" }
+  ];
+  return { rows, ok: rows.every(r => r.ok), last };
+}
+function formatGrandConditionSnapshot() {
+  const snap = grandConditionSnapshot();
+  const lines = snap.rows.map(r => `${r.ok ? "OK" : "NG"} ${r.label}：${r.value} / 目標${r.target}`);
+  return `${snap.ok ? "GRAND最低条件：達成" : "GRAND最低条件：未達"}\n${lines.join("\n")}`;
+}
 
 function bandTotalStatusForEvents() {
   const members = (typeof activeMembers === "function" ? activeMembers() : []) || [];
@@ -1429,7 +1580,21 @@ const BAND_EVENT_TYPE_META = {
 // バンドイベント→ノベルシーンの対応。ここにあるイベントは通常ポップアップの代わりに会話イベントで見せる。
 const BAND_EVENT_STORY_MAP = {
   event_triple_arrows_invite_live: "triple_arrows_invite",
-  event_shelter_watched_live: "shelter_encounter"
+  event_shelter_watched_live: "shelter_encounter",
+  event_pachi_pachi_first_battle: "pachi_pachi_first_live",
+  event_pachi_pachi_second_success: "pachi_pachi_sweetness_unlock",
+  event_carbons_after_party_success: "carbons_diamond_rough",
+  event_shelter_after_live_talk: "shelter_rock_spirit",
+  event_triple_arrows_after_invite_rematch: "triple_arrows_next_arrow",
+  event_carbons_return_talk: "carbons_polish_talk",
+  event_pachi_pachi_floor_sign: "pachi_pachi_floor_sign",
+  event_shelter_backstage_advice: "shelter_backstage_advice",
+  event_kiwi_greenroom_talk: "kiwi_greenroom_talk",
+  event_magnet_wolf_dirty_riff: "magnet_wolf_dirty_riff",
+  event_kaede_acoustic_encounter: "kaede_acoustic_encounter",
+  event_kaede_one_phrase: "kaede_one_phrase",
+  event_lact_name_drop: "lact_name_drop",
+  event_lact_backstage_shadow: "lact_backstage_shadow"
 };
 
 function applyBandEventEffects(ev, opts = {}) {
@@ -1446,11 +1611,17 @@ function applyBandEventEffects(ev, opts = {}) {
   if (fx.addLog) log(fx.addLog, "event");
   let inviteOffer = null;
   if (ev.id === "event_triple_arrows_invite_live") inviteOffer = createTripleArrowsInviteOffer();
-  if (ev.unlockSkillId) grantBandSkill(ev.unlockSkillId, ev.bandId, "交流イベント");
+  const sceneId = BAND_EVENT_STORY_MAP[ev.id];
+  const storyWillPlay = !opts.silentPopup && !!sceneId && novelEventsOn() && !state.activeStoryEvent;
+  if (ev.unlockSkillId) grantBandSkill(ev.unlockSkillId, ev.bandId, "交流イベント", { silentPopup: storyWillPlay });
   if (!opts.silentPopup) {
-    const sceneId = BAND_EVENT_STORY_MAP[ev.id];
-    const storyContext = { offerTurn: inviteOffer?.turn || Math.min((state.turn || 1) + 2, (state.maxTurn || 50) - 1) };
-    const played = sceneId ? startStoryEvent(sceneId, { silent: true, context: storyContext }) : false;
+    const storyContext = {
+      offerTurn: inviteOffer?.turn || Math.min((state.turn || 1) + 2, (state.maxTurn || 50) - 1),
+      bandName: bandById(ev.bandId)?.name || "共演者",
+      skillName: ev.unlockSkillId ? (BAND_SKILL_DATABASE[ev.unlockSkillId]?.name || ev.unlockSkillId) : "",
+      rank: bandBookRef().lastBattle?.rank || "-"
+    };
+    const played = storyWillPlay ? startStoryEvent(sceneId, { silent: true, context: storyContext }) : false;
     if (!played) {
       const meta = BAND_EVENT_TYPE_META[ev.type] || { title: "バンドイベント", icon: "🎸" };
       const bandName = bandById(ev.bandId)?.name || "";
@@ -1490,10 +1661,12 @@ function recordBandBattlesAfterLive(ev, r) {
   const bb = bandBookRef();
   const newlyRegistered = [];
   let carbonsFirstBattleNow = false;
+  let pachiPachiFirstBattleNow = false;
   ids.forEach(id => {
     const entry = bandEntry(id);
     const firstTime = entry.battleCount === 0;
     if (firstTime && id === "carbons") carbonsFirstBattleNow = true;
+    if (firstTime && id === "pachi_pachi") pachiPachiFirstBattleNow = true;
     entry.battleCount += 1;
     const wasUnknown = entry.state === "unknown";
     touchBandMet(id);
@@ -1533,6 +1706,9 @@ function recordBandBattlesAfterLive(ev, r) {
   }
   if (carbonsFirstBattleNow && novelEventsOn()) {
     startStoryEvent("carbons_after_live", { silent: true, context: { rank: r.rank } });
+  }
+  if (pachiPachiFirstBattleNow && novelEventsOn() && !state.activeStoryEvent) {
+    startStoryEvent("pachi_pachi_first_live", { silent: true, context: { rank: r.rank } });
   }
   if (newlyRegistered.length) {
     showEventPopup("バンド図鑑 更新", `図鑑に登録：${newlyRegistered.join(" / ")}\n交流値も少し上がった。詳細はホームの「バンド図鑑」から。`, "event", "📖");
@@ -1823,6 +1999,7 @@ const DATA = {
     mainGenre: "パンク",
     secondMainGenres: ["ロック", "ポップ"],
     subGenres: ["青春パンク", "メロディックパンク", "オルタナロック"],
+    growthType: "安定型",
     stats: { stamina: 40, technique: 35, knowledge: 35, sense: 50, mental: 45, teamwork: 40, rhythm: 35, charisma: 45 },
     instruments: {
       vocal: { mark: "◎", lv: 45, cap: 80, potentialCap: 90, growth: 1.1 },
@@ -2296,7 +2473,7 @@ DATA.candidateCharacters.push(
 // 旧「（仮）」候補や他バンド代表キャラ混入を避けるため、ここで候補プールを上書きする。
 // defaultName/name は苗字のみ・名前のみの汎用カタカナ。加入時にプレイヤーが表示名を変更できる。
 const MEMBER_GROWTH_TYPE_DATABASE = Object.freeze({
-  "技術型": { focus: ["technique"], curve: "normal", note: "演奏技術が伸びやすい" },
+  "技術型": { focus: ["technique"], curve: "normal", note: "練習で演奏技術が伸びやすい" },
   "センス型": { focus: ["sense", "charisma"], curve: "normal", note: "曲の個性・表現が伸びやすい" },
   "メンタル型": { focus: ["mental", "stamina"], curve: "stable", note: "疲労や本番のブレに強い" },
   "カリスマ型": { focus: ["charisma", "sense"], curve: "burst", note: "ファン反応とフロント性能が伸びやすい" },
@@ -2304,10 +2481,90 @@ const MEMBER_GROWTH_TYPE_DATABASE = Object.freeze({
   "協調性型": { focus: ["teamwork", "mental"], curve: "stable", note: "打ち上げ・バンド安定に寄与しやすい" },
   "体力型": { focus: ["stamina", "rhythm"], curve: "early", note: "疲労に強く序盤から扱いやすい" },
   "知識型": { focus: ["knowledge", "technique"], curve: "normal", note: "作曲・アレンジ寄り" },
+  "万能型": { focus: ["stamina", "technique", "knowledge", "sense", "mental", "teamwork", "rhythm", "charisma"], curve: "normal", note: "全体的に少しずつ伸びる" },
   "安定型": { focus: ["teamwork", "mental", "rhythm"], curve: "stable", note: "突出しないが崩れにくい" },
+  "序盤型": { focus: ["technique", "rhythm", "stamina"], curve: "early", note: "序盤に伸びやすく、後半は控えめ" },
   "爆発型": { focus: ["sense", "charisma", "rhythm"], curve: "burst", note: "ライブで伸びやすいがムラがある" },
   "晩成型": { focus: ["sense", "technique"], curve: "late", note: "加入直後より育成後に強い" }
 });
+
+const MEMBER_STAT_KEYS = Object.freeze(["stamina", "technique", "knowledge", "sense", "mental", "teamwork", "rhythm", "charisma"]);
+const DEFAULT_MEMBER_GROWTH_TYPE = "安定型";
+
+function memberGrowthTypeKey(member) {
+  const key = String(member?.growthType || "").trim();
+  return MEMBER_GROWTH_TYPE_DATABASE[key] ? key : DEFAULT_MEMBER_GROWTH_TYPE;
+}
+function memberGrowthTypeInfo(member) {
+  return MEMBER_GROWTH_TYPE_DATABASE[memberGrowthTypeKey(member)] || MEMBER_GROWTH_TYPE_DATABASE[DEFAULT_MEMBER_GROWTH_TYPE];
+}
+function memberGrowthFocusStats(member) {
+  const info = memberGrowthTypeInfo(member);
+  return (info.focus || []).filter(k => MEMBER_STAT_KEYS.includes(k));
+}
+function memberGrowthCurveMultiplier(member, source="practice") {
+  const curve = memberGrowthTypeInfo(member).curve || "normal";
+  const turn = Number(state?.turn || 1);
+  if (curve === "early") {
+    if (turn <= 15) return 1.12;
+    if (turn <= 30) return 1.04;
+    return 0.98;
+  }
+  if (curve === "late") {
+    if (turn < 20) return 0.92;
+    if (turn < 35) return 1.04;
+    return 1.14;
+  }
+  if (curve === "stable") return source === "fatigue" ? 0.96 : 1.04;
+  return 1.0;
+}
+function memberGrowthStatMultiplier(member, stat, source="practice") {
+  const type = memberGrowthTypeKey(member);
+  const focus = memberGrowthFocusStats(member);
+  let mult = memberGrowthCurveMultiplier(member, source);
+  if (focus.includes(stat)) mult += type === "万能型" ? 0.05 : 0.14;
+  if (type === "爆発型") {
+    if (Math.random() < (source === "live" ? 0.22 : 0.14)) mult += 0.45;
+    else if (Math.random() < 0.10) mult -= 0.18;
+  }
+  return clamp(mult, 0.65, 1.75);
+}
+function scaledMemberStatGain(baseGain, member, stat, source="practice") {
+  const base = Number(baseGain || 0);
+  if (base <= 0) return 0;
+  const exact = base * memberGrowthStatMultiplier(member, stat, source);
+  let gain = Math.floor(exact);
+  if (Math.random() < (exact - gain)) gain += 1;
+  return Math.max(1, gain);
+}
+function applyMemberStatGrowth(member, stat, baseGain, source="practice") {
+  if (!member || !member.stats || !MEMBER_STAT_KEYS.includes(stat)) return 0;
+  const before = Number(member.stats[stat] || 1);
+  const gain = scaledMemberStatGain(baseGain, member, stat, source);
+  member.stats[stat] = clamp(before + gain, 1, 99);
+  return Math.round(member.stats[stat] - before);
+}
+function maybeApplyFocusedGrowth(member, source="practice", baseGain=1, chance=0.35) {
+  const focus = memberGrowthFocusStats(member);
+  if (!focus.length || Math.random() >= chance) return null;
+  const stat = focus[rand(0, focus.length - 1)];
+  const gain = applyMemberStatGrowth(member, stat, baseGain, source);
+  return gain > 0 ? { stat, gain } : null;
+}
+function normalizeMemberGrowthType(member) {
+  if (!member) return;
+  if (!member.stats || typeof member.stats !== "object") member.stats = {};
+  MEMBER_STAT_KEYS.forEach(k => { member.stats[k] = clamp(Number(member.stats[k] || 1), 1, 99); });
+  if (MEMBER_GROWTH_TYPE_DATABASE[member.growthType]) return;
+  const latest = (DATA?.candidateCharacters || []).find(c => c.id === member.id);
+  member.growthType = latest?.growthType || (member.id === "player" ? "安定型" : DEFAULT_MEMBER_GROWTH_TYPE);
+}
+function growthTypeSummary(member) {
+  const key = memberGrowthTypeKey(member);
+  const info = memberGrowthTypeInfo(member);
+  const focus = memberGrowthFocusStats(member).map(statLabel).join("・") || "全体";
+  return `${key}：${info.note} / 重点 ${focus}`;
+}
 
 const MEMBER_DATABASE = Object.freeze([
   {
@@ -5135,7 +5392,7 @@ const STORY_SCENE_DATABASE = {
     ],
     rewards: [
       { label:"携帯にライブ招待メールが届いた" },
-      { label:"{offerTurn}T の Triple Arrows企画ライブに参加できる（携帯メールから受諾）" }
+      { label:"{offerTurn}T のTriple Arrows企画ライブに参加できる。携帯メールで「ライブ参加の返信」を送ると予定表に追加される" }
     ],
     afterLog: "ノベルイベント：Triple Arrowsからの誘いを見た。"
   },
@@ -5192,16 +5449,313 @@ const STORY_SCENE_DATABASE = {
     scenes: [
       { speaker:"{memberName}", portrait:"sil_new_member", text:"募集見ました。まだメンバー、探してますか？" },
       { speaker:"主人公", portrait:"sil_player", text:"もちろん。担当は？" },
-      { speaker:"{memberName}", portrait:"sil_new_member", text:"{part}です。演奏はまだ荒いけど、ライブで逃げるつもりはないです。" },
-      { speaker:"主人公", portrait:"sil_player", text:"じゃあ、一回合わせてみよう。よろしく、{memberName}。" }
+      { speaker:"{memberName}", portrait:"sil_new_member", text:"{part}です。{partLine}" },
+      { speaker:"主人公", portrait:"sil_player", text:"じゃあ、一回合わせてみよう。よろしく、{memberName}。" },
+      { speaker:"主人公", portrait:"sil_player", text:"{partFlavor}" }
     ],
     rewards: [
       { label:"{memberName} が{joinStatus}した" },
       { label:"担当：{part} / 得意：{mainGenre}" },
-      { label:"ライブ準備で担当を選べる" }
+      { label:"{partFlavor}" }
     ],
     afterLog: "ノベルイベント：新メンバー加入イベントを見た。"
   }
+  ,pachi_pachi_first_live: {
+    id: "pachi_pachi_first_live",
+    title: "客席を巻き込む音",
+    background: "livehouse",
+    actors: [
+      { id:"sil_mike", name:"ミケ", position:"left", type:"gtvo" },
+      { id:"sil_player", name:"主人公", position:"right", type:"player" }
+    ],
+    scenes: [
+      { speaker:"ミケ", portrait:"sil_mike", text:"今日、客席の手拍子ちょっと聞こえた？" },
+      { speaker:"主人公", portrait:"sil_player", text:"はい。Pachi-Pachiの時、一気に空気が変わってました。" },
+      { speaker:"ミケ", portrait:"sil_mike", text:"うちら、曲だけじゃなくて、フロアごと鳴らしたいんだよね。" },
+      { speaker:"主人公", portrait:"sil_player", text:"客席も演奏の一部……。すごいライブでした。" }
+    ],
+    rewards: [
+      { label:"Pachi-Pachiと初めて対バンした" },
+      { label:"Pachi-Pachiとの交流が少し深まった" },
+      { label:"客席を巻き込むライブのヒントを得た" }
+    ],
+    afterLog: "ノベルイベント：Pachi-Pachi初対バンイベントを見た。"
+  },
+  pachi_pachi_sweetness_unlock: {
+    id: "pachi_pachi_sweetness_unlock",
+    title: "弾ける甘味",
+    background: "backstage",
+    actors: [
+      { id:"sil_mike", name:"ミケ", position:"left", type:"gtvo" },
+      { id:"sil_player", name:"主人公", position:"right", type:"player" }
+    ],
+    scenes: [
+      { speaker:"ミケ", portrait:"sil_mike", text:"2回目、ちゃんと変わってた。前より客席を見てたでしょ。" },
+      { speaker:"主人公", portrait:"sil_player", text:"Pachi-Pachiのライブを見て、客席との距離を意識しました。" },
+      { speaker:"ミケ", portrait:"sil_mike", text:"甘いだけじゃ残らない。でも、弾ける瞬間があると忘れられないんだよ。" },
+      { speaker:"主人公", portrait:"sil_player", text:"その感覚、少し分かった気がします。" }
+    ],
+    rewards: [
+      { label:"交流スキル「弾ける甘味」を獲得" },
+      { label:"Pachi-Pachiとの交流が深まった" },
+      { label:"客席巻き込み評価のヒントを得た" }
+    ],
+    afterLog: "ノベルイベント：弾ける甘味獲得イベントを見た。"
+  },
+  carbons_diamond_rough: {
+    id: "carbons_diamond_rough",
+    title: "ダイヤの原石",
+    background: "backstage",
+    actors: [
+      { id:"sil_nakiri", name:"ナキリ", position:"left", type:"short" },
+      { id:"sil_player", name:"主人公", position:"right", type:"player" }
+    ],
+    scenes: [
+      { speaker:"ナキリ", portrait:"sil_nakiri", text:"今日のは、少しだけ刺さった。" },
+      { speaker:"主人公", portrait:"sil_player", text:"少しだけ、ですか。" },
+      { speaker:"ナキリ", portrait:"sil_nakiri", text:"まだ石ころだよ。でも、磨く価値はある。" },
+      { speaker:"主人公", portrait:"sil_player", text:"次は、もっと尖らせてきます。" }
+    ],
+    rewards: [
+      { label:"交流スキル「ダイヤの原石」を獲得" },
+      { label:"CARBONSとの交流が深まった" },
+      { label:"再登場フラグが立った" }
+    ],
+    afterLog: "ノベルイベント：ダイヤの原石獲得イベントを見た。"
+  },
+  under_fes_before: {
+    id: "under_fes_before",
+    title: "UNDER FES前夜",
+    background: "livehouse",
+    actors: [
+      { id:"sil_player", name:"主人公", position:"right", type:"player" },
+      { id:"sil_staff", name:"ライブハウス店長", position:"left", type:"short" }
+    ],
+    scenes: [
+      { speaker:"ライブハウス店長", portrait:"sil_staff", text:"いよいよUNDER FESだな。ここから先は、ただ出るだけじゃ残らない。" },
+      { speaker:"主人公", portrait:"sil_player", text:"オリジナル曲、ライブ評価、ファン……全部、今までの積み重ねですね。" },
+      { speaker:"ライブハウス店長", portrait:"sil_staff", text:"そうだ。地下で鳴らした音を、ちゃんと持っていけ。" },
+      { speaker:"主人公", portrait:"sil_player", text:"行ってきます。" }
+    ],
+    rewards: [
+      { label:"30T UNDER FESが近い" },
+      { label:"フェス条件と疲労を確認しよう" },
+      { label:"セトリと代表曲を見直すタイミング" }
+    ],
+    afterLog: "ノベルイベント：UNDER FES前夜を見た。"
+  },
+  shelter_rock_spirit: {
+    id: "shelter_rock_spirit",
+    title: "ロック魂",
+    background: "fes_backstage",
+    actors: [
+      { id:"sil_clio", name:"クリオ", position:"left", type:"long" },
+      { id:"sil_player", name:"主人公", position:"right", type:"player" }
+    ],
+    scenes: [
+      { speaker:"クリオ", portrait:"sil_clio", text:"技術だけで上に行けるなら、みんなもう行ってる。" },
+      { speaker:"主人公", portrait:"sil_player", text:"じゃあ、何が必要なんですか。" },
+      { speaker:"クリオ", portrait:"sil_clio", text:"最後に残るのは、ステージから逃げない音だよ。" },
+      { speaker:"主人公", portrait:"sil_player", text:"……ロック魂、ってやつですか。" }
+    ],
+    rewards: [
+      { label:"交流スキル「ロック魂」を獲得" },
+      { label:"SHELTERとの交流が深まった" }
+    ],
+    afterLog: "ノベルイベント：ロック魂獲得イベントを見た。"
+  },
+  triple_arrows_next_arrow: {
+    id: "triple_arrows_next_arrow",
+    title: "次の矢印",
+    background: "backstage",
+    actors: [
+      { id:"sil_takanashi", name:"タカナシ", position:"left", type:"gtvo" },
+      { id:"sil_subaru", name:"スバル", position:"center", type:"bass" },
+      { id:"sil_player", name:"主人公", position:"right", type:"player" }
+    ],
+    scenes: [
+      { speaker:"タカナシ", portrait:"sil_takanashi", text:"最初に会った時より、音が前に飛ぶようになったな。" },
+      { speaker:"スバル", portrait:"sil_subaru", text:"でも、まだ矢印は一本だ。次は客席にも、対バンにも向けろ。" },
+      { speaker:"主人公", portrait:"sil_player", text:"自分たちだけじゃなく、場ごと前に進める感じですね。" }
+    ],
+    rewards: [
+      { label:"Triple Arrowsとの追加交流" },
+      { label:"再戦後の短編イベント土台" }
+    ],
+    afterLog: "ノベルイベント：Triple Arrows追加交流を見た。"
+  },
+  carbons_polish_talk: {
+    id: "carbons_polish_talk",
+    title: "磨くほど尖る",
+    background: "backstage",
+    actors: [
+      { id:"sil_nakiri", name:"ナキリ", position:"left", type:"short" },
+      { id:"sil_player", name:"主人公", position:"right", type:"player" }
+    ],
+    scenes: [
+      { speaker:"ナキリ", portrait:"sil_nakiri", text:"尖るって、雑に暴れることじゃない。" },
+      { speaker:"主人公", portrait:"sil_player", text:"削って、残すものを決めるってことですか。" },
+      { speaker:"ナキリ", portrait:"sil_nakiri", text:"そう。いらない優しさを削れ。残った音だけが刺さる。" }
+    ],
+    rewards: [
+      { label:"CARBONSとの追加交流" },
+      { label:"尖り・オリジナル性イベント土台" }
+    ],
+    afterLog: "ノベルイベント：CARBONS追加交流を見た。"
+  },
+  pachi_pachi_floor_sign: {
+    id: "pachi_pachi_floor_sign",
+    title: "フロアの合図",
+    background: "livehouse",
+    actors: [
+      { id:"sil_mike", name:"ミケ", position:"left", type:"gtvo" },
+      { id:"sil_player", name:"主人公", position:"right", type:"player" }
+    ],
+    scenes: [
+      { speaker:"ミケ", portrait:"sil_mike", text:"手拍子って、お願いするより先にこっちが楽しく鳴ってないと返ってこないよ。" },
+      { speaker:"主人公", portrait:"sil_player", text:"合図はステージから出すけど、完成させるのは客席なんですね。" },
+      { speaker:"ミケ", portrait:"sil_mike", text:"そうそう。ライブって、ちょっとした共犯だから。" }
+    ],
+    rewards: [
+      { label:"Pachi-Pachiとの追加交流" },
+      { label:"客席巻き込みイベント土台" }
+    ],
+    afterLog: "ノベルイベント：Pachi-Pachi追加交流を見た。"
+  },
+  shelter_backstage_advice: {
+    id: "shelter_backstage_advice",
+    title: "崩れない準備",
+    background: "fes_backstage",
+    actors: [
+      { id:"sil_clio", name:"クリオ", position:"left", type:"long" },
+      { id:"sil_player", name:"主人公", position:"right", type:"player" }
+    ],
+    scenes: [
+      { speaker:"クリオ", portrait:"sil_clio", text:"大きいステージほど、派手なことより普通のことが崩れる。" },
+      { speaker:"主人公", portrait:"sil_player", text:"チューニング、入り、曲順……基本の精度ですか。" },
+      { speaker:"クリオ", portrait:"sil_clio", text:"うん。ロック魂って、準備を軽く見る言い訳じゃないから。" }
+    ],
+    rewards: [
+      { label:"SHELTERとの追加交流" },
+      { label:"GRAND前の安定感イベント土台" }
+    ],
+    afterLog: "ノベルイベント：SHELTER追加交流を見た。"
+  },
+  kiwi_greenroom_talk: {
+    id: "kiwi_greenroom_talk",
+    title: "ゆるい楽屋",
+    background: "backstage",
+    actors: [
+      { id:"sil_mozu", name:"モズ", position:"left", type:"short" },
+      { id:"sil_player", name:"主人公", position:"right", type:"player" }
+    ],
+    scenes: [
+      { speaker:"モズ", portrait:"sil_mozu", text:"力を抜いた音って、手を抜いた音とは違うんだよね。" },
+      { speaker:"主人公", portrait:"sil_player", text:"余白があるから、聴く側が入ってこられる……みたいな。" },
+      { speaker:"モズ", portrait:"sil_mozu", text:"それそれ。地下でも、息できる場所は作れるよ。" }
+    ],
+    rewards: [
+      { label:"Kiwiとの交流イベント土台" },
+      { label:"序盤バンドの短編ノベル追加" }
+    ],
+    afterLog: "ノベルイベント：Kiwi楽屋交流を見た。"
+  },
+  magnet_wolf_dirty_riff: {
+    id: "magnet_wolf_dirty_riff",
+    title: "汚れたリフ",
+    background: "studio",
+    actors: [
+      { id:"sil_daidoji", name:"ダイドウジ", position:"left", type:"gtvo" },
+      { id:"sil_player", name:"主人公", position:"right", type:"player" }
+    ],
+    scenes: [
+      { speaker:"ダイドウジ", portrait:"sil_daidoji", text:"うまいリフより、忘れられないリフだ。多少ヨレても、顔が見える方がいい。" },
+      { speaker:"主人公", portrait:"sil_player", text:"整えるだけじゃなく、あえて残す荒さもあるんですね。" },
+      { speaker:"ダイドウジ", portrait:"sil_daidoji", text:"そういうこと。泥ついたまま鳴らせ。" }
+    ],
+    rewards: [
+      { label:"magnet wolfとの交流イベント土台" },
+      { label:"荒さ・ライブ熱量イベント追加" }
+    ],
+    afterLog: "ノベルイベント：magnet wolf追加交流を見た。"
+  },
+  kaede_acoustic_encounter: {
+    id: "kaede_acoustic_encounter",
+    title: "一人で立つ音",
+    background: "livehouse",
+    actors: [
+      { id:"sil_kaede", name:"カエデ", position:"left", type:"gtvo" },
+      { id:"sil_player", name:"主人公", position:"right", type:"player" }
+    ],
+    scenes: [
+      { speaker:"カエデ", portrait:"sil_kaede", text:"バンドの音は強い。でも、一人で立つ音を知らないと、言葉が埋もれる。" },
+      { speaker:"主人公", portrait:"sil_player", text:"弾き語りなのに、会場の奥まで届いてました。" },
+      { speaker:"カエデ", portrait:"sil_kaede", text:"届かせるのは音量じゃないよ。一行目で空気を変えるんだ。" }
+    ],
+    rewards: [
+      { label:"KAEDEをバンド図鑑に登録" },
+      { label:"弾き語りイベント土台" }
+    ],
+    afterLog: "ノベルイベント：KAEDE遭遇イベントを見た。"
+  },
+  kaede_one_phrase: {
+    id: "kaede_one_phrase",
+    title: "一行目の温度",
+    background: "phone_room",
+    actors: [
+      { id:"sil_kaede", name:"カエデ", position:"left", type:"gtvo" },
+      { id:"sil_player", name:"主人公", position:"right", type:"player" }
+    ],
+    scenes: [
+      { speaker:"カエデ", portrait:"sil_kaede", text:"歌詞の一行目は、挨拶じゃない。火をつける場所。" },
+      { speaker:"主人公", portrait:"sil_player", text:"最初の一文で、曲の居場所を決める……。" },
+      { speaker:"カエデ", portrait:"sil_kaede", text:"そう。優しくても鋭くてもいい。温度だけは嘘をつかない。" }
+    ],
+    rewards: [
+      { label:"KAEDEとの追加交流" },
+      { label:"歌詞・表現イベント土台" }
+    ],
+    afterLog: "ノベルイベント：KAEDE追加交流を見た。"
+  },
+  lact_name_drop: {
+    id: "lact_name_drop",
+    title: "遠くのLACT",
+    background: "phone_room",
+    actors: [
+      { id:"sil_player", name:"主人公", position:"right", type:"player" },
+      { id:"sil_news", name:"音楽ニュース", position:"left", type:"short" }
+    ],
+    scenes: [
+      { speaker:"音楽ニュース", portrait:"sil_news", text:"GRAND UNDER FES出演候補の筆頭として、LACTの名前が大きく取り上げられている。" },
+      { speaker:"主人公", portrait:"sil_player", text:"同じフェスの情報欄に、いつか自分たちの名前も載せたい。" },
+      { speaker:"音楽ニュース", portrait:"sil_news", text:"地下から上がってくる新しい名前にも注目が集まっている。" }
+    ],
+    rewards: [
+      { label:"LACTをバンド図鑑に登録" },
+      { label:"GRAND前の目標演出土台" }
+    ],
+    afterLog: "ノベルイベント：LACT名前出しイベントを見た。"
+  },
+  lact_backstage_shadow: {
+    id: "lact_backstage_shadow",
+    title: "控室の影",
+    background: "fes_backstage",
+    actors: [
+      { id:"sil_largo", name:"ラルゴ", position:"left", type:"long" },
+      { id:"sil_player", name:"主人公", position:"right", type:"player" }
+    ],
+    scenes: [
+      { speaker:"主人公", portrait:"sil_player", text:"今、廊下の奥にいたのって……LACT？" },
+      { speaker:"ラルゴ", portrait:"sil_largo", text:"……ステージで会えたら、その時に。" },
+      { speaker:"主人公", portrait:"sil_player", text:"遠い。でも、もう見えない距離じゃない。" }
+    ],
+    rewards: [
+      { label:"LACTとの接近演出土台" },
+      { label:"GRAND直前の短編イベント追加" }
+    ],
+    afterLog: "ノベルイベント：LACT控室イベントを見た。"
+  }
+
 };
 
 function storyEventOptions() {
@@ -5286,9 +5840,25 @@ function renderStoryEventOverlay() {
   </div></div>`;
 }
 
+function devClearTutorialLocks(reason="DEV") {
+  if (!devModeOn()) return;
+  state.tutorialStage = "done";
+  state.scheduleTutorialStage = "none";
+  state.pendingNoSongcraftCommand = null;
+  state.songEditor = state.songEditor || { step:"closed" };
+  if (state.songEditor.step !== "closed") state.songEditor = { step:"closed" };
+  state.activePopup = null;
+  state.popupQueue = [];
+  state.bandNamePrompt = false;
+  state.renameBandNamePrompt = false;
+  state.turnNotice = null;
+  log(`${reason}：チュートリアル制限を解除した。`, "warn");
+}
+
 function devJumpToTurn(turn) {
   if (!devModeOn()) return;
   clearEphemeralStateAfterLoad();
+  devClearTutorialLocks("DEVターン移動");
   state.turn = clamp(Number(turn || 1), 1, Math.max(70, state.maxTurn || 50));
   state.maxTurn = Math.max(state.maxTurn || 50, state.turn > 50 ? 70 : 50);
   state.view = "home";
@@ -5317,6 +5887,100 @@ function devEnsureSongs(count=7) {
   while (state.songs.filter(s => !s.isCover).length < count) state.songs.push(makeDevSong(state.songs.length));
   log(`DEV：オリジナル曲を${state.songs.filter(s=>!s.isCover).length}曲まで補充した。`, "event");
 }
+function devMarkBalanceSongs(profile) {
+  const originals = (state.songs || []).filter(s => !s.isCover);
+  originals.forEach((song, idx) => {
+    song.tags = Array.isArray(song.tags) ? song.tags : [];
+    if (idx < Number(profile.representative || 0)) {
+      if (!song.tags.includes("定番")) song.tags.push("定番");
+      if (!song.tags.includes("代表曲候補")) song.tags.push("代表曲候補");
+      song.standardPoints = Math.max(Number(song.standardPoints || 0), 5);
+      song.representativePoints = Math.max(Number(song.representativePoints || 0), 3);
+      song.recognition = Math.max(Number(song.recognition || 0), 55);
+      song.livePlays = Math.max(Number(song.livePlays || 0), 2);
+    }
+  });
+  const fresh = originals[originals.length - 1];
+  if (fresh && Number(profile.fresh || 0) > 0) {
+    fresh.createdTurn = Math.max(1, (state.turn || 1) - 2);
+    fresh.livePlays = Math.min(Number(fresh.livePlays || 0), 1);
+    fresh.lastLiveTurn = Math.max(0, (state.turn || 1) - 1);
+    fresh.tags = Array.isArray(fresh.tags) ? fresh.tags : [];
+    if (!fresh.tags.includes("新しめ")) fresh.tags.push("新しめ");
+  }
+}
+function devApplyBalanceProfile(profileId="grand_border") {
+  if (!devModeOn()) return;
+  const profile = BALANCE_BASELINE_PROFILES[profileId] || BALANCE_BASELINE_PROFILES.grand_border;
+  clearEphemeralStateAfterLoad();
+  devClearTutorialLocks("DEVバランス値セット");
+  state.turn = profile.turn;
+  state.maxTurn = Math.max(state.maxTurn || 50, profile.turn > 50 ? 70 : 50);
+  state.liveCount = Math.max(Number(state.liveCount || 0), profile.turn >= 30 ? 4 : 1);
+  state.band.fans = profile.fans;
+  state.band.fame = profile.fame;
+  state.band.industry = profile.industry;
+  state.band.trust = profile.trust;
+  state.band.fatigue = profile.fatigue;
+  devEnsureSongs(profile.songs);
+  devMarkBalanceSongs(profile);
+  state.liveResultHistory = Array.isArray(state.liveResultHistory) ? state.liveResultHistory : [];
+  state.liveResultHistory.push({
+    title: profile.turn >= 50 ? "DEV GRAND直前確認ライブ" : "DEV UNDER確認ライブ",
+    rank: profile.lastRank,
+    total: profile.lastTotal,
+    originalCount: Math.min(5, originalSongCountForBalance()),
+    venueId: profile.turn >= 50 ? "big_stage" : "warehouse",
+    liveTypeLabel: "DEV確認",
+    setlistIds: (state.songs || []).filter(s => !s.isCover).slice(0, 5).map(s => s.id),
+    revenue: { attendees: 0, ownAudience: 0, partnerAudience: 0, finalProfit: 0 }
+  });
+  scheduleNextLive();
+  state.view = "dev";
+  state.activePopup = { title:`DEV：${profile.label}`, body:formatGrandConditionSnapshot(), type:"event", icon:"📊" };
+  log(`DEV：${profile.label}の仮数値を反映した。`, "event");
+  render();
+}
+function devShowGrandCheck() {
+  if (!devModeOn()) return;
+  state.activePopup = { title:"DEV：GRAND条件チェック", body:formatGrandConditionSnapshot(), type:grandConditionSnapshot().ok ? "rare" : "warn", icon:"✅" };
+  render();
+}
+function devPrepareBandEventSeed() {
+  if (!devModeOn()) return;
+  clearEphemeralStateAfterLoad();
+  devClearTutorialLocks("DEVバンドイベント確認");
+  state.turn = 28;
+  state.liveCount = Math.max(Number(state.liveCount || 0), 3);
+  state.band.fans = Math.max(Number(state.band.fans || 0), 155);
+  state.band.fame = Math.max(Number(state.band.fame || 0), 110);
+  state.band.industry = Math.max(Number(state.band.industry || 0), 95);
+  devEnsureSongs(7);
+  normalizeBandSystemState();
+  const bb = bandBookRef();
+  ["triple_arrows","carbons","pachi_pachi","shelter","kiwi","magnet_wolf","kaede","lact"].forEach(id => discoverBand(id));
+  bandEntry("triple_arrows").battleCount = Math.max(bandEntry("triple_arrows").battleCount || 0, 2);
+  bandEntry("carbons").battleCount = Math.max(bandEntry("carbons").battleCount || 0, 1);
+  bandEntry("pachi_pachi").battleCount = Math.max(bandEntry("pachi_pachi").battleCount || 0, 2);
+  bandEntry("kiwi").battleCount = Math.max(bandEntry("kiwi").battleCount || 0, 1);
+  bandEntry("magnet_wolf").battleCount = Math.max(bandEntry("magnet_wolf").battleCount || 0, 1);
+  bb.flags.flag_triple_arrows_invite_done = true;
+  bb.flags.flag_carbons_return = true;
+  bb.seenEvents.event_triple_arrows_invite_live = bb.seenEvents.event_triple_arrows_invite_live || 8;
+  bb.seenEvents.event_carbons_first_battle = bb.seenEvents.event_carbons_first_battle || 10;
+  bb.seenEvents.event_pachi_pachi_first_battle = bb.seenEvents.event_pachi_pachi_first_battle || 18;
+  bb.seenEvents.event_pachi_pachi_second_success = bb.seenEvents.event_pachi_pachi_second_success || 22;
+  bb.seenEvents.event_shelter_watched_live = bb.seenEvents.event_shelter_watched_live || 25;
+  bb.seenEvents.event_shelter_after_live_talk = bb.seenEvents.event_shelter_after_live_talk || 26;
+  bb.seenEvents.event_kiwi_random_battle = bb.seenEvents.event_kiwi_random_battle || 7;
+  bb.seenEvents.event_magnet_wolf_battle = bb.seenEvents.event_magnet_wolf_battle || 12;
+  bb.seenEvents.event_kaede_acoustic_encounter = bb.seenEvents.event_kaede_acoustic_encounter || 27;
+  bb.seenEvents.event_lact_name_drop = bb.seenEvents.event_lact_name_drop || 40;
+  bb.lastBattle = { bandIds:["magnet_wolf"], bandId:"magnet_wolf", result:"success", rank:"A", total:78, turn:state.turn };
+  state.activePopup = { title:"DEV：主要バンドイベント土台", body:"優先8組の図鑑登録・前提フラグ・対バン回数を仮セットしました。\nDEVのノベルイベント再生、またはターン開始/ライブ後イベントの発火確認に使えます。", type:"event", icon:"🎤" };
+  log("DEV：主要バンドイベント確認用の前提値をセットした。", "event");
+  render();
+}
 function devApplyStatsFromForm() {
   const num = id => Number(document.getElementById(id)?.value || 0);
   state.band.funds = num("devFunds");
@@ -5343,7 +6007,9 @@ function devAddApplicantById(id="") {
   render();
 }
 function devPrepareStage(stage) {
+  if (!devModeOn()) return;
   clearEphemeralStateAfterLoad();
+  devClearTutorialLocks("DEVステージ移動");
   if (stage === "initial_live") {
     state.turn = 5; devEnsureSongs(5); state.band.fatigue = 20; state.view = "schedule";
   } else if (stage === "middle_recruit") {
@@ -5385,11 +6051,13 @@ function renderDevScreen() {
     </div><button id="devApplyStatsBtn" class="big-action">ステータス反映</button></div>
     <div class="card dev-card"><h3>ノベルイベント再生</h3><div class="cols"><div><label>イベント</label><select id="devStorySelect">${storyOptions}</select></div></div><button id="devStartStoryBtn" class="big-action">イベント再生</button></div>
     <div class="card dev-card"><h3>加入候補追加</h3><div class="cols"><div><label>候補</label><select id="devApplicantSelect">${applicantOptions}</select></div></div><button id="devAddApplicantBtn" class="big-action">候補に出す</button><button id="devRecruitBtn" class="ghost-btn">通常募集を1回実行</button></div>
-    <div class="card dev-card"><h3>補助</h3><button id="devEnsureSongsBtn" class="ghost-btn">オリジナル7曲を補充</button><button id="devClearEphemeralBtn" class="ghost-btn">一時モーダル状態を破棄</button></div>
+    <div class="card dev-card"><h3>成長タイプ確認</h3><p><small>${activeMembers().map(m => escapeHtml(`${m.name}：${growthTypeSummary(m)}`)).join("<br>") || "メンバーなし"}</small></p></div>
+    <div class="card dev-card"><h3>v0.3.66 バランス確認</h3><p><small>${escapeHtml(formatGrandConditionSnapshot()).replace(/\n/g,"<br>")}</small></p><div class="dev-quick-grid"><button id="devGrandCheckBtn" class="ghost-btn">GRAND条件チェック</button><button class="devBalanceProfileBtn" data-profile="under_border">UNDER目安セット</button><button class="devBalanceProfileBtn" data-profile="grand_border">GRAND最低値セット</button><button class="devBalanceProfileBtn" data-profile="grand_strong">GRAND注目枠セット</button><button id="devBandEventSeedBtn" class="ghost-btn">主要バンドイベント土台セット</button></div></div>
+    <div class="card dev-card"><h3>補助</h3><button id="devEnsureSongsBtn" class="ghost-btn">オリジナル7曲を補充</button><button id="devClearTutorialBtn" class="ghost-btn">チュートリアル解除</button><button id="devClearEphemeralBtn" class="ghost-btn">一時モーダル状態を破棄</button></div>
   </div>`;
 }
 
-const SAVE_VERSION = "v0.3.62-novel-dev-draft-fix1";
+const SAVE_VERSION = "v0.3.66-balance-draft-fix1";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -5436,6 +6104,7 @@ function stripEphemeralState(src) {
   delete copy.turnNotice;
   delete copy.pendingPurchase;
   delete copy.pendingBooking;
+  delete copy.pendingMailAction;
   delete copy.detailModal;
   delete copy.livePrepPickerSlot;
   delete copy.actionResultModal;
@@ -5466,6 +6135,7 @@ function clearEphemeralStateAfterLoad() {
   state.pendingCancelLive = null;
   state.pendingBoostSong = null;
   state.pendingBooking = null;
+  state.pendingMailAction = null;
   state.bandNamePrompt = false;
   state.renameBandNamePrompt = false;
   state.activeStoryEvent = null;
@@ -5491,6 +6161,7 @@ function hasUnsafeEphemeralStateForSave(manual=false) {
     state.pendingCancelLive ||
     state.pendingBoostSong ||
     state.pendingBooking ||
+    state.pendingMailAction ||
     state.pendingPurchase ||
     state.activeStoryEvent ||
     (!manual && state.saveSlotModal) ||
@@ -5928,7 +6599,7 @@ function showEventPopup(title, body, type="info", icon="🎸", payload={}) {
     log(`${title}：${String(body || "").split("\n")[0]}`, "warn");
     return;
   }
-  if (state.deferPopupsUntilAfterLive || state.liveProgressModal || state.pendingLiveResultModal || state.liveResultModal || state.actionResultModal || state.detailModal || state.livePrepPickerSlot || state.pendingBooking || state.pendingBoostSong || state.pendingAfterparty || state.pendingPurchase || state.saveSlotModal || state.pendingCancelLive || state.pendingNoSongcraftCommand || state.bandNamePrompt || state.renameBandNamePrompt || state.activeStoryEvent || state.activePopup) {
+  if (state.deferPopupsUntilAfterLive || state.liveProgressModal || state.pendingLiveResultModal || state.liveResultModal || state.actionResultModal || state.detailModal || state.livePrepPickerSlot || state.pendingBooking || state.pendingMailAction || state.pendingBoostSong || state.pendingAfterparty || state.pendingPurchase || state.saveSlotModal || state.pendingCancelLive || state.pendingNoSongcraftCommand || state.bandNamePrompt || state.renameBandNamePrompt || state.activeStoryEvent || state.activePopup) {
     state.popupQueue = state.popupQueue || [];
     state.popupQueue.push(popup);
     normalizePopupQueue();
@@ -5991,6 +6662,7 @@ function hasFlowModalOpen() {
     state.detailModal ||
     state.livePrepPickerSlot ||
     state.pendingBooking ||
+    state.pendingMailAction ||
     state.pendingBoostSong ||
     state.pendingCancelLive ||
     state.pendingPurchase ||
@@ -6003,7 +6675,7 @@ function hasFlowModalOpen() {
 }
 function surfaceQueuedPopupIfIdle() {
   if (!state || state.activeStoryEvent || state.activePopup || !Array.isArray(state.popupQueue) || !state.popupQueue.length) return false;
-  if (state.liveProgressModal || state.pendingLiveResultModal || state.liveResultModal || state.actionResultModal || state.pendingAfterparty || state.detailModal || state.livePrepPickerSlot || state.pendingBooking || state.pendingBoostSong || state.pendingCancelLive || state.pendingPurchase || state.saveSlotModal || state.pendingNoSongcraftCommand || state.bandNamePrompt || state.renameBandNamePrompt || state.activeStoryEvent) return false;
+  if (state.liveProgressModal || state.pendingLiveResultModal || state.liveResultModal || state.actionResultModal || state.pendingAfterparty || state.detailModal || state.livePrepPickerSlot || state.pendingBooking || state.pendingMailAction || state.pendingBoostSong || state.pendingCancelLive || state.pendingPurchase || state.saveSlotModal || state.pendingNoSongcraftCommand || state.bandNamePrompt || state.renameBandNamePrompt || state.activeStoryEvent) return false;
   state.activePopup = nextPopupFromQueue();
   return !!state.activePopup;
 }
@@ -6058,7 +6730,15 @@ function addStoryLiveOfferPaperMoon() { state.storyFlags = state.storyFlags || {
 この前言ってた企画ライブ、よかったら出てくれよ。
 
 Paper Moon Kids　タカナシ`, "live_offer", { offerId:offer.id, offerTurn:8, status:"open", sender:"Paper Moon Kids　タカナシ" }); offer.mailId = mailId; }
-function addInitialFlowMail(key, subject, body, sender="携帯通知") { state.storyFlags = state.storyFlags || {}; if (state.storyFlags[key]) return; state.storyFlags[key] = true; addMail(subject, body, key.includes("under") ? "live_offer" : "member", { sender }); }
+function addInitialFlowMail(key, subject, body, sender="携帯通知") {
+  state.storyFlags = state.storyFlags || {};
+  if (state.storyFlags[key]) return;
+  state.storyFlags[key] = true;
+  const isLive = key.includes("under");
+  const payload = { sender };
+  if (!isLive) payload.mailAction = "meet_applicant";
+  addMail(subject, body, isLive ? "live_offer" : "member", payload);
+}
 function applyInitialFlowTurnEvents() {
   if ((state.liveCount || 0) > 0 && state.turn === 6 && !bandSystemOn()) { addStoryLiveOfferPaperMoon(); }
   if ((state.liveCount || 0) > 0) return;
@@ -6374,6 +7054,37 @@ function chooseApplicantDisplayName(applicant) {
   return applicant;
 }
 
+function memberJoinStoryContext(applicant) {
+  const part = String(applicant?.part || "担当未定");
+  const normalized = part.replace(/\s/g, "");
+  let partFlavor = "まずはスタジオで音を合わせて、バンドの空気を作っていく。";
+  let partLine = "ライブで逃げるつもりはないです。";
+  if (normalized.includes("Vo") && !normalized.includes("Gt") && !normalized.includes("Ba")) {
+    partFlavor = "歌の芯ができると、バンド全体の印象が変わる。";
+    partLine = "歌で、ちゃんと客席の空気を変えたいです。";
+  } else if (normalized.includes("Gt")) {
+    partFlavor = "ギターと歌の熱量が増えて、曲の輪郭が見えやすくなる。";
+    partLine = "リフでも歌でも、前に出るところは出ます。";
+  } else if (normalized.includes("Ba")) {
+    partFlavor = "低音が入ると、バンドの足元が一気に太くなる。";
+    partLine = "派手じゃなくても、曲を支える音を出したいです。";
+  } else if (normalized.includes("Dr")) {
+    partFlavor = "ドラムが入ると、ライブのテンポと熱量が安定しはじめる。";
+    partLine = "テンポは任せてください。ちゃんと前に進めます。";
+  } else if (normalized.includes("Key") || normalized.includes("DJ") || normalized.includes("Cho")) {
+    partFlavor = "補助パートが入ることで、曲の色とステージの見え方が広がる。";
+    partLine = "主役を支えながら、曲の景色を広げたいです。";
+  }
+  return {
+    memberName: applicant?.name || "メンバー",
+    part,
+    joinStatus: applicant?.joinStatus || "加入",
+    mainGenre: applicant?.mainGenre || "ロック",
+    partFlavor,
+    partLine
+  };
+}
+
 function joinApplicantById(id) {
   const list = currentApplicantList();
   const idx = list.findIndex(a => a.id === id);
@@ -6384,12 +7095,7 @@ function joinApplicantById(id) {
   state.members.push(applicant);
   setApplicantList(list);
   log(`${applicant.name}が${applicant.joinStatus}として加入した。加入済みメンバーは全員バンド構成に入り、ライブ準備で担当を選べる。`);
-  const joinStoryPlayed = novelEventsOn() && startStoryEvent("member_join_generic", { silent: true, context: {
-    memberName: applicant.name,
-    part: applicant.part || "担当未定",
-    joinStatus: applicant.joinStatus,
-    mainGenre: applicant.mainGenre || "ロック"
-  } });
+  const joinStoryPlayed = novelEventsOn() && startStoryEvent("member_join_generic", { silent: true, context: memberJoinStoryContext(applicant) });
   if (!joinStoryPlayed) {
     showEventPopup(applicant.joinStatus === "仮加入" ? "仮加入！" : "新メンバー加入！", `${applicant.name} がバンドに加わった！\n担当：${applicant.part}\n得意：${applicant.mainGenre}\n加入済みメンバーは全員ライブ準備に表示される。`, applicant.joinStatus === "仮加入" ? "event" : "rare", applicant.joinStatus === "仮加入" ? "🤝" : "🎉");
   }
@@ -6415,6 +7121,7 @@ function normalizeState() {
   if (typeof state.pendingCancelLive === "undefined") state.pendingCancelLive = null;
   if (!Array.isArray(state.applicants)) state.applicants = state.lastApplicant ? [state.lastApplicant] : [];
   if (!Array.isArray(state.dismissedApplicantIds)) state.dismissedApplicantIds = [];
+  [state.player, ...(state.members || []), ...(state.applicants || []), ...(state.candidates || []), state.lastApplicant].filter(Boolean).forEach(normalizeMemberGrowthType);
   normalizeCandidatePoolsForCurrentData();
   if (typeof state.promoRecruitTurns === "undefined") state.promoRecruitTurns = 0;
   if (!state.rivalRelations || typeof state.rivalRelations !== "object") state.rivalRelations = {};
@@ -6459,6 +7166,7 @@ function normalizeState() {
   if (typeof state.playerExtraInstrumentsUnlocked === "undefined") state.playerExtraInstrumentsUnlocked = false;
   if (typeof state.actionResultModal === "undefined") state.actionResultModal = null;
   if (typeof state.pendingBooking === "undefined") state.pendingBooking = null;
+  if (typeof state.pendingMailAction === "undefined") state.pendingMailAction = null;
   if (typeof state.pendingBoostSong === "undefined") state.pendingBoostSong = null;
   if (typeof state.pendingPurchase === "undefined") state.pendingPurchase = null;
   if (!Array.isArray(state.setlistHistory)) state.setlistHistory = [];
@@ -6604,7 +7312,7 @@ function renderIntroScreen() {
 }
 
 function maybeTriggerStoryEvents() {
-  if (state.activePopup || state.actionResultModal || state.liveProgressModal || state.pendingLiveResultModal || state.liveResultModal || state.pendingAfterparty || state.detailModal || state.livePrepPickerSlot || state.pendingBooking || state.pendingBoostSong || state.pendingCancelLive || state.pendingPurchase || state.saveSlotModal || state.pendingNoSongcraftCommand || state.bandNamePrompt || state.renameBandNamePrompt) return;
+  if (state.activeStoryEvent || state.activePopup || state.actionResultModal || state.liveProgressModal || state.pendingLiveResultModal || state.liveResultModal || state.pendingAfterparty || state.detailModal || state.livePrepPickerSlot || state.pendingBooking || state.pendingBoostSong || state.pendingCancelLive || state.pendingPurchase || state.saveSlotModal || state.pendingNoSongcraftCommand || state.bandNamePrompt || state.renameBandNamePrompt) return;
   if (mustCompleteFirstDraftTutorial() && !state.firstDraftTutorialPopupShown) {
     state.firstDraftTutorialPopupShown = true;
     state.activePopup = firstDraftTutorialPopup();
@@ -6612,6 +7320,12 @@ function maybeTriggerStoryEvents() {
   }
   if (state.turn >= 4 && !state.band.name && !isLiveTurn()) {
     state.bandNamePrompt = true;
+    return;
+  }
+  if (novelEventsOn() && (state.turn || 1) >= 28 && (state.turn || 1) < 30 && !state.storyFlags?.underFesBeforeNovelSeen && !isLiveTurn()) {
+    state.storyFlags = state.storyFlags || {};
+    state.storyFlags.underFesBeforeNovelSeen = true;
+    startStoryEvent("under_fes_before", { silent:true, context:{} });
     return;
   }
   if (state.pendingFesReveal) {
@@ -6947,15 +7661,29 @@ function renderMailDetail(m) {
     <div class="section-title"><h2>${escapeHtml(m.subject || "無題")}</h2><span class="badge ${m.read ? "good" : "warn"}">${m.read ? "既読" : "未読"}</span></div>
     <small>From: ${escapeHtml(m.sender || mailSenderForKind(m.kind))} / ${m.turn || "?"}T</small>
     <p>${escapeHtml(m.body || "").replace(/\n/g,"<br>")}</p>
-    ${offer ? renderOfferActionsFromMail(offer, canAccept) : ""}
+    ${offer ? renderOfferActionsFromMail(offer, canAccept) : renderMailActionsWithoutOffer(m)}
   </div>`;
+}
+function renderMailActionsWithoutOffer(m) {
+  if ((m.kind || "") === "live_offer") {
+    return `<div class="mail-offer-actions"><b>ライブ予定の案内</b><small>このライブは固定予定または案内メールです。予定表で開催ターンと準備状況を確認できます。</small><div class="modal-actions"><button class="openScheduleFromMailBtn big-action">予定表を確認する</button></div></div>`;
+  }
+  return renderMemberActionsFromMail(m);
+}
+function renderMemberActionsFromMail(m) {
+  if ((m.kind || "") !== "member") return "";
+  const payload = m.payload || {};
+  const applicantId = payload.applicantId || "";
+  const known = applicantId ? currentApplicantList().find(a => a.id === applicantId) : null;
+  const label = known ? `${known.name}と会う` : "返信して会う";
+  return `<div class="mail-member-actions"><b>メンバー候補の連絡</b><small>返信すると候補者と会い、加入候補として確認できます。</small><div class="modal-actions"><button class="meetApplicantMailBtn big-action" data-mail-id="${escapeHtml(m.id)}">${escapeHtml(label)}</button><button class="openBandFromMailBtn ghost-btn">候補一覧を見る</button></div></div>`;
 }
 function renderOfferActionsFromMail(offer, canAccept) {
   const v = venueById(offer.venueId);
   const meta = liveTypeMeta(offer);
   const status = liveOfferStatusLabel(offer);
   if (!canAccept) return `<div class="empty-panel"><b>${escapeHtml(status.text)}</b><br>${offer.turn}T ${escapeHtml(meta.label)} / ${escapeHtml(v.name)}<br>${escapeHtml(liveBookingDeadlineText())}</div>`;
-  return `<div class="mail-offer-actions"><b>${offer.turn}T ${escapeHtml(meta.label)} / ${escapeHtml(v.name)}</b><small>${escapeHtml(liveBookingDeadlineText())}</small><div class="modal-actions"><button class="acceptOfferBtn big-action" data-offer-id="${escapeHtml(offer.id)}">参加する</button><button class="declineOfferBtn ghost-btn" data-offer-id="${escapeHtml(offer.id)}">見送る</button></div></div>`;
+  return `<div class="mail-offer-actions"><b>${offer.turn}T ${escapeHtml(meta.label)} / ${escapeHtml(v.name)}</b><small>${escapeHtml(liveBookingDeadlineText())}</small><div class="modal-actions"><button class="acceptOfferBtn big-action" data-offer-id="${escapeHtml(offer.id)}">ライブ参加の返信をする</button><button class="declineOfferBtn ghost-btn" data-offer-id="${escapeHtml(offer.id)}">見送る</button></div></div>`;
 }
 function renderSnsScreen() {
   const sns = state.snsPosts || [];
@@ -7363,6 +8091,60 @@ function generateSnsTrendPost() {
   const w = words[rand(0, words.length - 1)];
   addSnsPost("@underground_feed", `今週、${g}と「${w}」っぽい歌詞の反応が少し良い。ライブ後の口コミもその辺りに寄ってる。`, "trend");
 }
+function requestLiveOfferAccept(offerId) {
+  const offer = (state.liveOffers || []).find(o => o.id === offerId);
+  if (!offer) { log("対象の出演通知が見つからない。", "warn"); render(); return; }
+  updateLiveOfferStatuses();
+  state.pendingMailAction = { type:"live_offer", offerId };
+  render();
+}
+function requestMeetApplicantFromMail(mailId) {
+  const mail = (state.phoneMails || []).find(m => m.id === mailId);
+  if (!mail) { log("対象のメールが見つからない。", "warn"); render(); return; }
+  mail.read = true;
+  state.pendingMailAction = { type:"member", mailId, applicantId:mail.payload?.applicantId || "" };
+  render();
+}
+function confirmMailAction() {
+  const a = state.pendingMailAction || {};
+  state.pendingMailAction = null;
+  if (a.type === "live_offer") { acceptLiveOffer(a.offerId); return; }
+  if (a.type === "member") {
+    const mail = (state.phoneMails || []).find(m => m.id === a.mailId);
+    let applicant = a.applicantId ? currentApplicantList().find(x => x.id === a.applicantId) : null;
+    if (!applicant) applicant = addApplicantFromCandidates("メール返信");
+    if (mail) { mail.read = true; mail.payload = mail.payload || {}; mail.payload.status = "met"; }
+    state.view = "band";
+    state.phoneSubView = "menu";
+    if (applicant) {
+      showEventPopup("メンバー候補と会った", `${applicant.name}と会った。\nバンド情報の加入候補から、加入させるか選べます。`, "event", "🤝");
+    } else {
+      showEventPopup("今回は会えなかった", "条件に合う候補が見つからなかった。\nライブや宣伝で知名度を上げると、新しい候補が来やすくなります。", "warn", "📱");
+    }
+    render();
+    return;
+  }
+  render();
+}
+function cancelMailAction() { state.pendingMailAction = null; render(); }
+function renderMailActionConfirmOverlay() {
+  const a = state.pendingMailAction || {};
+  if (a.type === "live_offer") {
+    const offer = (state.liveOffers || []).find(o => o.id === a.offerId);
+    if (!offer) { state.pendingMailAction = null; return ""; }
+    const v = venueById(offer.venueId);
+    const meta = liveTypeMeta(offer);
+    return `<div class="modal-backdrop"><div class="event-modal event mail-action-modal"><div class="modal-icon">📩</div><div class="modal-copy"><h2>ライブ参加の返信を送る？</h2><p>${offer.turn}T ${escapeHtml(meta.label)} / ${escapeHtml(v.name)}に参加します。\n予定表に追加しますか？</p><p>${escapeHtml(meta.feeLabel)}${eventBaseCost(offer, v).toLocaleString()}円</p></div><div class="modal-actions confirm-wide"><button id="confirmMailActionBtn" class="big-action">返信して予定に追加</button><button id="cancelMailActionBtn" class="ghost-btn">戻る</button></div></div></div>`;
+  }
+  if (a.type === "member") {
+    const mail = (state.phoneMails || []).find(m => m.id === a.mailId);
+    const who = mail?.payload?.applicantName || mail?.sender || "メンバー候補";
+    return `<div class="modal-backdrop"><div class="event-modal event mail-action-modal"><div class="modal-icon">🤝</div><div class="modal-copy"><h2>メンバー候補に返信する？</h2><p>メールを送ってきた${escapeHtml(who)}と会いますか？\n会うと加入候補として表示されます。</p></div><div class="modal-actions confirm-wide"><button id="confirmMailActionBtn" class="big-action">返信して会う</button><button id="cancelMailActionBtn" class="ghost-btn">戻る</button></div></div></div>`;
+  }
+  state.pendingMailAction = null;
+  return "";
+}
+
 function acceptLiveOffer(offerId) {
   const offer = (state.liveOffers || []).find(o => o.id === offerId);
   if (!offer) { log("対象の出演通知が見つからない。", "warn"); render(); return; }
@@ -8235,7 +9017,7 @@ function renderMemberCard(m) {
   const stats = Object.entries(m.stats).map(([k,v]) => `<span class="badge">${statLabel(k)} ${v}</span>`).join(" ");
   const discovered = discoveredSubGenresFor(m);
   const hiddenCount = hiddenSubGenreCount(m);
-  const growthLine = m.growthType ? `<p><span class="badge">成長タイプ:${escapeHtml(m.growthType)}</span><small>表示のみ。実成長倍率は今後調整予定。</small></p>` : "";
+  const growthLine = `<p><span class="badge">成長タイプ:${escapeHtml(memberGrowthTypeKey(m))}</span><small>${escapeHtml(memberGrowthTypeInfo(m).note || "小補正あり")}</small></p>`;
   const genreLine = `
     <p><span class="badge warn">一番得意:${m.mainGenre}</span> ${(m.secondMainGenres||[]).map(g=>`<span class="badge good">二番目:${g}</span>`).join(" ")}</p>
     <p>${discovered.map(g=>`<span class="badge">判明サブ:${g}</span>`).join(" ")} ${hiddenCount ? `<span class="badge bad">未判明サブ ${hiddenCount}</span>` : `<span class="badge good">サブ全判明</span>`}</p>${growthLine}`;
@@ -8743,6 +9525,7 @@ function renderOverlays() {
   if (state.actionResultModal) return renderActionResultOverlay();
   if (state.detailModal) return renderDetailModalOverlay();
   if (state.livePrepPickerSlot) return renderLiveSongPickerOverlay();
+  if (state.pendingMailAction) return renderMailActionConfirmOverlay();
   if (state.pendingBooking) return renderBookingConfirmOverlay();
   if (state.pendingBoostSong) return renderBoostSongConfirmOverlay();
   if (state.pendingCancelLive) return renderCancelLiveConfirmOverlay();
@@ -8909,9 +9692,13 @@ function renderTrainingGains(training) {
   const rows = Array.isArray(training) ? training : String(training).split("\n").filter(Boolean).map(line => ({ line }));
   if (!rows.length) return "";
   return `<div class="training-gain-list"><b>練習で伸びたステータス</b>${rows.map(r => {
-    if (r.name) return `<div class="training-gain-row"><span>${escapeHtml(r.name)}</span><small>技術 ${r.techBefore}→${r.techAfter} / リズム ${r.rhythmBefore}→${r.rhythmAfter}</small><div class="meter mini"><div class="fill" style="width:${clamp(r.techAfter,0,99)}%"></div></div></div>`;
+    if (r.name) {
+      const diffText = (r.diffs || []).map(d => `${statLabel(d.key)} ${d.before}→${d.after}`).join(" / ");
+      const maxAfter = Math.max(...(r.diffs || []).map(d => d.after), 0);
+      return `<div class="training-gain-row"><span>${escapeHtml(r.name)} <em>${escapeHtml(r.growthType || DEFAULT_MEMBER_GROWTH_TYPE)}</em></span><small>${escapeHtml(diffText || "変化なし")}</small><div class="meter mini"><div class="fill" style="width:${clamp(maxAfter,0,99)}%"></div></div></div>`;
+    }
     return `<span>${escapeHtml(r.line)}</span>`;
-  }).join("")}<small>技術・リズムはライブの演奏/安定、次の作曲にも影響します。</small></div>`;
+  }).join("")}<small>v0.3.64から成長タイプが練習後の小補正に反映されます。v0.3.66では基準表とDEV確認を追加しています。</small></div>`;
 }
 
 function renderLiveProgressOverlay() {
@@ -9125,11 +9912,18 @@ function bindEvents() {
   const bookLiveBtn = document.getElementById("bookLiveBtn");
   if (bookLiveBtn) bookLiveBtn.addEventListener("click", () => bookLiveFromHome());
   document.querySelectorAll(".liveCandidateBtn").forEach(btn => btn.addEventListener("click", () => { state.pendingBooking = { turn:Number(btn.dataset.turn), venueId:btn.dataset.venue, liveType:btn.dataset.liveType || "self_one_man", invitedBandIds:(btn.dataset.bands || "").split(",").filter(Boolean) }; render(); }));
-  document.querySelectorAll(".acceptOfferBtn").forEach(btn => btn.addEventListener("click", () => acceptLiveOffer(btn.dataset.offerId)));
+  document.querySelectorAll(".acceptOfferBtn").forEach(btn => btn.addEventListener("click", () => requestLiveOfferAccept(btn.dataset.offerId)));
   document.querySelectorAll(".phoneModeBtn").forEach(btn => btn.addEventListener("click", () => { state.phoneSubView = btn.dataset.phoneMode || "menu"; render(); }));
   document.querySelectorAll(".mailOpenBtn").forEach(btn => btn.addEventListener("click", () => openMail(btn.dataset.mailId)));
   document.querySelectorAll(".snsPostBtn").forEach(btn => btn.addEventListener("click", () => snsPost(btn.dataset.snsPost || "chat")));
   document.querySelectorAll(".declineOfferBtn").forEach(btn => btn.addEventListener("click", () => declineLiveOffer(btn.dataset.offerId)));
+  document.querySelectorAll(".meetApplicantMailBtn").forEach(btn => btn.addEventListener("click", () => requestMeetApplicantFromMail(btn.dataset.mailId)));
+  document.querySelectorAll(".openBandFromMailBtn").forEach(btn => btn.addEventListener("click", () => { state.view = "band"; state.phoneSubView = "menu"; render(); }));
+  document.querySelectorAll(".openScheduleFromMailBtn").forEach(btn => btn.addEventListener("click", () => { state.view = "schedule"; state.phoneSubView = "menu"; render(); }));
+  const confirmMailActionBtn = document.getElementById("confirmMailActionBtn");
+  if (confirmMailActionBtn) confirmMailActionBtn.addEventListener("click", confirmMailAction);
+  const cancelMailActionBtn = document.getElementById("cancelMailActionBtn");
+  if (cancelMailActionBtn) cancelMailActionBtn.addEventListener("click", cancelMailAction);
   document.getElementById("downloadSetlistImageBtn")?.addEventListener("click", downloadSetlistImage);
   const confirmBookingBtn = document.getElementById("confirmBookingBtn");
   if (confirmBookingBtn) confirmBookingBtn.addEventListener("click", () => { const b = state.pendingBooking; state.pendingBooking = null; if (b) bookLiveFromHome(b.turn, b.venueId, true, b.liveType, b.invitedBandIds); });
@@ -9161,9 +9955,10 @@ function bindEvents() {
   if (devApplyStatsBtn) devApplyStatsBtn.addEventListener("click", devApplyStatsFromForm);
   const devStartStoryBtn = document.getElementById("devStartStoryBtn");
   if (devStartStoryBtn) devStartStoryBtn.addEventListener("click", () => startStoryEvent(document.getElementById("devStorySelect")?.value || "first_afterparty_triple_arrows", { context: {
-    memberName: "テスト候補", part: "Gt/Vo", joinStatus: "仮加入", mainGenre: "ロック",
+    ...memberJoinStoryContext({ name: "テスト候補", part: "Gt/Vo", joinStatus: "仮加入", mainGenre: "ロック" }),
     offerTurn: Math.min((state.turn || 1) + 2, (state.maxTurn || 50) - 1),
-    originalTitle: (state.songs || []).find(s => !s.isCover)?.title || "オリジナル曲", fatigueGain: 20
+    originalTitle: (state.songs || []).find(s => !s.isCover)?.title || "オリジナル曲", fatigueGain: 20,
+    bandName: "Triple Arrows", skillName: "サンプルスキル", rank: "A"
   } }));
   const devAddApplicantBtn = document.getElementById("devAddApplicantBtn");
   if (devAddApplicantBtn) devAddApplicantBtn.addEventListener("click", () => devAddApplicantById(document.getElementById("devApplicantSelect")?.value || ""));
@@ -9171,8 +9966,15 @@ function bindEvents() {
   if (devRecruitBtn) devRecruitBtn.addEventListener("click", () => { addApplicantFromCandidates("DEV募集"); render(); });
   const devEnsureSongsBtn = document.getElementById("devEnsureSongsBtn");
   if (devEnsureSongsBtn) devEnsureSongsBtn.addEventListener("click", () => { devEnsureSongs(7); render(); });
+  const devClearTutorialBtn = document.getElementById("devClearTutorialBtn");
+  if (devClearTutorialBtn) devClearTutorialBtn.addEventListener("click", () => { devClearTutorialLocks("DEV手動"); render(); });
   const devClearEphemeralBtn = document.getElementById("devClearEphemeralBtn");
-  if (devClearEphemeralBtn) devClearEphemeralBtn.addEventListener("click", () => { clearEphemeralStateAfterLoad(); log("DEV：一時モーダル状態を破棄した。", "warn"); render(); });
+  if (devClearEphemeralBtn) devClearEphemeralBtn.addEventListener("click", () => { clearEphemeralStateAfterLoad(); devClearTutorialLocks("DEV一時状態破棄"); log("DEV：一時モーダル状態を破棄した。", "warn"); render(); });
+  const devGrandCheckBtn = document.getElementById("devGrandCheckBtn");
+  if (devGrandCheckBtn) devGrandCheckBtn.addEventListener("click", devShowGrandCheck);
+  document.querySelectorAll(".devBalanceProfileBtn").forEach(btn => btn.addEventListener("click", () => devApplyBalanceProfile(btn.dataset.profile || "grand_border")));
+  const devBandEventSeedBtn = document.getElementById("devBandEventSeedBtn");
+  if (devBandEventSeedBtn) devBandEventSeedBtn.addEventListener("click", devPrepareBandEventSeed);
   const bandBookBackBtn = document.getElementById("bandBookBackBtn");
   if (bandBookBackBtn) bandBookBackBtn.addEventListener("click", () => { state.bandBookDetail = null; render(); });
 }
@@ -9483,7 +10285,7 @@ function snapshotActionState() {
     members: state.members.length,
     songs: state.songs.length,
     drafts: state.pendingDrafts.length,
-    memberStats: activeMembers().map(m => ({ id:m.id, name:m.name, technique:m.stats.technique, rhythm:m.stats.rhythm, mental:m.stats.mental, teamwork:m.stats.teamwork }))
+    memberStats: activeMembers().map(m => ({ id:m.id, name:m.name, growthType:memberGrowthTypeKey(m), stats:{ ...(m.stats || {}) } }))
   };
 }
 function makeActionResultModal(command, before, after, event, tutorialMsg="") {
@@ -9505,9 +10307,12 @@ function trainingSummary(before, after) {
   now.slice(0, 5).forEach(n => {
     const p = prev.find(x => x.id === n.id);
     if (!p) return;
-    const tech = Math.round((n.technique || 0) - (p.technique || 0));
-    const rhythm = Math.round((n.rhythm || 0) - (p.rhythm || 0));
-    if (tech || rhythm) rows.push({ name:n.name, tech, rhythm, techBefore:Math.round(p.technique||0), techAfter:Math.round(n.technique||0), rhythmBefore:Math.round(p.rhythm||0), rhythmAfter:Math.round(n.rhythm||0) });
+    const diffs = MEMBER_STAT_KEYS.map(k => {
+      const beforeVal = Math.round(Number(p.stats?.[k] || 0));
+      const afterVal = Math.round(Number(n.stats?.[k] || 0));
+      return { key:k, before:beforeVal, after:afterVal, diff:afterVal - beforeVal };
+    }).filter(x => x.diff !== 0);
+    if (diffs.length) rows.push({ name:n.name, growthType:n.growthType || DEFAULT_MEMBER_GROWTH_TYPE, diffs });
   });
   if ((after.fatigue || 0) >= 60) rows.push({ line:`疲労${Math.round(after.fatigue)}%。疲労が高いほど練習効率は落ちます。` });
   return rows;
@@ -9594,11 +10399,13 @@ function executeCommand(command) {
     const cost = 1500 + activeMembers().length * 500;
     state.band.funds -= cost;
     activeMembers().forEach(m => {
+      normalizeMemberGrowthType(m);
       const practiceBoost = (hasSkill("practice_efficiency") ? 1.2 : 1) * fatigueEffectMultiplier();
-      m.stats.technique = clamp(m.stats.technique + Math.ceil(rand(1,3) * practiceBoost), 1, 99);
-      m.stats.rhythm = clamp(m.stats.rhythm + Math.ceil(rand(0,2) * practiceBoost), 1, 99);
+      applyMemberStatGrowth(m, "technique", rand(1,3) * practiceBoost, "practice");
+      applyMemberStatGrowth(m, "rhythm", rand(0,2) * practiceBoost, "practice");
+      maybeApplyFocusedGrowth(m, "practice", 1, 0.32);
       const inst = m.instruments[m.mainInstrument];
-      if (inst) inst.lv = clamp(inst.lv + rand(2,5) * (inst.growth || 1), 1, inst.potentialCap || inst.cap);
+      if (inst) inst.lv = clamp(inst.lv + rand(2,5) * (inst.growth || 1) * memberGrowthCurveMultiplier(m, "practice"), 1, inst.potentialCap || inst.cap);
     });
     state.songs.forEach(s => s.performance = clamp(s.performance + Math.max(0, Math.round(rand(1,3) * fatigueEffectMultiplier())), 0, 99));
     addFatigue(14 - (hasSkill("shortcut_command") ? 2 : 0));
@@ -10900,14 +11707,16 @@ function growSongAfterLive(liveSong, rank, slot, coreEvent) {
 }
 
 function growMemberAfterLive(m, rank, role) {
+  normalizeMemberGrowthType(m);
   const gain = { S:3, A:2, B:1, C:1, D:0, E:0 }[rank] || 0;
-  m.stats.mental = clamp(m.stats.mental + gain, 1, 99);
-  m.stats.charisma = clamp(m.stats.charisma + (rank === "S" ? 2 : rank === "A" ? 1 : 0), 1, 99);
+  applyMemberStatGrowth(m, "mental", gain, "live");
+  applyMemberStatGrowth(m, "charisma", (rank === "S" ? 2 : rank === "A" ? 1 : 0), "live");
+  if (["S", "A", "B"].includes(rank)) maybeApplyFocusedGrowth(m, "live", rank === "S" ? 2 : 1, rank === "S" ? 0.70 : 0.45);
   const roles = positionInstrumentParts(role).filter(x => x !== "vocal" || role === "vocal" || role === "guitar_vocal" || role === "bass_vocal");
   const targets = roles.length ? roles : [m.mainInstrument];
   targets.forEach(r => {
     const inst = m.instruments[r] || m.instruments[m.mainInstrument];
-    if (inst) inst.lv = clamp(inst.lv + gain * (inst.growth || 1), 1, inst.potentialCap || inst.cap);
+    if (inst) inst.lv = clamp(inst.lv + gain * (inst.growth || 1) * memberGrowthCurveMultiplier(m, "live"), 1, inst.potentialCap || inst.cap);
   });
   maybeUnlockHidden(m, "ライブ経験");
 }
