@@ -1,10 +1,10 @@
 /*
-  アンダーグラウンド（仮） v0.3.50 prototype
-  - 1ファイル内の DATA を差し替えるだけでキャラ・曲・サポート候補を変更できます。
-  - Deferred replacements: 下部の DEFERRED_REPLACEMENTS に、今回簡略化した候補をまとめています。
+  アンダーグラウンド（仮） v0.3.61-member-draft-fix2
+  - v0.3.60のバンド図鑑・交流土台に、v0.3.61の加入候補36人を統合した試作版。
+  - 旧「（仮）」候補ブロックとPaper Moon Kids系コードは、旧セーブ互換/退避用に残すが、有効候補はMEMBER_DATABASEで上書きする。
 */
 
-const VERSION = "v0.3.50";
+const VERSION = "v0.3.61-member-draft-fix2";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -388,8 +388,8 @@ const LIVE_TYPES = {
   booking_house: { label:"ブッキング：ライブハウスイベント", short:"ハウスイベント", category:"ブッキング", desc:"ライブハウスからのイベント通知。会場費なし、参加費あり。様々なバンドと出会える。", feeLabel:"参加費", risk:"低", growth:0.88, reward:0.72, inviteBoost:0.08, relation:5, booking:true },
   booking_band: { label:"ブッキング：他バンド企画", short:"他バンド企画", category:"ブッキング", desc:"認知度や交流で呼ばれる企画。会場費なし、企画参加費あり。交流が伸びやすい。", feeLabel:"企画参加費", risk:"低", growth:0.96, reward:0.78, inviteBoost:0.16, relation:10, booking:true },
   special: { label:"固定ライブ", short:"固定", category:"固定", desc:"物語上の固定ライブ。", feeLabel:"会場費", risk:"特", growth:1.0, reward:1.0, inviteBoost:0, relation:0, booking:false },
-  band_fes: { label:"フェス：バンド主催", short:"バンド主催フェス", category:"フェス", desc:"実力派バンドが主催する高難度フェス。交流とライブ評価が重要。", feeLabel:"参加費", risk:"高", growth:1.20, reward:0.95, inviteBoost:0.22, relation:12, booking:true },
-  corp_fes: { label:"フェス：企業主催", short:"企業主催フェス", category:"フェス", desc:"企業・媒体が絡む高難度フェス。知名度と業界評価が重要。", feeLabel:"参加費", risk:"高", growth:1.12, reward:1.08, inviteBoost:0.18, relation:6, booking:true }
+  band_fes: { label:"フェス：バンド主催", short:"バンド主催フェス", category:"フェス", desc:"実力派バンドが主催する高難度フェス。交流とライブ評価が重要。", feeLabel:"参加費", risk:"高", growth:1.18, reward:0.95, inviteBoost:0.22, relation:12, booking:true },
+  corp_fes: { label:"フェス：企業主催", short:"企業主催フェス", category:"フェス", desc:"企業・媒体が絡む高難度フェス。知名度と業界評価が重要。", feeLabel:"参加費", risk:"高", growth:1.08, reward:1.08, inviteBoost:0.18, relation:6, booking:true }
 };
 
 const RIVAL_BANDS = [
@@ -433,6 +433,1269 @@ const MERCH_ITEMS = [
   { id:"keyholder", name:"キーホルダー", cost:800, price:1000, best:["友人・身内多め", "初見客多め"], desc:"軽く買いやすい。小箱でも中箱でも安定。" }
 ];
 
+/* ==================================================================
+ * v0.3.60-big-draft-fix1 バンド図鑑・交流スキル・他バンドイベント システム
+ * ==================================================================
+ * - ENABLE_BAND_SYSTEM を false にすると、v0.3.50相当の挙動へ戻る。
+ * - DATABASE 3種は underground_v0_3_60_DATABASE_pack_reviewed 由来。
+ *   ブラウザ直読みのため game.js 内へ統合している。
+ * - 交流値は既存 state.rivalRelations を単一の真実として使う。
+ *   図鑑側は表示用に 0〜100 へクランプして読む。
+ * - セーブ追加キー: state.bandBook / state.ownedBandSkills / state.saveSchemaVersion
+ * ================================================================== */
+
+const ENABLE_BAND_SYSTEM = true;
+function bandSystemOn() { return ENABLE_BAND_SYSTEM; }
+
+// 仮数値（v0.3.60-big-draft-fix1）。バランス調整時はここだけ触ればよい。
+const BAND_TUNING = {
+  relationCapMin: 0,
+  relationCapMax: 100,
+  commonSkillRelationNeed: 30,   // 汎用スキル獲得：対象バンドとの交流値30以上
+  firstBattleRelationDefault: 10,// 初対バン時のイベント交流ボーナス（DB側 relationAdd が優先）
+  repNameRelationNeed: 30,       // 代表キャラ名・担当の表示解禁
+  afterPartyBonusCapPct: 10,     // 打ち上げ系スキル補正の合算上限
+  overflowRelationGain: 5        // 汎用スキル上限超過時の交流値変換
+};
+
+/* ------------------------------------------------------------------
+ * BAND_DATABASE（全22組）
+ * internalLv は内部処理用。図鑑UIには表示しない。
+ * fame / audience は既存の対バン選出・集客計算（RIVAL_BANDS互換）用に付与。
+ * ------------------------------------------------------------------ */
+const BAND_DATABASE = Object.freeze({
+  kiwi: {
+    id: "kiwi", name: "Kiwi", kana: "キーウィ", internalLv: 1,
+    genres: ["ポップロック", "インディーロック", "ゆるいオルタナ"],
+    description: "ゆるく明るい空気でライブハウスを和ませるポップロックバンド。",
+    representativeSong: "グリムポップ", representativeName: "モズ", representativePart: null,
+    skillIds: ["healing_character"],
+    tags: ["early", "random_battle", "soft", "friendly"],
+    fame: 20, audience: 16
+  },
+  kodama: {
+    id: "kodama", name: "コダマ", kana: "こだま", internalLv: 1,
+    genres: ["ギターロック", "和風ロック", "インディーロック"],
+    description: "静かで少し不思議な余韻を残す和風インディーロックバンド。",
+    representativeSong: "木漏れ日", representativeName: "ヒノカワ", representativePart: null,
+    skillIds: ["lingering_echo"],
+    tags: ["early", "random_battle", "quiet", "emotional"],
+    fame: 22, audience: 18
+  },
+  melt: {
+    id: "melt", name: "めると", kana: "めると", internalLv: 1,
+    genres: ["ドリームポップ", "ミクスチャー"],
+    description: "ボカロP文脈も持つ、ネット発の少し病んだドリームポップ系アーティスト。",
+    representativeSong: "マグマカップ", representativeName: "ロク", representativePart: null,
+    skillIds: ["lingering_echo", "influencer"],
+    tags: ["early", "sns", "random_battle", "internet"],
+    fame: 24, audience: 19
+  },
+  koharugiku: {
+    id: "koharugiku", name: "コハルギク", kana: "こはるぎく", internalLv: 1,
+    genres: ["歌ものロック", "メロコア"],
+    description: "エモい歌詞と疾走感のあるメロディーで駆け抜ける地下に風をもたらすメロコアバンド。",
+    representativeSong: "Rain", representativeName: "シュンカ", representativePart: null,
+    skillIds: ["healing_character", "lingering_echo"],
+    tags: ["early", "random_battle", "melocore", "emotional"],
+    fame: 25, audience: 21
+  },
+  triple_arrows: {
+    id: "triple_arrows", name: "Triple Arrows", kana: "トリプルアローズ", internalLv: 2,
+    genres: ["青春パンク", "メロコア"],
+    description: "UNDERを拠点にする、荒削りで熱い青春パンクバンド。",
+    representativeSong: "run throw", representativeName: "タカナシ", representativePart: "Vo/Gt",
+    skillIds: ["three_basics"],
+    tags: ["under", "early", "rival", "friendly", "fixed_event"],
+    fame: 26, audience: 20
+  },
+  carbons: {
+    id: "carbons", name: "CARBONS", kana: "カーボンズ", internalLv: 2,
+    genres: ["オルタナロック"],
+    description: "尖ったオルタナロックで序盤に立ちはだかるライバルバンド。",
+    representativeSong: null, representativeName: "ナキリ", representativePart: "Ba/Vo",
+    skillIds: ["diamond_rough"],
+    tags: ["early", "rival", "sharp", "fixed_event"],
+    fame: 30, audience: 26
+  },
+  magnet_wolf: {
+    id: "magnet_wolf", name: "magnet wolf", kana: "マグネットウルフ", internalLv: 2,
+    genres: ["ハードロック"],
+    description: "少しダサくて味がある、荒いハードロックバンド。",
+    representativeSong: "ICEBOX", representativeName: "ダイドウジ", representativePart: null,
+    skillIds: ["rivalry_spirit"],
+    tags: ["early_middle", "random_battle", "hard_rock", "rough"],
+    fame: 33, audience: 29
+  },
+  patriot_sunshine: {
+    id: "patriot_sunshine", name: "Patriot Sunshine", kana: "パトリオットサンシャイン", internalLv: 2,
+    genres: ["パンクロック", "スカパンク"],
+    description: "明るく熱い、青春パンク寄りのスカパンクバンド。",
+    representativeSong: "メタルレイ", representativeName: "アズマル", representativePart: null,
+    skillIds: ["rivalry_spirit"],
+    tags: ["early_middle", "random_battle", "punk", "ska", "bright"],
+    fame: 36, audience: 32
+  },
+  d_lion: {
+    id: "d_lion", name: "D-Lion", kana: "ディーライオン", internalLv: 2,
+    genres: ["ミクスチャー", "パンクロック"],
+    description: "陽気なミクスチャー/パンクでフロアを揺らす常連バンド。",
+    representativeSong: "LifeTechno", representativeName: "TAMANO", representativePart: null,
+    skillIds: ["rivalry_spirit"],
+    tags: ["early_middle", "random_battle", "mixture", "party"],
+    fame: 39, audience: 35
+  },
+  pachi_pachi: {
+    id: "pachi_pachi", name: "Pachi-Pachi", kana: "パチパチ", internalLv: 3,
+    genres: ["青春ロック", "歌ものロック"],
+    description: "共感できる歌詞と客席を巻き込む力で人気を集める青春ロックバンド。",
+    representativeSong: "わたあめ", representativeName: "ミケ", representativePart: "Gt/Vo",
+    skillIds: ["popping_sweetness"],
+    tags: ["middle", "rival", "fes_shadow", "catchy", "fixed_event", "rematch_available"],
+    fame: 46, audience: 42
+  },
+  in_bab: {
+    id: "in_bab", name: "IN-BAB", kana: "インバブ", internalLv: 3,
+    genres: ["変化球ロック", "初期BiSH系"],
+    description: "メンバーの圧倒的な魅力によって、ライブファンを根こそぎ連れていくロックバンド。",
+    representativeSong: null, representativeName: "Nasu", representativePart: "Vo",
+    skillIds: ["heart_inside", "influencer"],
+    tags: ["middle", "sns", "idol_rock", "fan_pull", "event_candidate"],
+    fame: 50, audience: 47
+  },
+  nova_biscuit: {
+    id: "nova_biscuit", name: "Nova Biscuit", kana: "ノヴァビスケット", internalLv: 3,
+    genres: ["エモ", "パワーポップ", "インディーロック"],
+    description: "宇宙っぽい名前に反して、ライブでは意外と激しいエモ/パワーポップバンド。",
+    representativeSong: "冥王星", representativeName: "ドウセイ", representativePart: null,
+    skillIds: ["lingering_echo"],
+    tags: ["middle", "random_battle", "emo", "space"],
+    fame: 48, audience: 41
+  },
+  polaris: {
+    id: "polaris", name: "POLARIS", kana: "ポラリス", internalLv: 3,
+    genres: ["幻想演出系ロック"],
+    description: "ぶっちぎりの個性で虜にさせる歌と演奏。冷たくも温かいロックバンド。",
+    representativeSong: null, representativeName: "ヘイル", representativePart: "Vo",
+    skillIds: ["emotional_fantasy"],
+    tags: ["middle", "fantasy", "emotional", "event_candidate"],
+    fame: 52, audience: 44
+  },
+  shelter: {
+    id: "shelter", name: "SHELTER", kana: "シェルター", internalLv: 4,
+    genres: ["ポップパンク", "ハードコア", "青春パンク"],
+    description: "高い技術とライブパフォーマンスで、ひとつ上のステージを見せる実力派ロックバンド。",
+    representativeSong: "RED MOON", representativeName: "クリオ", representativePart: "Vo",
+    skillIds: ["rock_spirit"],
+    tags: ["middle_late", "fes_candidate", "technical", "performance", "fixed_event"],
+    fame: 58, audience: 52
+  },
+  luminescence: {
+    id: "luminescence", name: "LUMINESCENCE", kana: "ルミナスセンス", internalLv: 4,
+    genres: ["メロディックハードコア", "スケートパンク", "エモパンク"],
+    description: "雨、深海、発光をテーマにした、冷たく速いシアトル系メロディックハードコア。",
+    representativeSong: null, representativeName: "ヘルツ", representativePart: "Vo/Gt",
+    skillIds: ["deep_sea_rain"],
+    tags: ["late", "foreign", "seattle", "melodic_hardcore", "special_event"],
+    fame: 62, audience: 55
+  },
+  jack_bomb: {
+    id: "jack_bomb", name: "JACK BOMB", kana: "ジャックボム", internalLv: 4,
+    genres: ["ラウド寄りミクスチャーロック"],
+    description: "ラウド寄りのミクスチャーロックでフロアを盛り上げる爆発力のあるロックバンド。",
+    representativeSong: "TNT", representativeName: "アラカ", representativePart: "Vo/Ba",
+    skillIds: ["art_is_loud"],
+    tags: ["middle_late", "fes_candidate", "mixture", "loud", "hype"],
+    fame: 60, audience: 56
+  },
+  hyper_marmoty: {
+    id: "hyper_marmoty", name: "HYPER MARMOTY", kana: "ハイパーマルモッティ", internalLv: 4,
+    genres: ["青春パンク"],
+    description: "まっすぐ熱い青春パンクで突っ走るシャウト系パンクロックバンド。",
+    representativeSong: "シャウト!!", representativeName: "ヤマモト", representativePart: "Vo",
+    skillIds: ["youth_shout"],
+    tags: ["middle_late", "fes_candidate", "punk", "shout", "bright"],
+    fame: 55, audience: 50
+  },
+  ultimate_quokkas: {
+    id: "ultimate_quokkas", name: "ultimate quokkas", kana: "アルティメットクオッカズ", internalLv: 4,
+    genres: ["スカパンク"],
+    description: "明るいスカパンクで客席を笑顔にし、幸せを振りまくスカバンド。",
+    representativeSong: "ジャグリング", representativeName: "ワラジ", representativePart: "Ba/Vo",
+    skillIds: ["four_leaf_clover"],
+    tags: ["middle_late", "fes_candidate", "ska", "happy", "rare_event"],
+    fame: 57, audience: 51
+  },
+  rumble_sand: {
+    id: "rumble_sand", name: "RUMBLE SAND", kana: "ランブルサンド", internalLv: 5,
+    genres: ["パンクロック", "ラウドロック", "ハードロック"],
+    description: "イギリスのパンクロックバンド。重く荒い音で巨大ステージを揺らす。",
+    representativeSong: "arrive at the beach", representativeName: "サウスポート", representativePart: "Vo",
+    skillIds: ["sea_roar"],
+    tags: ["late", "fes_regular", "uk", "large_stage", "powerful"],
+    fame: 78, audience: 72
+  },
+  neon_reef: {
+    id: "neon_reef", name: "Neon Reef", kana: "ネオンリーフ", internalLv: 5,
+    genres: ["アート寄りロック", "都会的混沌"],
+    description: "深海を思わす美しく存在感がある。名実ともに完成されたロックバンド。",
+    representativeSong: "深青", representativeName: "ミノア", representativePart: "Vo",
+    skillIds: ["deep_sea_tree"],
+    tags: ["late", "major", "art_rock", "deep_sea", "complete"],
+    fame: 84, audience: 78
+  },
+  kaede: {
+    id: "kaede", name: "KAEDE", kana: "カエデ", internalLv: 5,
+    genres: ["ギターロック", "歌ものロック"],
+    description: "弾き語りでもバンド編成でも、言葉と歌で空気を変えるシンガーソングライター。",
+    representativeSong: "Dragonfly", representativeName: "カエデ", representativePart: "Vo/Gt",
+    skillIds: ["kotodama"],
+    tags: ["middle_late", "singer_songwriter", "lyrics", "industry_rep"],
+    fame: 74, audience: 66
+  },
+  lact: {
+    id: "lact", name: "LACT", kana: "ラクト", internalLv: 6,
+    genres: ["ハードコア", "ラウドロック", "パンク"],
+    description: "全てのバンドが憧れる伝説のロックバンド。重く激しいがキャッチーな音で全てを取り込む。",
+    representativeSong: "a lact of heart", representativeName: "ラルゴ", representativePart: "Vo",
+    skillIds: ["great_rock_hits"],
+    tags: ["final", "grand", "legend", "last_goal", "special_event"],
+    fame: 96, audience: 92
+  }
+});
+
+/* ------------------------------------------------------------------
+ * BAND_SKILL_DATABASE（交流スキル）
+ * effectImplemented: v0.3.60で効果コードを動かすか
+ * obtainableIn: 入手可能になる想定バージョン
+ * ------------------------------------------------------------------ */
+const BAND_SKILL_DATABASE = Object.freeze({
+  three_basics: {
+    id: "three_basics", name: "3本の基礎", type: "unique",
+    sourceBandIds: ["triple_arrows"],
+    description: "打ち上げ交流成功率が少し上がる。対バン評価ブレ軽減は後続実装で扱う。",
+    effectCategories: ["after_party"],
+    params: { afterPartySuccessAddPct: 5 },
+    maxLevel: 1, effectImplemented: true, obtainableIn: "0.3.60"
+  },
+  diamond_rough: {
+    id: "diamond_rough", name: "ダイヤの原石", type: "unique",
+    sourceBandIds: ["carbons"],
+    description: "CARBONS再登場フラグに関与する。v0.3.60では所持・表示のみで、変化抽選は行わない。",
+    effectCategories: ["unlock_event"],
+    params: {},
+    maxLevel: 1, effectImplemented: false, obtainableIn: "0.3.60"
+  },
+  diamond_shine: {
+    id: "diamond_shine", name: "ダイヤモンドの輝き", type: "rare",
+    acquisition: "transform", transformFrom: "diamond_rough",
+    sourceBandIds: ["carbons"],
+    description: "ダイヤの原石からのレア変化候補。強力な成長補助のため、効果量・発動率・期間は後続バランス調整まで未実装。",
+    effectCategories: ["growth_boost"],
+    params: {},
+    maxLevel: 1, effectImplemented: false, obtainableIn: "later"
+  },
+  popping_sweetness: {
+    id: "popping_sweetness", name: "弾ける甘味", type: "unique",
+    sourceBandIds: ["pachi_pachi"],
+    description: "客席巻き込み評価が少し上がり、ライブ後のファン増加に小補正が入る。効果はv0.3.65で実装予定。",
+    effectCategories: ["audience_reaction", "fan_gain"],
+    params: { audienceReactionAddPct: 3, fanGainAddPct: 3 },
+    maxLevel: 1, effectImplemented: false, obtainableIn: "0.3.60"
+  },
+  rock_spirit: {
+    id: "rock_spirit", name: "ロック魂", type: "unique",
+    sourceBandIds: ["shelter"],
+    description: "ライブパフォーマンス評価が少し上がる。ジャンル条件つき作詞作曲補正は曲タグ整備後に実装する。",
+    effectCategories: ["live_score"],
+    params: { liveScoreAddPct: 3 },
+    maxLevel: 1, effectImplemented: false, obtainableIn: "0.3.60"
+  },
+  kotodama: {
+    id: "kotodama", name: "言霊", type: "unique",
+    sourceBandIds: ["kaede"],
+    description: "歌詞評価・業界評価に小補正が入る。作詞結果にも少しボーナスが入る。",
+    effectCategories: ["songwriting", "industry_rep"],
+    params: { songwritingAddPct: 3, industryRepAddPct: 2 },
+    maxLevel: 1, effectImplemented: false, obtainableIn: "later"
+  },
+  art_is_loud: {
+    id: "art_is_loud", name: "芸術は爆音", type: "unique",
+    sourceBandIds: ["jack_bomb"],
+    description: "ライブの盛り上がり評価が少し上がる。ラウドロックやハードコア系の作曲に小補正が入る。",
+    effectCategories: ["live_hype", "composition"],
+    params: { liveHypeAddPct: 3 },
+    maxLevel: 1, effectImplemented: false, obtainableIn: "later"
+  },
+  youth_shout: {
+    id: "youth_shout", name: "青春シャウト", type: "unique",
+    sourceBandIds: ["hyper_marmoty"],
+    description: "青春・パンク系ライブで盛り上がり評価が少し上がる。パンク系作曲に小補正が入る。",
+    effectCategories: ["live_hype", "composition"],
+    params: { liveHypeAddPct: 3 },
+    maxLevel: 1, effectImplemented: false, obtainableIn: "later"
+  },
+  four_leaf_clover: {
+    id: "four_leaf_clover", name: "四つ葉のクローバー", type: "unique",
+    sourceBandIds: ["ultimate_quokkas"],
+    description: "スカや明るい曲を使ったライブで客席反応が少し上がる。ライブ利益とレアイベント率にも小補正が入る。",
+    effectCategories: ["audience_reaction", "money_gain", "rare_event"],
+    params: { audienceReactionAddPct: 3, moneyGainAddPct: 3, rareEventAddPct: 1 },
+    maxLevel: 1, effectImplemented: false, obtainableIn: "later"
+  },
+  sea_roar: {
+    id: "sea_roar", name: "海鳴らし", type: "unique",
+    sourceBandIds: ["rumble_sand"],
+    description: "宣伝・SNSに小補正が入る。最終ライブ判定も少し補助する（合算上限あり）。",
+    effectCategories: ["sns_boost", "final_fes_support"],
+    params: { snsBoostAddPct: 3, finalFesSupportAddPct: 2 },
+    maxLevel: 1, effectImplemented: false, obtainableIn: "later"
+  },
+  deep_sea_tree: {
+    id: "deep_sea_tree", name: "深海樹", type: "unique",
+    sourceBandIds: ["neon_reef"],
+    description: "世界観・完成度・業界評価に小補正が入る。最終ライブ判定も少し補助する（合算上限あり）。",
+    effectCategories: ["industry_rep", "final_fes_support"],
+    params: { industryRepAddPct: 3, finalFesSupportAddPct: 2 },
+    maxLevel: 1, effectImplemented: false, obtainableIn: "later"
+  },
+  heart_inside: {
+    id: "heart_inside", name: "heart inside", type: "unique",
+    sourceBandIds: ["in_bab"],
+    description: "SNS反応が少し上がる。刺さる判定の補正はコピー曲評価ガードをバイパスしない前提で後続実装。",
+    effectCategories: ["sns_boost", "audience_reaction"],
+    params: { snsBoostAddPct: 3, audienceReactionAddPct: 2 },
+    maxLevel: 1, effectImplemented: false, obtainableIn: "later"
+  },
+  deep_sea_rain: {
+    id: "deep_sea_rain", name: "深海雨", type: "unique",
+    sourceBandIds: ["luminescence"],
+    description: "機材・曲強化効率に小補正が入る。業界評価にも微補正が入る。",
+    effectCategories: ["equipment", "song_upgrade", "industry_rep"],
+    params: { songUpgradeAddPct: 3, industryRepAddPct: 1 },
+    maxLevel: 1, effectImplemented: false, obtainableIn: "later"
+  },
+  emotional_fantasy: {
+    id: "emotional_fantasy", name: "エモーショナルファンタジー", type: "unique",
+    sourceBandIds: ["polaris"],
+    description: "感情表現・ライブ演出評価が少し上がる。疲労消費も少し下がる。",
+    effectCategories: ["live_score", "fatigue_reduce"],
+    params: { liveScoreAddPct: 2, fatigueReducePct: 2 },
+    maxLevel: 1, effectImplemented: false, obtainableIn: "later"
+  },
+  great_rock_hits: {
+    id: "great_rock_hits", name: "GREAT ROCK HITS", type: "special",
+    sourceBandIds: ["lact"],
+    description: "最終フェス挑戦時、ライブ評価に小補正が入る。LACT関連の専用演出を解放する。",
+    effectCategories: ["final_fes_support", "special_effect"],
+    params: { finalFesSupportAddPct: 3 },
+    maxLevel: 1, effectImplemented: false, obtainableIn: "later"
+  },
+  healing_character: {
+    id: "healing_character", name: "癒しキャラ", type: "common",
+    sourceBandIds: ["kiwi", "koharugiku"],
+    description: "打ち上げ・交流イベントの成功率が少し上がる。供給源が2組のため、現状はLv2止まり。",
+    effectCategories: ["after_party"],
+    params: { afterPartySuccessAddPctPerLevel: 2, maxTotalAddPct: 5 },
+    maxLevel: 3, effectiveMaxLevelInCurrentData: 2,
+    effectImplemented: true, obtainableIn: "0.3.60"
+  },
+  rivalry_spirit: {
+    id: "rivalry_spirit", name: "ライバル意識", type: "common",
+    sourceBandIds: ["magnet_wolf", "patriot_sunshine", "d_lion"],
+    description: "対バン成功時、成長値に微補正が入る。",
+    effectCategories: ["rival_growth"],
+    params: { rivalGrowthAddPctPerLevel: 1, maxTotalAddPct: 3 },
+    maxLevel: 3, effectImplemented: true, obtainableIn: "0.3.60"
+  },
+  lingering_echo: {
+    id: "lingering_echo", name: "余韻残響", type: "common",
+    sourceBandIds: ["kodama", "melt", "koharugiku", "nova_biscuit"],
+    description: "疲労の増え方が少し下がる（簡易実装）。曲ジャンル条件つき評価補正は後続実装。",
+    effectCategories: ["fatigue_reduce"],
+    params: { fatigueReducePctPerLevel: 1, maxTotalReducePct: 3 },
+    maxLevel: 3, effectImplemented: true, obtainableIn: "0.3.60"
+  },
+  influencer: {
+    id: "influencer", name: "インフルエンサー", type: "common",
+    sourceBandIds: ["melt", "in_bab"],
+    description: "SNS投稿・宣伝効果に小補正が入る。供給源が2組のため、現状はLv2止まり。",
+    effectCategories: ["sns_boost"],
+    params: { snsBoostAddPctPerLevel: 2, maxTotalAddPct: 5 },
+    maxLevel: 3, effectiveMaxLevelInCurrentData: 2,
+    effectImplemented: true, obtainableIn: "0.3.60"
+  }
+});
+
+/* ------------------------------------------------------------------
+ * BAND_EVENT_DATABASE（主要イベント）
+ * 発火ルール：
+ * - ストーリー系（battle以外）は1ターン1件まで。priority降順で1件。
+ * - フェス種ライブ・固定ライブがあるターンは発火抑制（持ち越し）。
+ * - repeatable:false の管理はエンジン側 seenEvents。
+ * - lastBattleResult対応：S=great_success / A=success / B以下=normal。
+ *   条件判定は「以上」（great_successはsuccess条件も満たす）。
+ * - battle型はイベントというより「対バン候補プールの出現窓＋初回演出」。
+ * フラグ一覧：
+ * - flag_triple_arrows_met: 初回打ち上げイベントが set
+ * - flag_triple_arrows_invite_available: 招待メールイベントが set
+ * - flag_triple_arrows_invite_done: 招待ライブ完了時に applyLiveResult が set
+ * - flag_carbons_return: CARBONS大成功イベントが set（v0.3.65用）
+ * - flag_lact_name_dropped: LACT名前出しイベントが set
+ * ※ 招待メールは v0.3.50 の「打ち上げスキップでも8T招待が届く」挙動を維持するため、
+ *   条件を firstLiveDone に緩和し startTurn を 6 にしている（DBパックからの意図的変更）。
+ * ------------------------------------------------------------------ */
+const BAND_EVENT_DATABASE = Object.freeze({
+  event_triple_arrows_first_after_party: {
+    id: "event_triple_arrows_first_after_party",
+    bandId: "triple_arrows", type: "after_party",
+    startTurn: 5, endTurn: 14, repeatable: false, priority: 100,
+    conditions: { firstLiveDone: true },
+    effects: {
+      discoverBandId: "triple_arrows", relationAdd: 20,
+      addLog: "Triple Arrowsと打ち上げをした。タカナシたちと連絡先を交換した。",
+      setFlags: ["flag_triple_arrows_met"]
+    },
+    unlockSkillId: null
+  },
+  event_triple_arrows_invite_live: {
+    id: "event_triple_arrows_invite_live",
+    bandId: "triple_arrows", type: "mail_invite",
+    startTurn: 6, endTurn: 20, repeatable: false, priority: 95,
+    conditions: { firstLiveDone: true },
+    effects: {
+      discoverBandId: "triple_arrows", relationAdd: 10,
+      addLog: "Triple Arrowsから招待ライブのメールが届いた。",
+      setFlags: ["flag_triple_arrows_invite_available"]
+    },
+    unlockSkillId: null
+  },
+  event_triple_arrows_skill_unlock: {
+    id: "event_triple_arrows_skill_unlock",
+    bandId: "triple_arrows", type: "skill_unlock",
+    startTurn: 8, endTurn: 30, repeatable: false, priority: 90,
+    conditions: { hasFlag: "flag_triple_arrows_invite_done", skillNotOwned: "three_basics" },
+    effects: {
+      relationAdd: 20,
+      addLog: "Triple Arrowsとの交流が深まり、3本の基礎を学んだ。"
+    },
+    unlockSkillId: "three_basics"
+  },
+  event_carbons_first_battle: {
+    id: "event_carbons_first_battle",
+    bandId: "carbons", type: "battle",
+    startTurn: 6, endTurn: 20, repeatable: false, priority: 85,
+    conditions: { firstLiveDone: true },
+    effects: {
+      discoverBandId: "carbons", relationAdd: 10,
+      addLog: "CARBONSと初めて対バンした。"
+    },
+    unlockSkillId: null
+  },
+  event_carbons_after_party_success: {
+    id: "event_carbons_after_party_success",
+    bandId: "carbons", type: "after_party",
+    startTurn: 6, endTurn: 24, repeatable: false, priority: 80,
+    conditions: {
+      eventSeen: "event_carbons_first_battle",
+      lastBattleBandId: "carbons",
+      lastBattleResult: "great_success",
+      skillNotOwned: "diamond_rough"
+    },
+    effects: {
+      relationAdd: 25,
+      addLog: "CARBONSとの対バン後、ナキリから声をかけられた。",
+      setFlags: ["flag_carbons_return"]
+    },
+    unlockSkillId: "diamond_rough"
+  },
+  event_kiwi_random_battle: {
+    id: "event_kiwi_random_battle", bandId: "kiwi", type: "battle",
+    startTurn: 3, endTurn: 24, repeatable: true, priority: 30,
+    conditions: { firstLiveDone: true },
+    effects: { discoverBandId: "kiwi", relationAdd: 10, addLog: "Kiwiと対バンした。" },
+    unlockSkillId: null
+  },
+  event_kodama_random_battle: {
+    id: "event_kodama_random_battle", bandId: "kodama", type: "battle",
+    startTurn: 3, endTurn: 24, repeatable: true, priority: 30,
+    conditions: { firstLiveDone: true },
+    effects: { discoverBandId: "kodama", relationAdd: 10, addLog: "コダマと対バンした。" },
+    unlockSkillId: null
+  },
+  event_koharugiku_random_battle: {
+    id: "event_koharugiku_random_battle", bandId: "koharugiku", type: "battle",
+    startTurn: 5, endTurn: 28, repeatable: true, priority: 30,
+    conditions: { firstLiveDone: true },
+    effects: { discoverBandId: "koharugiku", relationAdd: 10, addLog: "コハルギクと対バンした。" },
+    unlockSkillId: null
+  },
+  event_melt_random_battle: {
+    id: "event_melt_random_battle", bandId: "melt", type: "battle",
+    startTurn: 5, endTurn: 28, repeatable: true, priority: 30,
+    conditions: { firstLiveDone: true },
+    effects: { discoverBandId: "melt", relationAdd: 10, addLog: "めるとと対バンした。" },
+    unlockSkillId: null
+  },
+  event_magnet_wolf_battle: {
+    id: "event_magnet_wolf_battle", bandId: "magnet_wolf", type: "battle",
+    startTurn: 8, endTurn: 32, repeatable: true, priority: 30,
+    conditions: { firstLiveDone: true },
+    effects: { discoverBandId: "magnet_wolf", relationAdd: 10, addLog: "magnet wolfと対バンした。" },
+    unlockSkillId: null
+  },
+  event_patriot_sunshine_battle: {
+    id: "event_patriot_sunshine_battle", bandId: "patriot_sunshine", type: "battle",
+    startTurn: 8, endTurn: 32, repeatable: true, priority: 30,
+    conditions: { firstLiveDone: true },
+    effects: { discoverBandId: "patriot_sunshine", relationAdd: 10, addLog: "Patriot Sunshineと対バンした。" },
+    unlockSkillId: null
+  },
+  event_d_lion_battle: {
+    id: "event_d_lion_battle", bandId: "d_lion", type: "battle",
+    startTurn: 8, endTurn: 32, repeatable: true, priority: 30,
+    conditions: { firstLiveDone: true },
+    effects: { discoverBandId: "d_lion", relationAdd: 10, addLog: "D-Lionと対バンした。" },
+    unlockSkillId: null
+  },
+  event_pachi_pachi_first_battle: {
+    id: "event_pachi_pachi_first_battle", bandId: "pachi_pachi", type: "battle",
+    startTurn: 15, endTurn: 25, repeatable: false, priority: 75,
+    conditions: { firstLiveDone: true, minFans: 40 },
+    effects: {
+      discoverBandId: "pachi_pachi", relationAdd: 15,
+      addLog: "Pachi-Pachiと対バンした。フェスに近いバンドの熱量を感じた。"
+    },
+    unlockSkillId: null
+  },
+  event_pachi_pachi_rematch: {
+    id: "event_pachi_pachi_rematch", bandId: "pachi_pachi", type: "battle",
+    startTurn: 16, endTurn: 35, repeatable: true, priority: 30,
+    conditions: { eventSeen: "event_pachi_pachi_first_battle" },
+    effects: { relationAdd: 5, addLog: "Pachi-Pachiと再び対バンした。" },
+    unlockSkillId: null
+  },
+  event_pachi_pachi_second_success: {
+    id: "event_pachi_pachi_second_success", bandId: "pachi_pachi", type: "skill_unlock",
+    startTurn: 20, endTurn: 35, repeatable: false, priority: 70,
+    conditions: {
+      minBattleCountWithBand: { bandId: "pachi_pachi", count: 2 },
+      lastBattleBandId: "pachi_pachi",
+      lastBattleResult: "success",
+      skillNotOwned: "popping_sweetness"
+    },
+    effects: {
+      relationAdd: 25,
+      addLog: "Pachi-Pachiとの対バン後、ミケたちに認められた。"
+    },
+    unlockSkillId: "popping_sweetness"
+  },
+  event_shelter_watched_live: {
+    id: "event_shelter_watched_live", bandId: "shelter", type: "encounter",
+    startTurn: 25, endTurn: 35, repeatable: false, priority: 75,
+    conditions: { minLastLiveScore: 70, minIndustryRep: 60 },
+    effects: {
+      discoverBandId: "shelter", relationAdd: 10,
+      addLog: "ライブハウスのスタッフから、SHELTERがライブを見ていたと聞いた。"
+    },
+    unlockSkillId: null
+  },
+  event_shelter_after_live_talk: {
+    id: "event_shelter_after_live_talk", bandId: "shelter", type: "skill_unlock",
+    startTurn: 26, endTurn: 40, repeatable: false, priority: 70,
+    conditions: {
+      eventSeen: "event_shelter_watched_live",
+      minLastLiveScore: 75,
+      minTotalStatus: 60,
+      skillNotOwned: "rock_spirit"
+    },
+    effects: {
+      relationAdd: 25,
+      addLog: "SHELTERのクリオから声をかけられた。ひとつ上のステージの空気を知った。"
+    },
+    unlockSkillId: "rock_spirit"
+  },
+  event_in_bab_first_battle: {
+    id: "event_in_bab_first_battle", bandId: "in_bab", type: "battle",
+    startTurn: 18, endTurn: 35, repeatable: false, priority: 55,
+    conditions: { minFans: 60 },
+    effects: {
+      discoverBandId: "in_bab", relationAdd: 15,
+      addLog: "IN-BABと対バンした。メンバーの魅力でフロアの空気が一気に変わった。"
+    },
+    unlockSkillId: null
+  },
+  event_polaris_first_battle: {
+    id: "event_polaris_first_battle", bandId: "polaris", type: "battle",
+    startTurn: 18, endTurn: 35, repeatable: false, priority: 55,
+    conditions: { minOriginalSongs: 3 },
+    effects: {
+      discoverBandId: "polaris", relationAdd: 15,
+      addLog: "POLARISと対バンした。冷たくも温かいライブ演出に圧倒された。"
+    },
+    unlockSkillId: null
+  },
+  event_kaede_acoustic_encounter: {
+    id: "event_kaede_acoustic_encounter", bandId: "kaede", type: "encounter",
+    startTurn: 25, endTurn: 40, repeatable: false, priority: 55,
+    conditions: { minIndustryRep: 55 },
+    effects: {
+      discoverBandId: "kaede", relationAdd: 10,
+      addLog: "弾き語りイベントでKAEDEのステージを見た。"
+    },
+    unlockSkillId: null
+  },
+  event_jack_bomb_battle: {
+    id: "event_jack_bomb_battle", bandId: "jack_bomb", type: "battle",
+    startTurn: 28, endTurn: 42, repeatable: false, priority: 50,
+    conditions: { minFans: 90 },
+    effects: {
+      discoverBandId: "jack_bomb", relationAdd: 15,
+      addLog: "JACK BOMBと対バンした。爆発力のあるライブでフロアが揺れた。"
+    },
+    unlockSkillId: null
+  },
+  event_hyper_marmoty_battle: {
+    id: "event_hyper_marmoty_battle", bandId: "hyper_marmoty", type: "battle",
+    startTurn: 28, endTurn: 42, repeatable: false, priority: 45,
+    conditions: { minFans: 80 },
+    effects: {
+      discoverBandId: "hyper_marmoty", relationAdd: 15,
+      addLog: "HYPER MARMOTYと対バンした。まっすぐなシャウトが客席を引っ張った。"
+    },
+    unlockSkillId: null
+  },
+  event_ultimate_quokkas_battle: {
+    id: "event_ultimate_quokkas_battle", bandId: "ultimate_quokkas", type: "battle",
+    startTurn: 28, endTurn: 42, repeatable: false, priority: 45,
+    conditions: { minFans: 80 },
+    effects: {
+      discoverBandId: "ultimate_quokkas", relationAdd: 15,
+      addLog: "ultimate quokkasと対バンした。明るいスカパンクで会場中が笑顔になった。"
+    },
+    unlockSkillId: null
+  },
+  event_rumble_sand_sns_discover: {
+    id: "event_rumble_sand_sns_discover", bandId: "rumble_sand", type: "sns_discover",
+    startTurn: 30, endTurn: 45, repeatable: false, priority: 40,
+    conditions: { minIndustryRep: 70 },
+    effects: {
+      discoverBandId: "rumble_sand", relationAdd: 0,
+      addLog: "大型フェス情報でRUMBLE SANDの名前を見かけた。"
+    },
+    unlockSkillId: null
+  },
+  event_neon_reef_news_discover: {
+    id: "event_neon_reef_news_discover", bandId: "neon_reef", type: "sns_discover",
+    startTurn: 30, endTurn: 45, repeatable: false, priority: 40,
+    conditions: { minIndustryRep: 75 },
+    effects: {
+      discoverBandId: "neon_reef", relationAdd: 0,
+      addLog: "音楽ニュースでNeon Reefのライブ映像を見た。"
+    },
+    unlockSkillId: null
+  },
+  event_lact_name_drop: {
+    id: "event_lact_name_drop", bandId: "lact", type: "sns_discover",
+    startTurn: 38, endTurn: 50, repeatable: false, priority: 50,
+    conditions: { minFans: 120, minIndustryRep: 90 },
+    effects: {
+      discoverBandId: "lact", relationAdd: 0,
+      addLog: "GRAND UNDER FESの情報で、LACTの名前が大きく取り上げられていた。",
+      setFlags: ["flag_lact_name_dropped"]
+    },
+    unlockSkillId: null
+  }
+});
+
+// 既存の対バン選出・集客計算（fame/audience/level/genre/mood）互換の一覧を派生。
+const BAND_ROSTER = Object.freeze(Object.values(BAND_DATABASE).map(b => Object.freeze({
+  ...b,
+  level: b.internalLv,
+  genre: (b.genres || []).join(" / "),
+  mood: b.description
+})));
+
+function rosterBands() { return bandSystemOn() ? BAND_ROSTER : RIVAL_BANDS; }
+function bandById(id) { return BAND_DATABASE[id] || null; }
+function initialPartnerBandId() { return bandSystemOn() ? "triple_arrows" : "paper_moon"; }
+
+// ライブハウスUNDERの注記をTriple Arrows表記へ（フラグONのときだけ）。
+if (bandSystemOn()) {
+  const underVenue = VENUES.find(v => v.id === "garage");
+  if (underVenue) underVenue.note = "小箱。序盤でも成功しやすい。Triple Arrowsのホーム";
+}
+
+/* ------------------------------------------------------------------
+ * セーブ状態（bandBook / ownedBandSkills）と正規化
+ * ------------------------------------------------------------------ */
+function normalizeBandSystemState() {
+  if (!state) return;
+  if (!state.bandBook || typeof state.bandBook !== "object") state.bandBook = {};
+  const bb = state.bandBook;
+  if (!bb.bands || typeof bb.bands !== "object") bb.bands = {};
+  if (!bb.seenEvents || typeof bb.seenEvents !== "object") bb.seenEvents = {};
+  if (!bb.flags || typeof bb.flags !== "object") bb.flags = {};
+  if (typeof bb.lastBattle === "undefined") bb.lastBattle = null;
+  if (typeof bb.lastStoryEventTurn === "undefined") bb.lastStoryEventTurn = 0;
+  if (!state.ownedBandSkills || typeof state.ownedBandSkills !== "object") state.ownedBandSkills = {};
+  state.saveSchemaVersion = Math.max(Number(state.saveSchemaVersion || 1), 2);
+  if (typeof state.bandBookDetail === "undefined") state.bandBookDetail = null;
+  if (bandSystemOn()) migrateLegacyPaperMoonState();
+}
+
+// 旧セーブのPaper Moon Kids痕跡をTriple Arrowsへ読み替える（削除ではなく統合）。
+function migrateLegacyPaperMoonState() {
+  const bb = state.bandBook;
+  if (bb.pmkMigrated) return;
+  const rel = state.rivalRelations || {};
+  if (typeof rel.paper_moon === "number") {
+    rel.triple_arrows = Math.max(Number(rel.triple_arrows || 0), Number(rel.paper_moon || 0));
+    delete rel.paper_moon;
+  }
+  const remap = list => (list || []).forEach(e => {
+    if (Array.isArray(e?.invitedBandIds) && e.invitedBandIds.includes("paper_moon")) {
+      e.invitedBandIds = [...new Set(e.invitedBandIds.map(id => id === "paper_moon" ? "triple_arrows" : id))];
+    }
+  });
+  remap(state.liveEvents);
+  remap(state.liveOffers);
+  // 旧8T招待フラグが立っていれば、招待メールイベントは発火済み扱いにする。
+  if (state.storyFlags?.paperMoonInvite8 && !bb.seenEvents.event_triple_arrows_invite_live) {
+    bb.seenEvents.event_triple_arrows_invite_live = state.turn || 1;
+    bb.flags.flag_triple_arrows_invite_available = true;
+  }
+  // 旧セーブで既にPMKと交流済み（初回打ち上げ相当+18）なら、初回打ち上げイベントも発火済み扱い。
+  if (Number(rel.triple_arrows || 0) >= 15) {
+    bb.seenEvents.event_triple_arrows_first_after_party = bb.seenEvents.event_triple_arrows_first_after_party || (state.turn || 1);
+    bb.flags.flag_triple_arrows_met = true;
+    const entry = bandEntry("triple_arrows");
+    if (entry.state === "unknown" || entry.state === "discovered") entry.state = "met";
+    if (!entry.firstMetTurn) entry.firstMetTurn = state.turn || 1;
+  }
+  bb.pmkMigrated = true;
+}
+
+const BAND_STATE_ORDER = { unknown: 0, discovered: 1, met: 2, skill_unlocked: 3 };
+function bandBookRef() {
+  if (!state.bandBook || typeof state.bandBook !== "object") normalizeBandSystemState();
+  return state.bandBook;
+}
+function bandEntry(id) {
+  const bb = bandBookRef();
+  if (!bb.bands[id] || typeof bb.bands[id] !== "object") {
+    bb.bands[id] = { state: "unknown", battleCount: 0, firstMetTurn: null };
+  }
+  const e = bb.bands[id];
+  if (!BAND_STATE_ORDER.hasOwnProperty(e.state)) e.state = "unknown";
+  if (typeof e.battleCount !== "number") e.battleCount = 0;
+  return e;
+}
+function promoteBandState(id, next) {
+  const e = bandEntry(id);
+  if ((BAND_STATE_ORDER[next] || 0) > (BAND_STATE_ORDER[e.state] || 0)) e.state = next;
+  return e;
+}
+function bandSeenEvents() { return bandBookRef().seenEvents; }
+function bandFlags() { return bandBookRef().flags; }
+function bandRelation(id) {
+  return clamp(Math.round(relationshipWithBand(id)), BAND_TUNING.relationCapMin, BAND_TUNING.relationCapMax);
+}
+function bandRelationStage(rel) {
+  if (rel >= 60) return { key: "best", label: "盟友", cls: "good" };
+  if (rel >= 30) return { key: "friend", label: "仲間", cls: "good" };
+  if (rel >= 15) return { key: "known", label: "知り合い", cls: "warn" };
+  if (rel >= 1) return { key: "faced", label: "顔見知り", cls: "warn" };
+  return { key: "none", label: "未交流", cls: "" };
+}
+function bandStateLabel(stateKey) {
+  return ({ unknown: "未遭遇", discovered: "図鑑登録", met: "交流中", skill_unlocked: "スキル獲得" }[stateKey] || "未遭遇");
+}
+function discoverBand(id) {
+  if (!bandById(id)) return null;
+  const e = bandEntry(id);
+  if (e.state === "unknown") e.state = "discovered";
+  return e;
+}
+function touchBandMet(id) {
+  if (!bandById(id)) return null;
+  const e = bandEntry(id);
+  discoverBand(id);
+  promoteBandState(id, "met");
+  if (!e.firstMetTurn) e.firstMetTurn = state.turn || 1;
+  return e;
+}
+function bandDiscoveredCount() {
+  return Object.keys(BAND_DATABASE).filter(id => bandEntry(id).state !== "unknown").length;
+}
+
+/* ------------------------------------------------------------------
+ * 交流スキル：獲得・レベル・効果
+ * ------------------------------------------------------------------ */
+function bandSkillById(id) { return BAND_SKILL_DATABASE[id] || null; }
+function ownedBandSkillRec(id) { return (state.ownedBandSkills || {})[id] || null; }
+function bandSkillLevel(id) { return Number(ownedBandSkillRec(id)?.level || 0); }
+
+function grantBandSkill(skillId, sourceBandId, reason = "") {
+  if (!bandSystemOn()) return false;
+  const sk = bandSkillById(skillId);
+  if (!sk) return false;
+  if (!state.ownedBandSkills || typeof state.ownedBandSkills !== "object") state.ownedBandSkills = {};
+  const owned = state.ownedBandSkills;
+  let rec = owned[skillId];
+  let levelText = "";
+  if (sk.type === "common") {
+    if (!rec) {
+      rec = owned[skillId] = { level: 1, sources: [sourceBandId], obtainedTurn: state.turn || 1 };
+      levelText = " Lv1";
+    } else {
+      if (!Array.isArray(rec.sources)) rec.sources = [];
+      if (rec.sources.includes(sourceBandId)) return false;
+      if (rec.level >= (sk.maxLevel || 1)) {
+        // 上限超過：交流値へ変換
+        setRelationshipWithBand(sourceBandId, relationshipWithBand(sourceBandId) + BAND_TUNING.overflowRelationGain);
+        rec.sources.push(sourceBandId);
+        log(`${sk.name}はすでに上限Lv。${bandById(sourceBandId)?.name || ""}との交流値+${BAND_TUNING.overflowRelationGain}に変換された。`, "info");
+        return false;
+      }
+      rec.level += 1;
+      rec.sources.push(sourceBandId);
+      levelText = ` Lv${rec.level}`;
+    }
+  } else {
+    if (rec) return false;
+    rec = owned[skillId] = { level: 1, sources: [sourceBandId], obtainedTurn: state.turn || 1 };
+  }
+  promoteBandState(sourceBandId, "skill_unlocked");
+  const notImpl = sk.effectImplemented ? "" : "\n※効果は次バージョン実装予定。今は獲得記録のみ。";
+  log(`交流スキル獲得：${sk.name}${levelText}${reason ? `（${reason}）` : ""}`, "event");
+  showEventPopup("交流スキル獲得", `${sk.name}${levelText}\n${sk.description}${notImpl}`, "rare", "🎁");
+  return true;
+}
+
+// 汎用スキル：供給源バンドとの交流値がしきい値以上で獲得/レベルアップ。
+function checkCommonSkillAcquisition() {
+  if (!bandSystemOn()) return;
+  Object.values(BAND_SKILL_DATABASE).forEach(sk => {
+    if (sk.type !== "common" || sk.obtainableIn !== "0.3.60") return;
+    (sk.sourceBandIds || []).forEach(src => {
+      const entry = bandEntry(src);
+      if (entry.state === "unknown" || entry.state === "discovered") return;
+      if (bandRelation(src) < BAND_TUNING.commonSkillRelationNeed) return;
+      const rec = ownedBandSkillRec(sk.id);
+      if (rec && Array.isArray(rec.sources) && rec.sources.includes(src)) return;
+      grantBandSkill(sk.id, src, `${bandById(src)?.name || src}との交流${BAND_TUNING.commonSkillRelationNeed}以上`);
+    });
+  });
+}
+
+// 効果ヘルパー（v0.3.60でONの分だけ）
+function bandSkillAfterPartyBonusPct() {
+  if (!bandSystemOn()) return 0;
+  let pct = 0;
+  if (bandSkillLevel("three_basics") >= 1 && bandSkillById("three_basics").effectImplemented) {
+    pct += Number(bandSkillById("three_basics").params?.afterPartySuccessAddPct || 5);
+  }
+  const heal = bandSkillById("healing_character");
+  if (heal?.effectImplemented && bandSkillLevel("healing_character") >= 1) {
+    pct += Math.min(bandSkillLevel("healing_character") * Number(heal.params?.afterPartySuccessAddPctPerLevel || 2), Number(heal.params?.maxTotalAddPct || 5));
+  }
+  return Math.min(pct, BAND_TUNING.afterPartyBonusCapPct);
+}
+function bandSkillInfluencerPct() {
+  if (!bandSystemOn()) return 0;
+  const sk = bandSkillById("influencer");
+  if (!sk?.effectImplemented) return 0;
+  return Math.min(bandSkillLevel("influencer") * Number(sk.params?.snsBoostAddPctPerLevel || 2), Number(sk.params?.maxTotalAddPct || 5));
+}
+function bandSkillRivalryExposureBonus(rank) {
+  if (!bandSystemOn()) return 0;
+  const sk = bandSkillById("rivalry_spirit");
+  if (!sk?.effectImplemented) return 0;
+  if (!["S", "A"].includes(rank)) return 0;
+  return Math.min(bandSkillLevel("rivalry_spirit"), 3);
+}
+function bandSkillFatigueReducePct() {
+  if (!bandSystemOn()) return 0;
+  const sk = bandSkillById("lingering_echo");
+  if (!sk?.effectImplemented) return 0;
+  return Math.min(bandSkillLevel("lingering_echo") * Number(sk.params?.fatigueReducePctPerLevel || 1), Number(sk.params?.maxTotalReducePct || 3));
+}
+
+/* ------------------------------------------------------------------
+ * イベント条件評価・発火
+ * ------------------------------------------------------------------ */
+function rankToBattleResult(rank) {
+  if (rank === "S") return "great_success";
+  if (rank === "A") return "success";
+  return "normal";
+}
+const BATTLE_RESULT_ORDER = { normal: 0, success: 1, great_success: 2 };
+
+function bandTotalStatusForEvents() {
+  const members = (typeof activeMembers === "function" ? activeMembers() : []) || [];
+  if (!members.length) return 0;
+  return Math.round(avg(members.map(m => avg(Object.values(m.stats || {}).map(Number)))));
+}
+
+function evaluateBandEventConditions(ev, opts = {}) {
+  const c = ev.conditions || {};
+  const bb = bandBookRef();
+  if (c.firstLiveDone && (state.liveCount || 0) <= 0) return false;
+  if (c.eventSeen && !bb.seenEvents[c.eventSeen]) return false;
+  if (c.eventNotSeen && bb.seenEvents[c.eventNotSeen]) return false;
+  if (c.hasFlag && !bb.flags[c.hasFlag]) return false;
+  if (c.skillNotOwned && ownedBandSkillRec(c.skillNotOwned)) return false;
+  if (typeof c.minFans === "number" && Number(state.band?.fans || 0) < c.minFans) return false;
+  if (typeof c.minIndustryRep === "number" && Number(state.band?.industry || 0) < c.minIndustryRep) return false;
+  if (typeof c.minLastLiveScore === "number") {
+    const last = (state.liveResultHistory || [])[state.liveResultHistory.length - 1];
+    const liveTotal = Number(state.bandBook?.lastBattle?.total || last?.total || 0);
+    if (liveTotal < c.minLastLiveScore) return false;
+  }
+  if (typeof c.minTotalStatus === "number" && bandTotalStatusForEvents() < c.minTotalStatus) return false;
+  if (typeof c.minOriginalSongs === "number" && (state.songs || []).filter(s => !s.isCover).length < c.minOriginalSongs) return false;
+  if (c.minBattleCountWithBand) {
+    const need = c.minBattleCountWithBand;
+    if (bandEntry(need.bandId).battleCount < Number(need.count || 1)) return false;
+  }
+  if (c.lastBattleBandId) {
+    const lb = bb.lastBattle;
+    const ids = lb ? (Array.isArray(lb.bandIds) ? lb.bandIds : [lb.bandId]) : [];
+    if (!ids.includes(c.lastBattleBandId)) return false;
+  }
+  if (c.lastBattleResult) {
+    const lb = bb.lastBattle;
+    if (!lb) return false;
+    if ((BATTLE_RESULT_ORDER[lb.result] || 0) < (BATTLE_RESULT_ORDER[c.lastBattleResult] || 0)) return false;
+  }
+  return true;
+}
+
+function bandEventWindowOk(ev, turn = state.turn) {
+  return turn >= (ev.startTurn || 1) && turn <= (ev.endTurn || 999);
+}
+
+// フェス種・固定ライブがあるターンは、ストーリー系バンドイベントを抑制する。
+function isBandEventSuppressedTurn(turn = state.turn, phase = "turnStart") {
+  const ev = liveEventForTurn(turn);
+  if (!ev) return false;
+  const isFesLike = ["band_fes", "corp_fes"].includes(ev.liveType) || /FES|フェス/.test(String(ev.label || ev.name || ""));
+  // ターン開始時は固定ライブ/フェスの前に割り込まない。ライブ後・打ち上げ後は通常対バンなら許可し、フェス系だけ抑制する。
+  if (phase === "turnStart") return !!(ev.fixed || isFesLike);
+  return !!isFesLike;
+}
+
+const BAND_EVENT_PHASE_TYPES = {
+  turnStart: ["mail_invite", "sns_discover", "encounter", "skill_unlock"],
+  postLive: ["encounter", "skill_unlock"],
+  afterParty: ["after_party"]
+};
+
+function processBandStoryEvents(phase) {
+  if (!bandSystemOn() || !state || state.ended) return null;
+  const bb = bandBookRef();
+  if (bb.lastStoryEventTurn === state.turn) return null; // 1ターン1件まで
+  if (isBandEventSuppressedTurn(state.turn, phase)) return null;
+  const types = BAND_EVENT_PHASE_TYPES[phase] || [];
+  const candidates = Object.values(BAND_EVENT_DATABASE).filter(ev => {
+    if (!types.includes(ev.type)) return false;
+    if (!bandEventWindowOk(ev)) return false;
+    if (!ev.repeatable && bb.seenEvents[ev.id]) return false;
+    // 初回打ち上げイベントは初回ライブ直後の専用打ち上げ処理側でのみ消化する。
+    // ここで後日の通常打ち上げ候補に混ぜると、CARBONS等のafter_partyイベントを食うため常に除外する。
+    if (ev.id === "event_triple_arrows_first_after_party") return false;
+    return evaluateBandEventConditions(ev);
+  }).sort((a, b) => (b.priority || 0) - (a.priority || 0));
+  if (!candidates.length) return null;
+  const picked = candidates[0];
+  applyBandEventEffects(picked);
+  return picked;
+}
+
+const BAND_EVENT_TYPE_META = {
+  after_party: { title: "打ち上げ交流", icon: "🍻" },
+  mail_invite: { title: "招待メール", icon: "📩" },
+  skill_unlock: { title: "交流イベント", icon: "🤝" },
+  encounter: { title: "遭遇", icon: "👀" },
+  sns_discover: { title: "バンド情報", icon: "📰" },
+  battle: { title: "対バン", icon: "🎤" }
+};
+
+function applyBandEventEffects(ev, opts = {}) {
+  const bb = bandBookRef();
+  bb.seenEvents[ev.id] = state.turn || 1;
+  bb.lastStoryEventTurn = state.turn || 1;
+  const fx = ev.effects || {};
+  if (fx.discoverBandId) discoverBand(fx.discoverBandId);
+  if (Number(fx.relationAdd || 0) > 0) {
+    setRelationshipWithBand(ev.bandId, relationshipWithBand(ev.bandId) + Number(fx.relationAdd));
+    touchBandMet(ev.bandId);
+  }
+  (fx.setFlags || []).forEach(f => { bb.flags[f] = true; });
+  if (fx.addLog) log(fx.addLog, "event");
+  if (ev.id === "event_triple_arrows_invite_live") createTripleArrowsInviteOffer();
+  if (ev.unlockSkillId) grantBandSkill(ev.unlockSkillId, ev.bandId, "交流イベント");
+  if (!opts.silentPopup) {
+    const meta = BAND_EVENT_TYPE_META[ev.type] || { title: "バンドイベント", icon: "🎸" };
+    const bandName = bandById(ev.bandId)?.name || "";
+    showEventPopup(meta.title, `${fx.addLog || bandName}\n（バンド図鑑が更新された）`, ev.unlockSkillId ? "rare" : "event", meta.icon);
+  }
+  checkCommonSkillAcquisition();
+}
+
+// Triple Arrows招待ライブ：メール＋出演オファー（2ターン後開催・storyInvite扱い）。
+function createTripleArrowsInviteOffer() {
+  state.storyFlags = state.storyFlags || {};
+  state.storyFlags.paperMoonInvite8 = true; // 旧導線の二重発火防止も兼ねる
+  const offerTurn = Math.min((state.turn || 1) + 2, (state.maxTurn || 50) - 1);
+  state.liveOffers = Array.isArray(state.liveOffers) ? state.liveOffers : [];
+  if (state.liveOffers.some(o => o.id === "story_triple_arrows_invite")) return;
+  const offer = {
+    id: "story_triple_arrows_invite", turn: offerTurn, venueId: "garage",
+    liveType: "booking_band", invitedBandIds: ["triple_arrows"],
+    accepted: false, expired: false, status: "open",
+    createdTurn: state.turn, storyInvite: true
+  };
+  state.liveOffers.unshift(offer);
+  const mailId = addMail("俺たちの企画　参加依頼", `この前のライブ、お疲れ！\nまだ荒削りだけど、お前らきっとすごくなるぜ。\nこの前言ってた企画ライブ、よかったら出てくれよ。\n\nTriple Arrows　タカナシ`, "live_offer", { offerId: offer.id, offerTurn, status: "open", sender: "Triple Arrows　タカナシ" });
+  offer.mailId = mailId;
+}
+
+/* ------------------------------------------------------------------
+ * 対バン記録（ライブ結果適用時に呼ぶ）
+ * ------------------------------------------------------------------ */
+function recordBandBattlesAfterLive(ev, r) {
+  if (!bandSystemOn() || !ev) return;
+  const ids = (ev.invitedBandIds || []).filter(id => !!bandById(id));
+  if (!ids.length) return;
+  const bb = bandBookRef();
+  const newlyRegistered = [];
+  ids.forEach(id => {
+    const entry = bandEntry(id);
+    const firstTime = entry.battleCount === 0;
+    entry.battleCount += 1;
+    const wasUnknown = entry.state === "unknown";
+    touchBandMet(id);
+    if (firstTime) {
+      const be = Object.values(BAND_EVENT_DATABASE).find(e => e.type === "battle" && e.bandId === id && (!e.conditions?.eventSeen || bb.seenEvents[e.conditions.eventSeen]));
+      if (be && bandEventWindowOk(be) && !bb.seenEvents[be.id] && evaluateBandEventConditions(be)) {
+        bb.seenEvents[be.id] = state.turn;
+        const add = Number(be.effects?.relationAdd ?? BAND_TUNING.firstBattleRelationDefault);
+        if (add > 0) setRelationshipWithBand(id, relationshipWithBand(id) + add);
+        if (be.effects?.addLog) log(be.effects.addLog, "event");
+        (be.effects?.setFlags || []).forEach(f => { bb.flags[f] = true; });
+      } else {
+        setRelationshipWithBand(id, relationshipWithBand(id) + BAND_TUNING.firstBattleRelationDefault);
+        log(`${bandById(id).name}と初めて対バンした。`, "event");
+      }
+      if (wasUnknown || firstTime) newlyRegistered.push(bandById(id).name);
+    } else {
+      // 2回目以降：リマッチイベントの記録だけ（交流は既存のライブ交流変動に任せる）
+      const rematch = Object.values(BAND_EVENT_DATABASE).find(e => e.type === "battle" && e.bandId === id && e.repeatable && e.conditions?.eventSeen);
+      if (rematch && bandEventWindowOk(rematch) && evaluateBandEventConditions(rematch) && !bb.seenEvents[rematch.id]) {
+        bb.seenEvents[rematch.id] = state.turn;
+        if (rematch.effects?.addLog) log(rematch.effects.addLog, "event");
+      }
+    }
+  });
+  bb.lastBattle = {
+    bandIds: ids.slice(),
+    bandId: ids[0],
+    result: rankToBattleResult(r.rank),
+    rank: r.rank,
+    total: Number(r.total || 0),
+    turn: state.turn
+  };
+  // 招待ライブ完了フラグ（Triple Arrowsスキル導線）
+  if (ids.includes("triple_arrows") && (ev.storyInvite || ev.offerId === "story_triple_arrows_invite" || ev.offerId === "story_paper_moon_8")) {
+    bb.flags.flag_triple_arrows_invite_done = true;
+  }
+  if (newlyRegistered.length) {
+    showEventPopup("バンド図鑑 更新", `図鑑に登録：${newlyRegistered.join(" / ")}\n交流値も少し上がった。詳細はホームの「バンド図鑑」から。`, "event", "📖");
+  }
+  checkCommonSkillAcquisition();
+}
+
+// 対バン候補として出せるか（フラグON時のみ絞り込み）。
+// 交流済み（met以上）は常時候補。未交流はbattle型イベントの出現窓＋条件を満たす間だけ候補。
+function bandBookableNow(band) {
+  if (!bandSystemOn()) return true;
+  if (!bandById(band.id)) return true; // 旧ローステッド予定などの後方互換
+  const entry = bandEntry(band.id);
+  if (BAND_STATE_ORDER[entry.state] >= BAND_STATE_ORDER.met) return true;
+  return Object.values(BAND_EVENT_DATABASE).some(e => {
+    if (e.type !== "battle" || e.bandId !== band.id) return false;
+    if (!bandEventWindowOk(e)) return false;
+    if (e.conditions?.eventSeen && !bandSeenEvents()[e.conditions.eventSeen]) return false;
+    return evaluateBandEventConditions(e);
+  });
+}
+
+/* ------------------------------------------------------------------
+ * 図鑑UI
+ * ------------------------------------------------------------------ */
+function renderBandBookScreen() {
+  if (!bandSystemOn()) {
+    return `<div class="card"><div class="section-title"><h2>バンド図鑑</h2></div><p><small>この機能は現在オフになっています（ENABLE_BAND_SYSTEM）。</small></p></div>`;
+  }
+  if (state.bandBookDetail && bandById(state.bandBookDetail)) return renderBandBookDetail(state.bandBookDetail);
+  const total = Object.keys(BAND_DATABASE).length;
+  const found = bandDiscoveredCount();
+  const skills = Object.entries(state.ownedBandSkills || {});
+  const skillChips = skills.length
+    ? skills.map(([id, rec]) => {
+        const sk = bandSkillById(id);
+        if (!sk) return "";
+        const lv = sk.type === "common" && rec.level > 0 ? ` Lv${rec.level}` : "";
+        return `<span class="badge ${sk.effectImplemented ? "good" : ""}">${escapeHtml(sk.name)}${lv}</span>`;
+      }).join(" ")
+    : `<small>まだ交流スキルはない。他バンドと対バンや打ち上げで交流を深めよう。</small>`;
+  const rows = Object.values(BAND_DATABASE).map((b, idx) => renderBandBookRow(b, idx + 1)).join("");
+  return `<div class="grid bandbook-grid">
+    <div class="card">
+      <div class="section-title"><h2>バンド図鑑</h2><span class="badge good">${found}/${total}組</span></div>
+      <p><small>対バン・打ち上げ・噂で出会ったバンドが記録される。交流が深まると、表示される情報が増えていく。</small></p>
+      <div class="section-title"><h3>獲得した交流スキル</h3><span class="badge">${skills.length}件</span></div>
+      <div class="candidate-cloud">${skillChips}</div>
+    </div>
+    <div class="card">
+      <div class="section-title"><h3>登録リスト</h3><span class="badge">タップで詳細</span></div>
+      <div class="bandbook-list">${rows}</div>
+    </div>
+  </div>`;
+}
+
+function renderBandBookRow(b, no) {
+  const entry = bandEntry(b.id);
+  const unknown = entry.state === "unknown";
+  const rel = bandRelation(b.id);
+  const stage = bandRelationStage(rel);
+  const stateBadge = `<span class="badge ${entry.state === "skill_unlocked" ? "good" : entry.state === "met" ? "warn" : ""}">${bandStateLabel(entry.state)}</span>`;
+  if (unknown) {
+    return `<button class="bandBookRowBtn dict-row bandbook-row unknown" data-band-id="${b.id}">
+      <b>No.${no}　？？？</b>${stateBadge}
+      <small>まだ出会っていないバンド。</small>
+    </button>`;
+  }
+  return `<button class="bandBookRowBtn dict-row bandbook-row" data-band-id="${b.id}">
+    <b>No.${no}　${escapeHtml(b.name)}</b>${stateBadge}${BAND_STATE_ORDER[entry.state] >= 2 ? `<span class="badge ${stage.cls}">${stage.label}</span>` : ""}
+    <small>${escapeHtml(b.kana)} / ${escapeHtml((b.genres || []).join("・"))}</small>
+  </button>`;
+}
+
+function renderBandBookDetail(id) {
+  const b = bandById(id);
+  const entry = bandEntry(id);
+  const unknown = entry.state === "unknown";
+  const rel = bandRelation(id);
+  const stage = bandRelationStage(rel);
+  const met = BAND_STATE_ORDER[entry.state] >= BAND_STATE_ORDER.met;
+  const backBtn = `<button id="bandBookBackBtn" class="ghost-btn">← 図鑑一覧へ</button>`;
+  if (unknown) {
+    return `<div class="card bandbook-detail">
+      <div class="section-title"><h2>？？？</h2><span class="badge">未遭遇</span></div>
+      <p><small>まだ出会っていない。対バンやライブハウスの噂で情報が集まるかもしれない。</small></p>
+      <div class="modal-actions">${backBtn}</div>
+    </div>`;
+  }
+  const song = b.representativeSong ? escapeHtml(b.representativeSong) : "？？？";
+  const repVisible = met && rel >= BAND_TUNING.repNameRelationNeed;
+  const repText = repVisible
+    ? `${escapeHtml(b.representativeName || "？？？")}（${escapeHtml(b.representativePart || "担当不明")}）`
+    : "？？？（交流を深めると分かる）";
+  const bandSkillRows = (b.skillIds || []).map(sid => {
+    const sk = bandSkillById(sid);
+    if (!sk) return "";
+    const rec = ownedBandSkillRec(sid);
+    if (rec) {
+      const lv = sk.type === "common" ? ` Lv${rec.level}` : "";
+      return `<div class="dict-row"><b>${escapeHtml(sk.name)}${lv}</b><small>${escapeHtml(sk.description)}${sk.effectImplemented ? "" : "（効果は次バージョン）"}</small></div>`;
+    }
+    return `<div class="dict-row"><b>？？？</b><small>未獲得の交流スキル。</small></div>`;
+  }).join("");
+  const metRows = met ? `
+    <div class="kv">
+      <b>交流状態</b><span>${stage.label}</span>
+      <b>対バン回数</b><span>${entry.battleCount}回</span>
+      <b>初遭遇</b><span>${entry.firstMetTurn ? `${entry.firstMetTurn}T` : "-"}</span>
+      <b>代表</b><span>${repText}</span>
+    </div>` : `<p><small>まだ直接の交流はない。対バンや打ち上げで距離が縮まる。</small></p>`;
+  return `<div class="card bandbook-detail">
+    <div class="section-title"><h2>${escapeHtml(b.name)}</h2><span class="badge ${entry.state === "skill_unlocked" ? "good" : ""}">${bandStateLabel(entry.state)}</span></div>
+    <div class="kv">
+      <b>読み</b><span>${escapeHtml(b.kana)}</span>
+      <b>ジャンル</b><span>${escapeHtml((b.genres || []).join(" / "))}</span>
+      <b>代表曲</b><span>${song}</span>
+    </div>
+    <p>${escapeHtml(b.description)}</p>
+    ${metRows}
+    <div class="section-title"><h3>交流スキル</h3><span class="badge">${(b.skillIds || []).length}種</span></div>
+    ${bandSkillRows || `<p><small>このバンドの交流スキル情報はまだない。</small></p>`}
+    <div class="modal-actions">${backBtn}</div>
+  </div>`;
+}
+
+// ライブラリ画面用のミニまとめ
+function renderBandBookSummaryForLibrary() {
+  const total = Object.keys(BAND_DATABASE).length;
+  const found = bandDiscoveredCount();
+  const recent = Object.values(BAND_DATABASE).filter(b => bandEntry(b.id).state !== "unknown").slice(0, 6)
+    .map(b => `<span class="badge">${escapeHtml(b.name)}</span>`).join(" ");
+  return `<p><small>出会ったバンド：${found}/${total}組</small></p>
+    <div class="candidate-cloud">${recent || `<small>まだ登録なし。対バンで出会おう。</small>`}</div>
+    <button class="jumpTabBtn" data-view="bandbook">バンド図鑑を開く</button>`;
+}
+
+// バンド画面「ほかのバンド情報」フラグON版：Lv・格・数値は出さない。
+function renderBandDirectoryV060() {
+  const metBands = BAND_ROSTER.filter(b => BAND_STATE_ORDER[bandEntry(b.id).state] >= BAND_STATE_ORDER.met);
+  const discovered = BAND_ROSTER.filter(b => bandEntry(b.id).state === "discovered");
+  const unknownCount = BAND_ROSTER.length - metBands.length - discovered.length;
+  const row = b => {
+    const rel = bandRelation(b.id);
+    const stage = bandRelationStage(rel);
+    const power = popularity() + Number(state.band?.industry || 0) * 0.7 + Number(state.band?.trust || 0);
+    const canInvite = bandBookableNow(b) && relationshipWithBand(b.id) > -25 && (b.fame <= power + 55 + Math.max(0, rel));
+    const next = rivalBandUpcomingText(b.id);
+    return `<div class="rival-band-card dict-row ${canInvite ? "" : "locked"}">
+      <b>${escapeHtml(b.name)}</b><span class="badge ${stage.cls}">${stage.label}</span><span class="badge ${canInvite ? "good" : "warn"}">${canInvite ? "対バン候補" : "今は遠い"}</span>
+      <small>${escapeHtml(b.genre)}</small>
+      <small>今後:${escapeHtml(next)}</small>
+    </div>`;
+  };
+  return `<div class="rival-band-list grouped">
+    <div class="rival-band-tier"><h3>交流のあるバンド</h3>${metBands.map(row).join("") || `<p><small>まだ交流したバンドはいない。対バンや打ち上げで出会おう。</small></p>`}</div>
+    ${discovered.length ? `<div class="rival-band-tier"><h3>名前だけ知っているバンド</h3>${discovered.map(row).join("")}</div>` : ""}
+    ${unknownCount > 0 ? `<p><small>未遭遇のバンド：？？？ ×${unknownCount}</small></p>` : ""}
+    <button class="jumpTabBtn" data-view="bandbook">バンド図鑑を開く</button>
+  </div>`;
+}
+
+/* ------------------------------------------------------------------
+ * 開発用：DB参照整合チェック（consoleのみ、ゲーム進行に影響なし）
+ * ------------------------------------------------------------------ */
+function validateBandDatabases() {
+  try {
+    const issues = [];
+    Object.values(BAND_DATABASE).forEach(b => (b.skillIds || []).forEach(sid => {
+      if (!BAND_SKILL_DATABASE[sid]) issues.push(`band ${b.id} -> missing skill ${sid}`);
+    }));
+    Object.values(BAND_SKILL_DATABASE).forEach(sk => (sk.sourceBandIds || []).forEach(bid => {
+      if (!BAND_DATABASE[bid]) issues.push(`skill ${sk.id} -> missing band ${bid}`);
+    }));
+    Object.values(BAND_EVENT_DATABASE).forEach(e => {
+      if (!BAND_DATABASE[e.bandId]) issues.push(`event ${e.id} -> missing band ${e.bandId}`);
+      if (e.unlockSkillId && !BAND_SKILL_DATABASE[e.unlockSkillId]) issues.push(`event ${e.id} -> missing skill ${e.unlockSkillId}`);
+      if (e.startTurn > e.endTurn) issues.push(`event ${e.id} -> bad window`);
+    });
+    if (issues.length) console.warn("[BAND_DB VALIDATION]", issues);
+  } catch (e) { /* 検証失敗はゲームに影響させない */ }
+}
+if (bandSystemOn()) validateBandDatabases();
+
+/* ================== バンドシステムここまで ================== */
+
 function venueById(id) {
   return VENUES.find(v => v.id === id) || VENUES[0];
 }
@@ -446,7 +1709,7 @@ function liveTypeMeta(typeOrEvent) {
   return LIVE_TYPES[type] || LIVE_TYPES.self_one_man;
 }
 function liveTypeLabel(ev) { return liveTypeMeta(ev).label; }
-function rivalById(id) { return RIVAL_BANDS.find(b => b.id === id) || null; }
+function rivalById(id) { return rosterBands().find(b => b.id === id) || RIVAL_BANDS.find(b => b.id === id) || BAND_ROSTER.find(b => b.id === id) || null; }
 function relationshipWithBand(id) {
   if (!state.rivalRelations || typeof state.rivalRelations !== "object") state.rivalRelations = {};
   return Number(state.rivalRelations[id] || 0);
@@ -458,8 +1721,9 @@ function setRelationshipWithBand(id, value) {
 }
 function availableRivalBands(limit=99) {
   const power = popularity() + Number(state.band?.industry || 0) * 0.7 + Number(state.band?.trust || 0);
-  const pool = RIVAL_BANDS
+  const pool = rosterBands()
     .filter(b => relationshipWithBand(b.id) > -25 && (b.fame <= power + 55 || relationshipWithBand(b.id) >= 20))
+    .filter(b => bandBookableNow(b))
     .sort((a,b) => a.level - b.level || a.fame - b.fame);
   return pool.slice(0, limit);
 }
@@ -498,13 +1762,6 @@ function eventBaseCost(ev, venue) {
   const type = ev?.liveType || "self_one_man";
   if (type === "booking_house" || type === "booking_band") return eventEntryFee(ev, venue);
   return venue?.fee || 0;
-}
-function lateGameCostMultiplier() {
-  const t = Number(state.turn || 1);
-  if (t >= 40) return 1.35;
-  if (t >= 30) return 1.20;
-  if (t >= 20) return 1.10;
-  return 1.00;
 }
 function liveEventTitle(ev) {
   if (!ev) return "ライブ";
@@ -691,7 +1948,9 @@ const DATA = {
     { id: "sup_other", name: "その他楽器サポート", instrument: "other", cost: 6000, score: 7, genres: ["ジャズ", "クラシック", "ポップ", "ロック"] }
   ]};
 
-// v0.2.1: 仮キャラ追加。ここは本キャラに差し替え前提。
+// 旧v0.2.1: 仮キャラ退避ブロック。
+// v0.3.61以降は下部の MEMBER_DATABASE で DATA.candidateCharacters を上書きするため、
+// このブロックの「（仮）」候補や他バンド代表キャラは通常募集には出ない。
 DATA.candidateCharacters.push(
   {
     id: "ranka", name: "ランカ（仮）", part: "Vo", mainInstrument: "vocal", mainGenre: "ポップ", secondMainGenres: ["ジャズ", "ロック"],
@@ -1009,6 +2268,2704 @@ DATA.candidateCharacters.push(
 );
 
 
+
+// v0.3.61-member-draft: 正式加入候補データ草案。
+// 旧「（仮）」候補や他バンド代表キャラ混入を避けるため、ここで候補プールを上書きする。
+// defaultName/name は苗字のみ・名前のみの汎用カタカナ。加入時にプレイヤーが表示名を変更できる。
+const MEMBER_GROWTH_TYPE_DATABASE = Object.freeze({
+  "技術型": { focus: ["technique"], curve: "normal", note: "演奏技術が伸びやすい" },
+  "センス型": { focus: ["sense", "charisma"], curve: "normal", note: "曲の個性・表現が伸びやすい" },
+  "メンタル型": { focus: ["mental", "stamina"], curve: "stable", note: "疲労や本番のブレに強い" },
+  "カリスマ型": { focus: ["charisma", "sense"], curve: "burst", note: "ファン反応とフロント性能が伸びやすい" },
+  "リズム型": { focus: ["rhythm", "technique"], curve: "normal", note: "テンポ・安定感を支えやすい" },
+  "協調性型": { focus: ["teamwork", "mental"], curve: "stable", note: "打ち上げ・バンド安定に寄与しやすい" },
+  "体力型": { focus: ["stamina", "rhythm"], curve: "early", note: "疲労に強く序盤から扱いやすい" },
+  "知識型": { focus: ["knowledge", "technique"], curve: "normal", note: "作曲・アレンジ寄り" },
+  "安定型": { focus: ["teamwork", "mental", "rhythm"], curve: "stable", note: "突出しないが崩れにくい" },
+  "爆発型": { focus: ["sense", "charisma", "rhythm"], curve: "burst", note: "ライブで伸びやすいがムラがある" },
+  "晩成型": { focus: ["sense", "technique"], curve: "late", note: "加入直後より育成後に強い" }
+});
+
+const MEMBER_DATABASE = Object.freeze([
+  {
+    "id": "member_mizuno",
+    "defaultName": "ミズノ",
+    "name": "ミズノ",
+    "canRename": true,
+    "part": "Vo",
+    "joinPhase": "early",
+    "joinType": "recruit",
+    "genderHint": "female",
+    "mainInstrument": "vocal",
+    "mainGenre": "ロック",
+    "secondMainGenres": [
+      "ポップ",
+      "パンク"
+    ],
+    "subGenres": [
+      "ギターロック",
+      "バラードロック",
+      "ポップパンク"
+    ],
+    "weakMainGenres": [
+      "メタル"
+    ],
+    "weakSubGenres": [
+      "スクリーモ"
+    ],
+    "stats": {
+      "stamina": 40,
+      "technique": 38,
+      "knowledge": 36,
+      "sense": 54,
+      "mental": 52,
+      "teamwork": 42,
+      "rhythm": 40,
+      "charisma": 62
+    },
+    "instruments": {
+      "vocal": {
+        "mark": "◎",
+        "lv": 58,
+        "cap": 84,
+        "potentialCap": 92,
+        "growth": 1.12
+      },
+      "chorus": {
+        "mark": "○",
+        "lv": 44,
+        "cap": 72,
+        "potentialCap": 84,
+        "growth": 0.95
+      },
+      "guitar": {
+        "mark": "△",
+        "lv": 20,
+        "cap": 48,
+        "potentialCap": 70,
+        "growth": 0.7,
+        "hiddenUpgrade": true
+      }
+    },
+    "growthType": "カリスマ型",
+    "joinDifficulty": "低",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 1
+    },
+    "roleHint": "王道ボーカル候補。歌声とカリスマで序盤ライブを支える。",
+    "replaceNote": "王道ボーカル候補。歌声とカリスマで序盤ライブを支える。"
+  },
+  {
+    "id": "member_yuto",
+    "defaultName": "ユウト",
+    "name": "ユウト",
+    "canRename": true,
+    "part": "Vo",
+    "joinPhase": "early",
+    "joinType": "recruit",
+    "genderHint": "male",
+    "mainInstrument": "vocal",
+    "mainGenre": "パンク",
+    "secondMainGenres": [
+      "ロック",
+      "メタル"
+    ],
+    "subGenres": [
+      "青春パンク",
+      "メロディックパンク",
+      "ハードロック"
+    ],
+    "weakMainGenres": [
+      "クラシック"
+    ],
+    "weakSubGenres": [
+      "シンフォニックメタル"
+    ],
+    "stats": {
+      "stamina": 48,
+      "technique": 40,
+      "knowledge": 32,
+      "sense": 44,
+      "mental": 60,
+      "teamwork": 42,
+      "rhythm": 44,
+      "charisma": 52
+    },
+    "instruments": {
+      "vocal": {
+        "mark": "◎",
+        "lv": 56,
+        "cap": 82,
+        "potentialCap": 90,
+        "growth": 1.08
+      },
+      "chorus": {
+        "mark": "○",
+        "lv": 40,
+        "cap": 70,
+        "potentialCap": 82,
+        "growth": 0.9
+      },
+      "drum": {
+        "mark": "△",
+        "lv": 24,
+        "cap": 52,
+        "potentialCap": 74,
+        "growth": 0.72,
+        "hiddenUpgrade": true
+      }
+    },
+    "growthType": "メンタル型",
+    "joinDifficulty": "低",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 1
+    },
+    "roleHint": "熱いライブ向きのボーカル。メンタルが強く崩れにくい。",
+    "replaceNote": "熱いライブ向きのボーカル。メンタルが強く崩れにくい。"
+  },
+  {
+    "id": "member_sana",
+    "defaultName": "サナ",
+    "name": "サナ",
+    "canRename": true,
+    "part": "Gt/Vo",
+    "joinPhase": "early",
+    "joinType": "recruit",
+    "genderHint": "female",
+    "mainInstrument": "guitar",
+    "mainGenre": "パンク",
+    "secondMainGenres": [
+      "ロック",
+      "エモ"
+    ],
+    "subGenres": [
+      "青春パンク",
+      "メロディックパンク",
+      "エモロック"
+    ],
+    "weakMainGenres": [
+      "クラシック"
+    ],
+    "weakSubGenres": [
+      "シンフォニックメタル"
+    ],
+    "stats": {
+      "stamina": 42,
+      "technique": 46,
+      "knowledge": 30,
+      "sense": 62,
+      "mental": 42,
+      "teamwork": 34,
+      "rhythm": 42,
+      "charisma": 56
+    },
+    "instruments": {
+      "guitar": {
+        "mark": "◎",
+        "lv": 58,
+        "cap": 84,
+        "potentialCap": 94,
+        "growth": 1.12
+      },
+      "vocal": {
+        "mark": "○",
+        "lv": 48,
+        "cap": 76,
+        "potentialCap": 90,
+        "growth": 0.98
+      },
+      "chorus": {
+        "mark": "○",
+        "lv": 42,
+        "cap": 70,
+        "potentialCap": 82,
+        "growth": 0.9
+      },
+      "bass": {
+        "mark": "△",
+        "lv": 22,
+        "cap": 50,
+        "potentialCap": 70,
+        "growth": 0.7,
+        "hiddenUpgrade": true
+      }
+    },
+    "growthType": "センス型",
+    "joinDifficulty": "中",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 1
+    },
+    "roleHint": "荒いが曲の芯を作れるギターボーカル。",
+    "replaceNote": "荒いが曲の芯を作れるギターボーカル。"
+  },
+  {
+    "id": "member_naoto",
+    "defaultName": "ナオト",
+    "name": "ナオト",
+    "canRename": true,
+    "part": "Gt/Vo",
+    "joinPhase": "early",
+    "joinType": "recruit",
+    "genderHint": "male",
+    "mainInstrument": "guitar",
+    "mainGenre": "ロック",
+    "secondMainGenres": [
+      "ポップ",
+      "パンク"
+    ],
+    "subGenres": [
+      "ギターロック",
+      "オルタナロック",
+      "ポップパンク"
+    ],
+    "weakMainGenres": [
+      "ヒップホップ"
+    ],
+    "weakSubGenres": [
+      "トラップ"
+    ],
+    "stats": {
+      "stamina": 44,
+      "technique": 54,
+      "knowledge": 42,
+      "sense": 48,
+      "mental": 48,
+      "teamwork": 48,
+      "rhythm": 46,
+      "charisma": 42
+    },
+    "instruments": {
+      "guitar": {
+        "mark": "◎",
+        "lv": 60,
+        "cap": 86,
+        "potentialCap": 92,
+        "growth": 1.08
+      },
+      "vocal": {
+        "mark": "○",
+        "lv": 42,
+        "cap": 72,
+        "potentialCap": 84,
+        "growth": 0.92
+      },
+      "chorus": {
+        "mark": "△",
+        "lv": 30,
+        "cap": 58,
+        "potentialCap": 72,
+        "growth": 0.75
+      }
+    },
+    "growthType": "安定型",
+    "joinDifficulty": "低",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 1
+    },
+    "roleHint": "技術と安定感寄り。扱いやすいギターボーカル。",
+    "replaceNote": "技術と安定感寄り。扱いやすいギターボーカル。"
+  },
+  {
+    "id": "member_hirose",
+    "defaultName": "ヒロセ",
+    "name": "ヒロセ",
+    "canRename": true,
+    "part": "Gt",
+    "joinPhase": "early",
+    "joinType": "recruit",
+    "genderHint": "female",
+    "mainInstrument": "guitar",
+    "mainGenre": "ロック",
+    "secondMainGenres": [
+      "ポップ"
+    ],
+    "subGenres": [
+      "ギターロック",
+      "オルタナロック",
+      "グランジ"
+    ],
+    "weakMainGenres": [
+      "ヒップホップ"
+    ],
+    "weakSubGenres": [
+      "トラップ"
+    ],
+    "stats": {
+      "stamina": 42,
+      "technique": 60,
+      "knowledge": 48,
+      "sense": 42,
+      "mental": 44,
+      "teamwork": 44,
+      "rhythm": 48,
+      "charisma": 32
+    },
+    "instruments": {
+      "guitar": {
+        "mark": "◎",
+        "lv": 62,
+        "cap": 88,
+        "potentialCap": 94,
+        "growth": 1.12
+      },
+      "key": {
+        "mark": "△",
+        "lv": 28,
+        "cap": 56,
+        "potentialCap": 76,
+        "growth": 0.72,
+        "hiddenUpgrade": true
+      },
+      "chorus": {
+        "mark": "△",
+        "lv": 24,
+        "cap": 52,
+        "potentialCap": 66,
+        "growth": 0.7
+      }
+    },
+    "growthType": "技術型",
+    "joinDifficulty": "低",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 1
+    },
+    "roleHint": "堅実に演奏力を支える技術型ギター。",
+    "replaceNote": "堅実に演奏力を支える技術型ギター。"
+  },
+  {
+    "id": "member_toma",
+    "defaultName": "トウマ",
+    "name": "トウマ",
+    "canRename": true,
+    "part": "Gt",
+    "joinPhase": "early",
+    "joinType": "recruit",
+    "genderHint": "male",
+    "mainInstrument": "guitar",
+    "mainGenre": "メタル",
+    "secondMainGenres": [
+      "ロック",
+      "パンク"
+    ],
+    "subGenres": [
+      "ハードロック",
+      "ヘヴィメタル",
+      "ガレージロック"
+    ],
+    "weakMainGenres": [
+      "ポップ"
+    ],
+    "weakSubGenres": [
+      "シティポップ"
+    ],
+    "stats": {
+      "stamina": 56,
+      "technique": 52,
+      "knowledge": 30,
+      "sense": 42,
+      "mental": 46,
+      "teamwork": 34,
+      "rhythm": 50,
+      "charisma": 46
+    },
+    "instruments": {
+      "guitar": {
+        "mark": "◎",
+        "lv": 60,
+        "cap": 86,
+        "potentialCap": 96,
+        "growth": 1.1
+      },
+      "bass": {
+        "mark": "○",
+        "lv": 38,
+        "cap": 68,
+        "potentialCap": 82,
+        "growth": 0.9
+      },
+      "chorus": {
+        "mark": "△",
+        "lv": 20,
+        "cap": 46,
+        "potentialCap": 60,
+        "growth": 0.65
+      }
+    },
+    "growthType": "体力型",
+    "joinDifficulty": "中",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 1
+    },
+    "roleHint": "音圧とライブ映え重視のギター。協調性はやや低め。",
+    "replaceNote": "音圧とライブ映え重視のギター。協調性はやや低め。"
+  },
+  {
+    "id": "member_rui",
+    "defaultName": "ルイ",
+    "name": "ルイ",
+    "canRename": true,
+    "part": "Gt",
+    "joinPhase": "early",
+    "joinType": "recruit",
+    "genderHint": "neutral",
+    "mainInstrument": "guitar",
+    "mainGenre": "オルタナ",
+    "secondMainGenres": [
+      "ロック",
+      "エモ"
+    ],
+    "subGenres": [
+      "オルタナロック",
+      "エモロック",
+      "ギターポップ"
+    ],
+    "weakMainGenres": [
+      "メタル"
+    ],
+    "weakSubGenres": [
+      "スピードメタル"
+    ],
+    "stats": {
+      "stamina": 38,
+      "technique": 48,
+      "knowledge": 42,
+      "sense": 60,
+      "mental": 44,
+      "teamwork": 42,
+      "rhythm": 46,
+      "charisma": 44
+    },
+    "instruments": {
+      "guitar": {
+        "mark": "◎",
+        "lv": 56,
+        "cap": 84,
+        "potentialCap": 96,
+        "growth": 1.08
+      },
+      "key": {
+        "mark": "○",
+        "lv": 38,
+        "cap": 68,
+        "potentialCap": 84,
+        "growth": 0.9
+      },
+      "chorus": {
+        "mark": "○",
+        "lv": 36,
+        "cap": 66,
+        "potentialCap": 80,
+        "growth": 0.88
+      }
+    },
+    "growthType": "センス型",
+    "joinDifficulty": "中",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 1
+    },
+    "roleHint": "ジャンル適応が広いセンス型ギター。",
+    "replaceNote": "ジャンル適応が広いセンス型ギター。"
+  },
+  {
+    "id": "member_rina",
+    "defaultName": "リナ",
+    "name": "リナ",
+    "canRename": true,
+    "part": "Ba/Vo",
+    "joinPhase": "early",
+    "joinType": "recruit",
+    "genderHint": "female",
+    "mainInstrument": "bass",
+    "mainGenre": "ポップ",
+    "secondMainGenres": [
+      "ロック",
+      "パンク"
+    ],
+    "subGenres": [
+      "ギターポップ",
+      "シティポップ",
+      "メロディックパンク"
+    ],
+    "weakMainGenres": [
+      "メタル"
+    ],
+    "weakSubGenres": [
+      "メタルコア"
+    ],
+    "stats": {
+      "stamina": 46,
+      "technique": 44,
+      "knowledge": 42,
+      "sense": 46,
+      "mental": 52,
+      "teamwork": 62,
+      "rhythm": 58,
+      "charisma": 42
+    },
+    "instruments": {
+      "bass": {
+        "mark": "◎",
+        "lv": 58,
+        "cap": 84,
+        "potentialCap": 92,
+        "growth": 1.08
+      },
+      "vocal": {
+        "mark": "○",
+        "lv": 42,
+        "cap": 72,
+        "potentialCap": 86,
+        "growth": 0.9
+      },
+      "chorus": {
+        "mark": "◎",
+        "lv": 48,
+        "cap": 78,
+        "potentialCap": 90,
+        "growth": 0.98
+      },
+      "guitar": {
+        "mark": "△",
+        "lv": 22,
+        "cap": 50,
+        "potentialCap": 70,
+        "growth": 0.7,
+        "hiddenUpgrade": true
+      }
+    },
+    "growthType": "協調性型",
+    "joinDifficulty": "低",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 1
+    },
+    "roleHint": "協調性高め。バンドの土台を整えるベースボーカル。",
+    "replaceNote": "協調性高め。バンドの土台を整えるベースボーカル。"
+  },
+  {
+    "id": "member_keita",
+    "defaultName": "ケイタ",
+    "name": "ケイタ",
+    "canRename": true,
+    "part": "Ba/Vo",
+    "joinPhase": "early",
+    "joinType": "recruit",
+    "genderHint": "male",
+    "mainInstrument": "bass",
+    "mainGenre": "パンク",
+    "secondMainGenres": [
+      "ロック",
+      "ポップ"
+    ],
+    "subGenres": [
+      "ポップパンク",
+      "スカパンク",
+      "ギターロック"
+    ],
+    "weakMainGenres": [
+      "クラシック"
+    ],
+    "weakSubGenres": [
+      "シンフォニックメタル"
+    ],
+    "stats": {
+      "stamina": 50,
+      "technique": 42,
+      "knowledge": 32,
+      "sense": 46,
+      "mental": 52,
+      "teamwork": 40,
+      "rhythm": 54,
+      "charisma": 58
+    },
+    "instruments": {
+      "bass": {
+        "mark": "◎",
+        "lv": 56,
+        "cap": 82,
+        "potentialCap": 94,
+        "growth": 1.05
+      },
+      "vocal": {
+        "mark": "○",
+        "lv": 48,
+        "cap": 76,
+        "potentialCap": 88,
+        "growth": 0.95
+      },
+      "chorus": {
+        "mark": "○",
+        "lv": 36,
+        "cap": 66,
+        "potentialCap": 78,
+        "growth": 0.85
+      }
+    },
+    "growthType": "カリスマ型",
+    "joinDifficulty": "中",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 1
+    },
+    "roleHint": "前に出るベースボーカル。ファン反応を作りやすい。",
+    "replaceNote": "前に出るベースボーカル。ファン反応を作りやすい。"
+  },
+  {
+    "id": "member_minami",
+    "defaultName": "ミナミ",
+    "name": "ミナミ",
+    "canRename": true,
+    "part": "Ba",
+    "joinPhase": "early",
+    "joinType": "recruit",
+    "genderHint": "female",
+    "mainInstrument": "bass",
+    "mainGenre": "ポップ",
+    "secondMainGenres": [
+      "ロック"
+    ],
+    "subGenres": [
+      "ギターポップ",
+      "バラードポップ",
+      "メロディックパンク"
+    ],
+    "weakMainGenres": [
+      "メタル"
+    ],
+    "weakSubGenres": [
+      "スクリーモ"
+    ],
+    "stats": {
+      "stamina": 52,
+      "technique": 44,
+      "knowledge": 44,
+      "sense": 40,
+      "mental": 56,
+      "teamwork": 62,
+      "rhythm": 56,
+      "charisma": 30
+    },
+    "instruments": {
+      "bass": {
+        "mark": "◎",
+        "lv": 58,
+        "cap": 86,
+        "potentialCap": 92,
+        "growth": 1.05
+      },
+      "chorus": {
+        "mark": "○",
+        "lv": 38,
+        "cap": 68,
+        "potentialCap": 78,
+        "growth": 0.88
+      },
+      "drum": {
+        "mark": "△",
+        "lv": 24,
+        "cap": 52,
+        "potentialCap": 72,
+        "growth": 0.72,
+        "hiddenUpgrade": true
+      }
+    },
+    "growthType": "安定型",
+    "joinDifficulty": "低",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 1
+    },
+    "roleHint": "低リスクで扱いやすい安定型ベース。",
+    "replaceNote": "低リスクで扱いやすい安定型ベース。"
+  },
+  {
+    "id": "member_shion",
+    "defaultName": "シオン",
+    "name": "シオン",
+    "canRename": true,
+    "part": "Ba",
+    "joinPhase": "early",
+    "joinType": "recruit",
+    "genderHint": "male",
+    "mainInstrument": "bass",
+    "mainGenre": "ロック",
+    "secondMainGenres": [
+      "パンク",
+      "エモ"
+    ],
+    "subGenres": [
+      "ギターロック",
+      "メロディックパンク",
+      "エモロック"
+    ],
+    "weakMainGenres": [
+      "クラシック"
+    ],
+    "weakSubGenres": [
+      "クラシカルロック"
+    ],
+    "stats": {
+      "stamina": 48,
+      "technique": 46,
+      "knowledge": 38,
+      "sense": 42,
+      "mental": 48,
+      "teamwork": 46,
+      "rhythm": 64,
+      "charisma": 36
+    },
+    "instruments": {
+      "bass": {
+        "mark": "◎",
+        "lv": 60,
+        "cap": 86,
+        "potentialCap": 94,
+        "growth": 1.08
+      },
+      "drum": {
+        "mark": "○",
+        "lv": 36,
+        "cap": 66,
+        "potentialCap": 78,
+        "growth": 0.88
+      },
+      "chorus": {
+        "mark": "△",
+        "lv": 24,
+        "cap": 52,
+        "potentialCap": 66,
+        "growth": 0.7
+      }
+    },
+    "growthType": "リズム型",
+    "joinDifficulty": "低",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 1
+    },
+    "roleHint": "ライブ評価を支えやすいリズム重視ベース。",
+    "replaceNote": "ライブ評価を支えやすいリズム重視ベース。"
+  },
+  {
+    "id": "member_ayane",
+    "defaultName": "アヤネ",
+    "name": "アヤネ",
+    "canRename": true,
+    "part": "Dr",
+    "joinPhase": "early",
+    "joinType": "recruit",
+    "genderHint": "female",
+    "mainInstrument": "drum",
+    "mainGenre": "パンク",
+    "secondMainGenres": [
+      "ポップ",
+      "ロック"
+    ],
+    "subGenres": [
+      "青春パンク",
+      "メロディックパンク",
+      "ダンスロック"
+    ],
+    "weakMainGenres": [
+      "クラシック"
+    ],
+    "weakSubGenres": [
+      "シンフォニックメタル"
+    ],
+    "stats": {
+      "stamina": 54,
+      "technique": 44,
+      "knowledge": 30,
+      "sense": 46,
+      "mental": 46,
+      "teamwork": 44,
+      "rhythm": 66,
+      "charisma": 42
+    },
+    "instruments": {
+      "drum": {
+        "mark": "◎",
+        "lv": 62,
+        "cap": 88,
+        "potentialCap": 96,
+        "growth": 1.14
+      },
+      "chorus": {
+        "mark": "△",
+        "lv": 24,
+        "cap": 52,
+        "potentialCap": 66,
+        "growth": 0.7
+      },
+      "dj": {
+        "mark": "△",
+        "lv": 20,
+        "cap": 48,
+        "potentialCap": 76,
+        "growth": 0.7,
+        "hiddenUpgrade": true
+      }
+    },
+    "growthType": "リズム型",
+    "joinDifficulty": "低",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 1
+    },
+    "roleHint": "テンポの良い曲に強いドラム。",
+    "replaceNote": "テンポの良い曲に強いドラム。"
+  },
+  {
+    "id": "member_hayate",
+    "defaultName": "ハヤテ",
+    "name": "ハヤテ",
+    "canRename": true,
+    "part": "Dr",
+    "joinPhase": "early",
+    "joinType": "recruit",
+    "genderHint": "male",
+    "mainInstrument": "drum",
+    "mainGenre": "メタル",
+    "secondMainGenres": [
+      "パンク",
+      "ロック"
+    ],
+    "subGenres": [
+      "ハードコア",
+      "メタルコア",
+      "ハードロック"
+    ],
+    "weakMainGenres": [
+      "ポップ"
+    ],
+    "weakSubGenres": [
+      "バラードポップ"
+    ],
+    "stats": {
+      "stamina": 66,
+      "technique": 42,
+      "knowledge": 28,
+      "sense": 38,
+      "mental": 50,
+      "teamwork": 38,
+      "rhythm": 62,
+      "charisma": 36
+    },
+    "instruments": {
+      "drum": {
+        "mark": "◎",
+        "lv": 64,
+        "cap": 90,
+        "potentialCap": 98,
+        "growth": 1.16
+      },
+      "bass": {
+        "mark": "△",
+        "lv": 26,
+        "cap": 54,
+        "potentialCap": 72,
+        "growth": 0.72
+      },
+      "chorus": {
+        "mark": "×",
+        "lv": 12,
+        "cap": 36,
+        "potentialCap": 44,
+        "growth": 0.5
+      }
+    },
+    "growthType": "体力型",
+    "joinDifficulty": "中",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 1
+    },
+    "roleHint": "疲労に強い体力型ドラム。",
+    "replaceNote": "疲労に強い体力型ドラム。"
+  },
+  {
+    "id": "member_mio",
+    "defaultName": "ミオ",
+    "name": "ミオ",
+    "canRename": true,
+    "part": "Key",
+    "joinPhase": "early",
+    "joinType": "recruit",
+    "genderHint": "female",
+    "mainInstrument": "key",
+    "mainGenre": "ポップ",
+    "secondMainGenres": [
+      "ジャズ",
+      "ロック"
+    ],
+    "subGenres": [
+      "シティポップ",
+      "ピアノロック",
+      "ジャズロック"
+    ],
+    "weakMainGenres": [
+      "メタル"
+    ],
+    "weakSubGenres": [
+      "ハードコア"
+    ],
+    "stats": {
+      "stamina": 34,
+      "technique": 46,
+      "knowledge": 62,
+      "sense": 58,
+      "mental": 40,
+      "teamwork": 48,
+      "rhythm": 42,
+      "charisma": 34
+    },
+    "instruments": {
+      "key": {
+        "mark": "◎",
+        "lv": 60,
+        "cap": 86,
+        "potentialCap": 96,
+        "growth": 1.12
+      },
+      "chorus": {
+        "mark": "○",
+        "lv": 48,
+        "cap": 76,
+        "potentialCap": 88,
+        "growth": 0.95
+      },
+      "vocal": {
+        "mark": "△",
+        "lv": 24,
+        "cap": 52,
+        "potentialCap": 70,
+        "growth": 0.7
+      }
+    },
+    "growthType": "知識型",
+    "joinDifficulty": "中",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 1
+    },
+    "roleHint": "作曲やアレンジに向くキーボード。",
+    "replaceNote": "作曲やアレンジに向くキーボード。"
+  },
+  {
+    "id": "member_yu",
+    "defaultName": "ユウ",
+    "name": "ユウ",
+    "canRename": true,
+    "part": "DJ",
+    "joinPhase": "early",
+    "joinType": "recruit",
+    "genderHint": "neutral",
+    "mainInstrument": "dj",
+    "mainGenre": "ミクスチャー",
+    "secondMainGenres": [
+      "ヒップホップ",
+      "ポップ"
+    ],
+    "subGenres": [
+      "ミクスチャーロック",
+      "ラップロック",
+      "ダンスロック"
+    ],
+    "weakMainGenres": [
+      "クラシック"
+    ],
+    "weakSubGenres": [
+      "クラシカルロック"
+    ],
+    "stats": {
+      "stamina": 40,
+      "technique": 48,
+      "knowledge": 50,
+      "sense": 58,
+      "mental": 42,
+      "teamwork": 34,
+      "rhythm": 62,
+      "charisma": 50
+    },
+    "instruments": {
+      "dj": {
+        "mark": "◎",
+        "lv": 62,
+        "cap": 88,
+        "potentialCap": 96,
+        "growth": 1.1
+      },
+      "vocal": {
+        "mark": "△",
+        "lv": 28,
+        "cap": 58,
+        "potentialCap": 74,
+        "growth": 0.72
+      },
+      "chorus": {
+        "mark": "○",
+        "lv": 36,
+        "cap": 66,
+        "potentialCap": 78,
+        "growth": 0.85
+      },
+      "bass": {
+        "mark": "△",
+        "lv": 22,
+        "cap": 50,
+        "potentialCap": 70,
+        "growth": 0.7,
+        "hiddenUpgrade": true
+      }
+    },
+    "growthType": "センス型",
+    "joinDifficulty": "中",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 1
+    },
+    "roleHint": "SNS・ミクスチャー寄りの特殊枠。",
+    "replaceNote": "SNS・ミクスチャー寄りの特殊枠。"
+  },
+  {
+    "id": "member_koto",
+    "defaultName": "コト",
+    "name": "コト",
+    "canRename": true,
+    "part": "Cho",
+    "joinPhase": "early",
+    "joinType": "recruit",
+    "genderHint": "female",
+    "mainInstrument": "chorus",
+    "mainGenre": "ポップ",
+    "secondMainGenres": [
+      "ロック",
+      "エモ"
+    ],
+    "subGenres": [
+      "ギターポップ",
+      "バラードポップ",
+      "エモロック"
+    ],
+    "weakMainGenres": [
+      "メタル"
+    ],
+    "weakSubGenres": [
+      "メタルコア"
+    ],
+    "stats": {
+      "stamina": 36,
+      "technique": 40,
+      "knowledge": 46,
+      "sense": 50,
+      "mental": 56,
+      "teamwork": 64,
+      "rhythm": 42,
+      "charisma": 40
+    },
+    "instruments": {
+      "chorus": {
+        "mark": "◎",
+        "lv": 60,
+        "cap": 86,
+        "potentialCap": 96,
+        "growth": 1.1
+      },
+      "vocal": {
+        "mark": "○",
+        "lv": 44,
+        "cap": 74,
+        "potentialCap": 86,
+        "growth": 0.92
+      },
+      "key": {
+        "mark": "△",
+        "lv": 26,
+        "cap": 54,
+        "potentialCap": 74,
+        "growth": 0.72,
+        "hiddenUpgrade": true
+      }
+    },
+    "growthType": "協調性型",
+    "joinDifficulty": "低",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 1
+    },
+    "roleHint": "歌もの補助に強いコーラス。正式メンバーだが補助寄り。",
+    "replaceNote": "歌もの補助に強いコーラス。正式メンバーだが補助寄り。"
+  },
+  {
+    "id": "member_haruka",
+    "defaultName": "ハルカ",
+    "name": "ハルカ",
+    "canRename": true,
+    "part": "Vo",
+    "joinPhase": "middle",
+    "joinType": "recruit",
+    "genderHint": "female",
+    "mainInstrument": "vocal",
+    "mainGenre": "エモ",
+    "secondMainGenres": [
+      "ロック",
+      "ポップ"
+    ],
+    "subGenres": [
+      "エモロック",
+      "バラードロック",
+      "ギターポップ"
+    ],
+    "weakMainGenres": [
+      "メタル"
+    ],
+    "weakSubGenres": [
+      "スピードメタル"
+    ],
+    "stats": {
+      "stamina": 44,
+      "technique": 48,
+      "knowledge": 50,
+      "sense": 66,
+      "mental": 54,
+      "teamwork": 48,
+      "rhythm": 44,
+      "charisma": 62
+    },
+    "instruments": {
+      "vocal": {
+        "mark": "◎",
+        "lv": 66,
+        "cap": 90,
+        "potentialCap": 98,
+        "growth": 1.12
+      },
+      "chorus": {
+        "mark": "◎",
+        "lv": 56,
+        "cap": 84,
+        "potentialCap": 94,
+        "growth": 1.02
+      },
+      "key": {
+        "mark": "△",
+        "lv": 30,
+        "cap": 60,
+        "potentialCap": 82,
+        "growth": 0.75
+      }
+    },
+    "growthType": "センス型",
+    "joinDifficulty": "中",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 12,
+      "minFans": 40,
+      "minFame": 15
+    },
+    "roleHint": "歌詞・表現力寄り。エモ系に強い。",
+    "replaceNote": "歌詞・表現力寄り。エモ系に強い。"
+  },
+  {
+    "id": "member_kagura",
+    "defaultName": "カグラ",
+    "name": "カグラ",
+    "canRename": true,
+    "part": "Gt/Vo",
+    "joinPhase": "middle",
+    "joinType": "recruit",
+    "genderHint": "male",
+    "mainInstrument": "guitar",
+    "mainGenre": "ロック",
+    "secondMainGenres": [
+      "パンク",
+      "メタル"
+    ],
+    "subGenres": [
+      "ギターロック",
+      "ハードロック",
+      "ポストハードコア"
+    ],
+    "weakMainGenres": [
+      "ポップ"
+    ],
+    "weakSubGenres": [
+      "シティポップ"
+    ],
+    "stats": {
+      "stamina": 52,
+      "technique": 58,
+      "knowledge": 38,
+      "sense": 54,
+      "mental": 36,
+      "teamwork": 30,
+      "rhythm": 50,
+      "charisma": 70
+    },
+    "instruments": {
+      "guitar": {
+        "mark": "◎",
+        "lv": 70,
+        "cap": 92,
+        "potentialCap": 99,
+        "growth": 1.12
+      },
+      "vocal": {
+        "mark": "○",
+        "lv": 56,
+        "cap": 82,
+        "potentialCap": 94,
+        "growth": 0.98
+      },
+      "chorus": {
+        "mark": "△",
+        "lv": 28,
+        "cap": 56,
+        "potentialCap": 70,
+        "growth": 0.7
+      }
+    },
+    "growthType": "爆発型",
+    "joinDifficulty": "高",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 12,
+      "minFans": 50,
+      "minFame": 20
+    },
+    "roleHint": "人気は出やすいが安定感に難があるカリスマ型Gt/Vo。",
+    "replaceNote": "人気は出やすいが安定感に難があるカリスマ型Gt/Vo。"
+  },
+  {
+    "id": "member_yuzuha",
+    "defaultName": "ユズハ",
+    "name": "ユズハ",
+    "canRename": true,
+    "part": "Ba/Vo",
+    "joinPhase": "middle",
+    "joinType": "recruit",
+    "genderHint": "female",
+    "mainInstrument": "bass",
+    "mainGenre": "ポップ",
+    "secondMainGenres": [
+      "エモ",
+      "ロック"
+    ],
+    "subGenres": [
+      "パワーポップ",
+      "ギターポップ",
+      "エモロック"
+    ],
+    "weakMainGenres": [
+      "メタル"
+    ],
+    "weakSubGenres": [
+      "スクリーモ"
+    ],
+    "stats": {
+      "stamina": 46,
+      "technique": 50,
+      "knowledge": 46,
+      "sense": 64,
+      "mental": 50,
+      "teamwork": 56,
+      "rhythm": 58,
+      "charisma": 54
+    },
+    "instruments": {
+      "bass": {
+        "mark": "◎",
+        "lv": 66,
+        "cap": 90,
+        "potentialCap": 98,
+        "growth": 1.1
+      },
+      "vocal": {
+        "mark": "○",
+        "lv": 54,
+        "cap": 80,
+        "potentialCap": 92,
+        "growth": 0.98
+      },
+      "chorus": {
+        "mark": "◎",
+        "lv": 58,
+        "cap": 86,
+        "potentialCap": 96,
+        "growth": 1.02
+      }
+    },
+    "growthType": "センス型",
+    "joinDifficulty": "中",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 12,
+      "minFans": 45,
+      "minFame": 18
+    },
+    "roleHint": "ポップ・歌もの寄りのベースボーカル。",
+    "replaceNote": "ポップ・歌もの寄りのベースボーカル。"
+  },
+  {
+    "id": "member_kanna",
+    "defaultName": "カンナ",
+    "name": "カンナ",
+    "canRename": true,
+    "part": "Gt",
+    "joinPhase": "middle",
+    "joinType": "recruit",
+    "genderHint": "female",
+    "mainInstrument": "guitar",
+    "mainGenre": "メタル",
+    "secondMainGenres": [
+      "ロック",
+      "ミクスチャー"
+    ],
+    "subGenres": [
+      "ヘヴィメタル",
+      "スピードメタル",
+      "ニューメタル"
+    ],
+    "weakMainGenres": [
+      "ポップ"
+    ],
+    "weakSubGenres": [
+      "バラードポップ"
+    ],
+    "stats": {
+      "stamina": 48,
+      "technique": 72,
+      "knowledge": 52,
+      "sense": 46,
+      "mental": 48,
+      "teamwork": 28,
+      "rhythm": 52,
+      "charisma": 36
+    },
+    "instruments": {
+      "guitar": {
+        "mark": "◎",
+        "lv": 74,
+        "cap": 94,
+        "potentialCap": 99,
+        "growth": 1.16
+      },
+      "bass": {
+        "mark": "○",
+        "lv": 42,
+        "cap": 72,
+        "potentialCap": 84,
+        "growth": 0.9
+      },
+      "chorus": {
+        "mark": "×",
+        "lv": 12,
+        "cap": 36,
+        "potentialCap": 48,
+        "growth": 0.5
+      }
+    },
+    "growthType": "技術型",
+    "joinDifficulty": "高",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 13,
+      "minFans": 45,
+      "minFame": 15,
+      "minIndustry": 10
+    },
+    "roleHint": "技術特化。協調性は低めだが難曲に強い。",
+    "replaceNote": "技術特化。協調性は低めだが難曲に強い。"
+  },
+  {
+    "id": "member_rikuto",
+    "defaultName": "リクト",
+    "name": "リクト",
+    "canRename": true,
+    "part": "Dr",
+    "joinPhase": "middle",
+    "joinType": "recruit",
+    "genderHint": "male",
+    "mainInstrument": "drum",
+    "mainGenre": "パンク",
+    "secondMainGenres": [
+      "メタル",
+      "ロック"
+    ],
+    "subGenres": [
+      "ハードコア",
+      "メタルコア",
+      "メロディックパンク"
+    ],
+    "weakMainGenres": [
+      "クラシック"
+    ],
+    "weakSubGenres": [
+      "クラシカルロック"
+    ],
+    "stats": {
+      "stamina": 74,
+      "technique": 50,
+      "knowledge": 34,
+      "sense": 42,
+      "mental": 52,
+      "teamwork": 38,
+      "rhythm": 72,
+      "charisma": 42
+    },
+    "instruments": {
+      "drum": {
+        "mark": "◎",
+        "lv": 74,
+        "cap": 94,
+        "potentialCap": 99,
+        "growth": 1.18
+      },
+      "bass": {
+        "mark": "△",
+        "lv": 30,
+        "cap": 60,
+        "potentialCap": 78,
+        "growth": 0.72
+      },
+      "dj": {
+        "mark": "△",
+        "lv": 24,
+        "cap": 54,
+        "potentialCap": 80,
+        "growth": 0.7,
+        "hiddenUpgrade": true
+      }
+    },
+    "growthType": "体力型",
+    "joinDifficulty": "中",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 14,
+      "minFans": 55,
+      "minFame": 18
+    },
+    "roleHint": "体力・リズム型。ラウド系に向く。",
+    "replaceNote": "体力・リズム型。ラウド系に向く。"
+  },
+  {
+    "id": "member_sena",
+    "defaultName": "セナ",
+    "name": "セナ",
+    "canRename": true,
+    "part": "Key",
+    "joinPhase": "middle",
+    "joinType": "recruit",
+    "genderHint": "neutral",
+    "mainInstrument": "key",
+    "mainGenre": "エレクトロ",
+    "secondMainGenres": [
+      "ジャズ",
+      "ポップ"
+    ],
+    "subGenres": [
+      "エレクトロロック",
+      "シティポップ",
+      "ジャズロック"
+    ],
+    "weakMainGenres": [
+      "パンク"
+    ],
+    "weakSubGenres": [
+      "ハードコア"
+    ],
+    "stats": {
+      "stamina": 36,
+      "technique": 58,
+      "knowledge": 72,
+      "sense": 62,
+      "mental": 46,
+      "teamwork": 50,
+      "rhythm": 48,
+      "charisma": 34
+    },
+    "instruments": {
+      "key": {
+        "mark": "◎",
+        "lv": 72,
+        "cap": 94,
+        "potentialCap": 99,
+        "growth": 1.15
+      },
+      "dj": {
+        "mark": "○",
+        "lv": 44,
+        "cap": 74,
+        "potentialCap": 90,
+        "growth": 0.92
+      },
+      "chorus": {
+        "mark": "○",
+        "lv": 46,
+        "cap": 76,
+        "potentialCap": 88,
+        "growth": 0.9
+      }
+    },
+    "growthType": "知識型",
+    "joinDifficulty": "中",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 14,
+      "minFans": 45,
+      "minFame": 15,
+      "minIndustry": 10
+    },
+    "roleHint": "曲作り補助に向く知識型Key。",
+    "replaceNote": "曲作り補助に向く知識型Key。"
+  },
+  {
+    "id": "member_aoba",
+    "defaultName": "アオバ",
+    "name": "アオバ",
+    "canRename": true,
+    "part": "Gt",
+    "joinPhase": "middle",
+    "joinType": "recruit",
+    "genderHint": "male",
+    "mainInstrument": "guitar",
+    "mainGenre": "オルタナ",
+    "secondMainGenres": [
+      "エモ",
+      "ロック"
+    ],
+    "subGenres": [
+      "オルタナロック",
+      "エモロック",
+      "ポストロック"
+    ],
+    "weakMainGenres": [
+      "ポップ"
+    ],
+    "weakSubGenres": [
+      "バラードポップ"
+    ],
+    "stats": {
+      "stamina": 44,
+      "technique": 50,
+      "knowledge": 48,
+      "sense": 68,
+      "mental": 44,
+      "teamwork": 34,
+      "rhythm": 46,
+      "charisma": 48
+    },
+    "instruments": {
+      "guitar": {
+        "mark": "◎",
+        "lv": 64,
+        "cap": 88,
+        "potentialCap": 99,
+        "growth": 1.08
+      },
+      "key": {
+        "mark": "△",
+        "lv": 32,
+        "cap": 62,
+        "potentialCap": 84,
+        "growth": 0.75,
+        "hiddenUpgrade": true
+      },
+      "chorus": {
+        "mark": "○",
+        "lv": 36,
+        "cap": 68,
+        "potentialCap": 82,
+        "growth": 0.86
+      }
+    },
+    "growthType": "晩成型",
+    "joinDifficulty": "中〜高",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 15,
+      "minFans": 60,
+      "minFame": 25,
+      "minIndustry": 10
+    },
+    "roleHint": "癖のあるオリジナル性寄りギター。育つと強い。",
+    "replaceNote": "癖のあるオリジナル性寄りギター。育つと強い。"
+  },
+  {
+    "id": "member_sora",
+    "defaultName": "ソラ",
+    "name": "ソラ",
+    "canRename": true,
+    "part": "DJ",
+    "joinPhase": "middle",
+    "joinType": "recruit",
+    "genderHint": "neutral",
+    "mainInstrument": "dj",
+    "mainGenre": "ミクスチャー",
+    "secondMainGenres": [
+      "ヒップホップ",
+      "エレクトロ"
+    ],
+    "subGenres": [
+      "ミクスチャーロック",
+      "ラップロック",
+      "エレクトロロック"
+    ],
+    "weakMainGenres": [
+      "クラシック"
+    ],
+    "weakSubGenres": [
+      "クラシカルロック"
+    ],
+    "stats": {
+      "stamina": 42,
+      "technique": 60,
+      "knowledge": 64,
+      "sense": 66,
+      "mental": 46,
+      "teamwork": 34,
+      "rhythm": 66,
+      "charisma": 58
+    },
+    "instruments": {
+      "dj": {
+        "mark": "◎",
+        "lv": 72,
+        "cap": 94,
+        "potentialCap": 99,
+        "growth": 1.12
+      },
+      "key": {
+        "mark": "○",
+        "lv": 50,
+        "cap": 80,
+        "potentialCap": 94,
+        "growth": 0.95
+      },
+      "vocal": {
+        "mark": "△",
+        "lv": 30,
+        "cap": 60,
+        "potentialCap": 76,
+        "growth": 0.72
+      },
+      "bass": {
+        "mark": "△",
+        "lv": 28,
+        "cap": 58,
+        "potentialCap": 82,
+        "growth": 0.72,
+        "hiddenUpgrade": true
+      }
+    },
+    "growthType": "センス型",
+    "joinDifficulty": "高",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 15,
+      "minFans": 65,
+      "minFame": 25,
+      "minIndustry": 10
+    },
+    "roleHint": "ミクスチャー、SNS、演出寄りのDJ。",
+    "replaceNote": "ミクスチャー、SNS、演出寄りのDJ。"
+  },
+  {
+    "id": "member_matsuri",
+    "defaultName": "マツリ",
+    "name": "マツリ",
+    "canRename": true,
+    "part": "Dr",
+    "joinPhase": "middle",
+    "joinType": "recruit",
+    "genderHint": "female",
+    "mainInstrument": "drum",
+    "mainGenre": "パンク",
+    "secondMainGenres": [
+      "ポップ",
+      "ロック"
+    ],
+    "subGenres": [
+      "青春パンク",
+      "スカパンク",
+      "ダンスロック"
+    ],
+    "weakMainGenres": [
+      "クラシック"
+    ],
+    "weakSubGenres": [
+      "シンフォニックメタル"
+    ],
+    "stats": {
+      "stamina": 58,
+      "technique": 48,
+      "knowledge": 34,
+      "sense": 52,
+      "mental": 48,
+      "teamwork": 46,
+      "rhythm": 70,
+      "charisma": 58
+    },
+    "instruments": {
+      "drum": {
+        "mark": "◎",
+        "lv": 70,
+        "cap": 92,
+        "potentialCap": 98,
+        "growth": 1.14
+      },
+      "chorus": {
+        "mark": "○",
+        "lv": 34,
+        "cap": 64,
+        "potentialCap": 76,
+        "growth": 0.85
+      },
+      "dj": {
+        "mark": "△",
+        "lv": 26,
+        "cap": 56,
+        "potentialCap": 82,
+        "growth": 0.72,
+        "hiddenUpgrade": true
+      }
+    },
+    "growthType": "爆発型",
+    "joinDifficulty": "中",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 16,
+      "minFans": 60,
+      "minFame": 22
+    },
+    "roleHint": "ライブの盛り上げ役。勢い重視のドラム。",
+    "replaceNote": "ライブの盛り上げ役。勢い重視のドラム。"
+  },
+  {
+    "id": "member_kengo",
+    "defaultName": "ケンゴ",
+    "name": "ケンゴ",
+    "canRename": true,
+    "part": "Ba",
+    "joinPhase": "middle",
+    "joinType": "recruit",
+    "genderHint": "male",
+    "mainInstrument": "bass",
+    "mainGenre": "ロック",
+    "secondMainGenres": [
+      "パンク",
+      "エモ"
+    ],
+    "subGenres": [
+      "ギターロック",
+      "メロディックパンク",
+      "エモロック"
+    ],
+    "weakMainGenres": [
+      "クラシック"
+    ],
+    "weakSubGenres": [
+      "クラシカルロック"
+    ],
+    "stats": {
+      "stamina": 58,
+      "technique": 50,
+      "knowledge": 44,
+      "sense": 42,
+      "mental": 68,
+      "teamwork": 58,
+      "rhythm": 64,
+      "charisma": 34
+    },
+    "instruments": {
+      "bass": {
+        "mark": "◎",
+        "lv": 68,
+        "cap": 90,
+        "potentialCap": 96,
+        "growth": 1.1
+      },
+      "chorus": {
+        "mark": "○",
+        "lv": 36,
+        "cap": 66,
+        "potentialCap": 78,
+        "growth": 0.85
+      },
+      "drum": {
+        "mark": "△",
+        "lv": 30,
+        "cap": 60,
+        "potentialCap": 78,
+        "growth": 0.75,
+        "hiddenUpgrade": true
+      }
+    },
+    "growthType": "メンタル型",
+    "joinDifficulty": "中",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 16,
+      "minFans": 65,
+      "minFame": 20,
+      "minIndustry": 10
+    },
+    "roleHint": "安定したライブに強いメンタル型ベース。",
+    "replaceNote": "安定したライブに強いメンタル型ベース。"
+  },
+  {
+    "id": "member_noel",
+    "defaultName": "ノエル",
+    "name": "ノエル",
+    "canRename": true,
+    "part": "Cho",
+    "joinPhase": "middle",
+    "joinType": "recruit",
+    "genderHint": "female",
+    "mainInstrument": "chorus",
+    "mainGenre": "ポップ",
+    "secondMainGenres": [
+      "エモ",
+      "クラシック"
+    ],
+    "subGenres": [
+      "バラードポップ",
+      "シティポップ",
+      "クラシカルロック"
+    ],
+    "weakMainGenres": [
+      "メタル"
+    ],
+    "weakSubGenres": [
+      "メタルコア"
+    ],
+    "stats": {
+      "stamina": 38,
+      "technique": 46,
+      "knowledge": 58,
+      "sense": 62,
+      "mental": 58,
+      "teamwork": 70,
+      "rhythm": 44,
+      "charisma": 46
+    },
+    "instruments": {
+      "chorus": {
+        "mark": "◎",
+        "lv": 72,
+        "cap": 94,
+        "potentialCap": 99,
+        "growth": 1.12
+      },
+      "vocal": {
+        "mark": "○",
+        "lv": 50,
+        "cap": 78,
+        "potentialCap": 90,
+        "growth": 0.92
+      },
+      "key": {
+        "mark": "○",
+        "lv": 40,
+        "cap": 72,
+        "potentialCap": 88,
+        "growth": 0.9
+      }
+    },
+    "growthType": "協調性型",
+    "joinDifficulty": "中",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 17,
+      "minFans": 60,
+      "minFame": 20,
+      "minIndustry": 10
+    },
+    "roleHint": "コーラス・世界観補助。ポップ系に強い。",
+    "replaceNote": "コーラス・世界観補助。ポップ系に強い。"
+  },
+  {
+    "id": "member_hibiki",
+    "defaultName": "ヒビキ",
+    "name": "ヒビキ",
+    "canRename": true,
+    "part": "Gt",
+    "joinPhase": "middle",
+    "joinType": "recruit",
+    "genderHint": "male",
+    "mainInstrument": "guitar",
+    "mainGenre": "パンク",
+    "secondMainGenres": [
+      "ロック",
+      "メタル"
+    ],
+    "subGenres": [
+      "ポストハードコア",
+      "ハードロック",
+      "メタルコア"
+    ],
+    "weakMainGenres": [
+      "ポップ"
+    ],
+    "weakSubGenres": [
+      "シティポップ"
+    ],
+    "stats": {
+      "stamina": 60,
+      "technique": 62,
+      "knowledge": 34,
+      "sense": 48,
+      "mental": 46,
+      "teamwork": 32,
+      "rhythm": 56,
+      "charisma": 50
+    },
+    "instruments": {
+      "guitar": {
+        "mark": "◎",
+        "lv": 72,
+        "cap": 94,
+        "potentialCap": 99,
+        "growth": 1.14
+      },
+      "bass": {
+        "mark": "△",
+        "lv": 32,
+        "cap": 62,
+        "potentialCap": 78,
+        "growth": 0.75
+      },
+      "chorus": {
+        "mark": "×",
+        "lv": 14,
+        "cap": 38,
+        "potentialCap": 50,
+        "growth": 0.5
+      }
+    },
+    "growthType": "爆発型",
+    "joinDifficulty": "高",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 18,
+      "minFans": 70,
+      "minFame": 25,
+      "minIndustry": 10
+    },
+    "roleHint": "音圧重視。パンク・ラウド寄りのギター。",
+    "replaceNote": "音圧重視。パンク・ラウド寄りのギター。"
+  },
+  {
+    "id": "member_tsukino",
+    "defaultName": "ツキノ",
+    "name": "ツキノ",
+    "canRename": true,
+    "part": "Vo",
+    "joinPhase": "late",
+    "joinType": "recruit",
+    "genderHint": "female",
+    "mainInstrument": "vocal",
+    "mainGenre": "ロック",
+    "secondMainGenres": [
+      "ポップ",
+      "エモ"
+    ],
+    "subGenres": [
+      "バラードロック",
+      "ギターポップ",
+      "エモロック"
+    ],
+    "weakMainGenres": [
+      "メタル"
+    ],
+    "weakSubGenres": [
+      "スクリーモ"
+    ],
+    "stats": {
+      "stamina": 52,
+      "technique": 58,
+      "knowledge": 54,
+      "sense": 70,
+      "mental": 64,
+      "teamwork": 54,
+      "rhythm": 50,
+      "charisma": 78
+    },
+    "instruments": {
+      "vocal": {
+        "mark": "◎",
+        "lv": 78,
+        "cap": 96,
+        "potentialCap": 99,
+        "growth": 1.16
+      },
+      "chorus": {
+        "mark": "◎",
+        "lv": 66,
+        "cap": 92,
+        "potentialCap": 99,
+        "growth": 1.05
+      },
+      "key": {
+        "mark": "△",
+        "lv": 34,
+        "cap": 64,
+        "potentialCap": 86,
+        "growth": 0.75
+      }
+    },
+    "growthType": "カリスマ型",
+    "joinDifficulty": "高",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 24,
+      "minFans": 110,
+      "minFame": 50,
+      "minIndustry": 45
+    },
+    "roleHint": "大きいステージに強い後半ボーカル。",
+    "replaceNote": "大きいステージに強い後半ボーカル。"
+  },
+  {
+    "id": "member_makishi",
+    "defaultName": "マキシ",
+    "name": "マキシ",
+    "canRename": true,
+    "part": "Gt",
+    "joinPhase": "late",
+    "joinType": "recruit",
+    "genderHint": "male",
+    "mainInstrument": "guitar",
+    "mainGenre": "メタル",
+    "secondMainGenres": [
+      "ロック",
+      "プログレ"
+    ],
+    "subGenres": [
+      "スピードメタル",
+      "プログレ",
+      "ニューメタル"
+    ],
+    "weakMainGenres": [
+      "ポップ"
+    ],
+    "weakSubGenres": [
+      "バラードポップ"
+    ],
+    "stats": {
+      "stamina": 58,
+      "technique": 82,
+      "knowledge": 62,
+      "sense": 56,
+      "mental": 50,
+      "teamwork": 24,
+      "rhythm": 62,
+      "charisma": 46
+    },
+    "instruments": {
+      "guitar": {
+        "mark": "◎",
+        "lv": 82,
+        "cap": 98,
+        "potentialCap": 100,
+        "growth": 1.18
+      },
+      "bass": {
+        "mark": "○",
+        "lv": 48,
+        "cap": 78,
+        "potentialCap": 90,
+        "growth": 0.92
+      },
+      "chorus": {
+        "mark": "×",
+        "lv": 10,
+        "cap": 34,
+        "potentialCap": 42,
+        "growth": 0.45
+      }
+    },
+    "growthType": "技術型",
+    "joinDifficulty": "非常に高い",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 25,
+      "minFans": 120,
+      "minFame": 55,
+      "minIndustry": 55
+    },
+    "roleHint": "扱いは難しいが爆発力のある技術特化ギター。",
+    "replaceNote": "扱いは難しいが爆発力のある技術特化ギター。"
+  },
+  {
+    "id": "member_rindo",
+    "defaultName": "リンドウ",
+    "name": "リンドウ",
+    "canRename": true,
+    "part": "Gt/Vo",
+    "joinPhase": "late",
+    "joinType": "recruit",
+    "genderHint": "female",
+    "mainInstrument": "guitar",
+    "mainGenre": "エモ",
+    "secondMainGenres": [
+      "ロック",
+      "シューゲイザー"
+    ],
+    "subGenres": [
+      "エモロック",
+      "ポストロック",
+      "オルタナロック"
+    ],
+    "weakMainGenres": [
+      "メタル"
+    ],
+    "weakSubGenres": [
+      "スピードメタル"
+    ],
+    "stats": {
+      "stamina": 50,
+      "technique": 62,
+      "knowledge": 58,
+      "sense": 74,
+      "mental": 54,
+      "teamwork": 46,
+      "rhythm": 52,
+      "charisma": 66
+    },
+    "instruments": {
+      "guitar": {
+        "mark": "◎",
+        "lv": 74,
+        "cap": 96,
+        "potentialCap": 100,
+        "growth": 1.1
+      },
+      "vocal": {
+        "mark": "○",
+        "lv": 60,
+        "cap": 88,
+        "potentialCap": 99,
+        "growth": 1.0
+      },
+      "chorus": {
+        "mark": "◎",
+        "lv": 62,
+        "cap": 90,
+        "potentialCap": 99,
+        "growth": 1.02
+      },
+      "key": {
+        "mark": "△",
+        "lv": 36,
+        "cap": 66,
+        "potentialCap": 88,
+        "growth": 0.75,
+        "hiddenUpgrade": true
+      }
+    },
+    "growthType": "晩成型",
+    "joinDifficulty": "高",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 26,
+      "minFans": 120,
+      "minFame": 55,
+      "minIndustry": 50
+    },
+    "roleHint": "育つと強い中心人物候補のGt/Vo。",
+    "replaceNote": "育つと強い中心人物候補のGt/Vo。"
+  },
+  {
+    "id": "member_leon",
+    "defaultName": "レオン",
+    "name": "レオン",
+    "canRename": true,
+    "part": "Ba/Vo",
+    "joinPhase": "late",
+    "joinType": "recruit",
+    "genderHint": "male",
+    "mainInstrument": "bass",
+    "mainGenre": "パンク",
+    "secondMainGenres": [
+      "ロック",
+      "ミクスチャー"
+    ],
+    "subGenres": [
+      "ポップパンク",
+      "ミクスチャーロック",
+      "ハードコア"
+    ],
+    "weakMainGenres": [
+      "クラシック"
+    ],
+    "weakSubGenres": [
+      "クラシカルロック"
+    ],
+    "stats": {
+      "stamina": 64,
+      "technique": 58,
+      "knowledge": 42,
+      "sense": 54,
+      "mental": 72,
+      "teamwork": 46,
+      "rhythm": 70,
+      "charisma": 70
+    },
+    "instruments": {
+      "bass": {
+        "mark": "◎",
+        "lv": 76,
+        "cap": 96,
+        "potentialCap": 100,
+        "growth": 1.12
+      },
+      "vocal": {
+        "mark": "○",
+        "lv": 62,
+        "cap": 88,
+        "potentialCap": 99,
+        "growth": 0.98
+      },
+      "chorus": {
+        "mark": "○",
+        "lv": 44,
+        "cap": 76,
+        "potentialCap": 88,
+        "growth": 0.88
+      }
+    },
+    "growthType": "メンタル型",
+    "joinDifficulty": "高",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 27,
+      "minFans": 130,
+      "minFame": 60,
+      "minIndustry": 55
+    },
+    "roleHint": "カリスマ＋メンタル型。前線向きのBa/Vo。",
+    "replaceNote": "カリスマ＋メンタル型。前線向きのBa/Vo。"
+  },
+  {
+    "id": "member_mira",
+    "defaultName": "ミラ",
+    "name": "ミラ",
+    "canRename": true,
+    "part": "Key",
+    "joinPhase": "late",
+    "joinType": "recruit",
+    "genderHint": "neutral",
+    "mainInstrument": "key",
+    "mainGenre": "プログレ",
+    "secondMainGenres": [
+      "クラシック",
+      "ジャズ"
+    ],
+    "subGenres": [
+      "プログレ",
+      "クラシカルロック",
+      "ジャズロック"
+    ],
+    "weakMainGenres": [
+      "パンク"
+    ],
+    "weakSubGenres": [
+      "青春パンク"
+    ],
+    "stats": {
+      "stamina": 40,
+      "technique": 68,
+      "knowledge": 82,
+      "sense": 76,
+      "mental": 56,
+      "teamwork": 48,
+      "rhythm": 56,
+      "charisma": 42
+    },
+    "instruments": {
+      "key": {
+        "mark": "◎",
+        "lv": 82,
+        "cap": 98,
+        "potentialCap": 100,
+        "growth": 1.18
+      },
+      "other": {
+        "mark": "○",
+        "lv": 54,
+        "cap": 84,
+        "potentialCap": 96,
+        "growth": 0.95
+      },
+      "chorus": {
+        "mark": "○",
+        "lv": 50,
+        "cap": 80,
+        "potentialCap": 92,
+        "growth": 0.9
+      },
+      "dj": {
+        "mark": "△",
+        "lv": 36,
+        "cap": 68,
+        "potentialCap": 90,
+        "growth": 0.75,
+        "hiddenUpgrade": true
+      }
+    },
+    "growthType": "知識型",
+    "joinDifficulty": "高",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 28,
+      "minFans": 130,
+      "minFame": 60,
+      "minIndustry": 60
+    },
+    "roleHint": "世界観・知識型。後半ジャンルに強いKey。",
+    "replaceNote": "世界観・知識型。後半ジャンルに強いKey。"
+  },
+  {
+    "id": "member_saeki",
+    "defaultName": "サエキ",
+    "name": "サエキ",
+    "canRename": true,
+    "part": "Dr",
+    "joinPhase": "late",
+    "joinType": "recruit",
+    "genderHint": "male",
+    "mainInstrument": "drum",
+    "mainGenre": "ロック",
+    "secondMainGenres": [
+      "ジャズ",
+      "メタル"
+    ],
+    "subGenres": [
+      "ジャズロック",
+      "ハードロック",
+      "メタルコア"
+    ],
+    "weakMainGenres": [
+      "ポップ"
+    ],
+    "weakSubGenres": [
+      "シティポップ"
+    ],
+    "stats": {
+      "stamina": 70,
+      "technique": 72,
+      "knowledge": 48,
+      "sense": 50,
+      "mental": 60,
+      "teamwork": 50,
+      "rhythm": 82,
+      "charisma": 40
+    },
+    "instruments": {
+      "drum": {
+        "mark": "◎",
+        "lv": 82,
+        "cap": 98,
+        "potentialCap": 100,
+        "growth": 1.2
+      },
+      "bass": {
+        "mark": "△",
+        "lv": 34,
+        "cap": 64,
+        "potentialCap": 84,
+        "growth": 0.75
+      },
+      "chorus": {
+        "mark": "△",
+        "lv": 20,
+        "cap": 46,
+        "potentialCap": 60,
+        "growth": 0.65
+      }
+    },
+    "growthType": "リズム型",
+    "joinDifficulty": "高",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 28,
+      "minFans": 135,
+      "minFame": 65,
+      "minIndustry": 60
+    },
+    "roleHint": "フェス向けの技術＋リズム型ドラム。",
+    "replaceNote": "フェス向けの技術＋リズム型ドラム。"
+  },
+  {
+    "id": "member_mei",
+    "defaultName": "メイ",
+    "name": "メイ",
+    "canRename": true,
+    "part": "Ba",
+    "joinPhase": "late",
+    "joinType": "recruit",
+    "genderHint": "female",
+    "mainInstrument": "bass",
+    "mainGenre": "ポストロック",
+    "secondMainGenres": [
+      "エモ",
+      "ポップ"
+    ],
+    "subGenres": [
+      "ポストロック",
+      "エモロック",
+      "シティポップ"
+    ],
+    "weakMainGenres": [
+      "メタル"
+    ],
+    "weakSubGenres": [
+      "メタルコア"
+    ],
+    "stats": {
+      "stamina": 58,
+      "technique": 60,
+      "knowledge": 62,
+      "sense": 64,
+      "mental": 74,
+      "teamwork": 78,
+      "rhythm": 72,
+      "charisma": 36
+    },
+    "instruments": {
+      "bass": {
+        "mark": "◎",
+        "lv": 78,
+        "cap": 96,
+        "potentialCap": 100,
+        "growth": 1.14
+      },
+      "chorus": {
+        "mark": "◎",
+        "lv": 52,
+        "cap": 82,
+        "potentialCap": 94,
+        "growth": 0.95
+      },
+      "key": {
+        "mark": "△",
+        "lv": 34,
+        "cap": 64,
+        "potentialCap": 86,
+        "growth": 0.75,
+        "hiddenUpgrade": true
+      }
+    },
+    "growthType": "安定型",
+    "joinDifficulty": "高",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 29,
+      "minFans": 140,
+      "minFame": 65,
+      "minIndustry": 65
+    },
+    "roleHint": "高難度ライブの土台になる後半ベース。",
+    "replaceNote": "高難度ライブの土台になる後半ベース。"
+  },
+  {
+    "id": "member_kuon",
+    "defaultName": "クオン",
+    "name": "クオン",
+    "canRename": true,
+    "part": "Cho",
+    "joinPhase": "late",
+    "joinType": "recruit",
+    "genderHint": "neutral",
+    "mainInstrument": "chorus",
+    "mainGenre": "シューゲイザー",
+    "secondMainGenres": [
+      "エモ",
+      "クラシック"
+    ],
+    "subGenres": [
+      "ポストロック",
+      "エモロック",
+      "クラシカルロック"
+    ],
+    "weakMainGenres": [
+      "パンク"
+    ],
+    "weakSubGenres": [
+      "ハードコア"
+    ],
+    "stats": {
+      "stamina": 42,
+      "technique": 54,
+      "knowledge": 70,
+      "sense": 72,
+      "mental": 78,
+      "teamwork": 76,
+      "rhythm": 48,
+      "charisma": 50
+    },
+    "instruments": {
+      "chorus": {
+        "mark": "◎",
+        "lv": 80,
+        "cap": 98,
+        "potentialCap": 100,
+        "growth": 1.16
+      },
+      "vocal": {
+        "mark": "○",
+        "lv": 54,
+        "cap": 84,
+        "potentialCap": 96,
+        "growth": 0.95
+      },
+      "key": {
+        "mark": "○",
+        "lv": 52,
+        "cap": 82,
+        "potentialCap": 96,
+        "growth": 0.92
+      }
+    },
+    "growthType": "メンタル型",
+    "joinDifficulty": "高",
+    "joinCondition": {
+      "type": "recruit",
+      "minTurn": 30,
+      "minFans": 140,
+      "minFame": 65,
+      "minIndustry": 70
+    },
+    "roleHint": "メンタル・世界観補助。特殊曲に強い後半Cho。",
+    "replaceNote": "メンタル・世界観補助。特殊曲に強い後半Cho。"
+  }
+]);
+DATA.candidateCharacters = clone(MEMBER_DATABASE);
+
+const SUPPORT_MEMBER_DATABASE = Object.freeze([
+  {
+    "id": "support_yurika",
+    "name": "ユリカ",
+    "instrument": "chorus",
+    "cost": 4500,
+    "score": 7,
+    "genres": [
+      "ポップ",
+      "ギターポップ",
+      "バラードポップ",
+      "エモロック"
+    ],
+    "note": "歌もの・ポップ系ライブ補助"
+  },
+  {
+    "id": "support_kazuma",
+    "name": "カズマ",
+    "instrument": "bass",
+    "cost": 5500,
+    "score": 8,
+    "genres": [
+      "ロック",
+      "ギターロック",
+      "メロディックパンク",
+      "ミクスチャーロック"
+    ],
+    "note": "低音補強。Ba不在時の穴埋め"
+  },
+  {
+    "id": "support_iori",
+    "name": "イオリ",
+    "instrument": "guitar",
+    "cost": 5200,
+    "score": 8,
+    "genres": [
+      "ロック",
+      "オルタナロック",
+      "ポップパンク",
+      "エモロック"
+    ],
+    "note": "小規模ライブ向けGt/Vo補助。実処理はギターサポート"
+  },
+  {
+    "id": "support_momoka",
+    "name": "モモカ",
+    "instrument": "guitar",
+    "cost": 5000,
+    "score": 7,
+    "genres": [
+      "ポップ",
+      "ギターポップ",
+      "パワーポップ",
+      "シティポップ"
+    ],
+    "note": "キャッチー系ギター補助"
+  },
+  {
+    "id": "support_shigeru",
+    "name": "シゲル",
+    "instrument": "drum",
+    "cost": 7800,
+    "score": 11,
+    "genres": [
+      "パンク",
+      "青春パンク",
+      "ハードコア",
+      "メタルコア"
+    ],
+    "note": "安定ドラム補助"
+  },
+  {
+    "id": "support_yume",
+    "name": "ユメ",
+    "instrument": "dj",
+    "cost": 9000,
+    "score": 12,
+    "genres": [
+      "ヒップホップ",
+      "ラップロック",
+      "トラップ",
+      "ミクスチャーロック"
+    ],
+    "note": "ミクスチャー・SNS映え補助"
+  },
+  {
+    "id": "support_taki",
+    "name": "タキ",
+    "instrument": "key",
+    "cost": 7200,
+    "score": 10,
+    "genres": [
+      "ポップ",
+      "ピアノロック",
+      "ジャズロック",
+      "クラシカルロック"
+    ],
+    "note": "アレンジ・ピアノロック補助"
+  },
+  {
+    "id": "support_arisa",
+    "name": "アリサ",
+    "instrument": "vocal",
+    "cost": 6500,
+    "score": 9,
+    "genres": [
+      "ポップ",
+      "ロック",
+      "バラードポップ",
+      "エモロック"
+    ],
+    "note": "仮歌・コーラス補助。実処理はボーカルサポート"
+  }
+]);
+DATA.supportOptions.push(...clone(SUPPORT_MEMBER_DATABASE));
+
 normalizeInitialData();
 
 function normalizeInitialData() {
@@ -1108,7 +5065,7 @@ const SAVE_SLOT_COUNT = 2;
 const SAVE_SLOT_PREFIX = "underground_v0310_slot_";
 const AUTOSAVE_SLOT_PREFIX = "underground_v0310_autoslot_";
 const CURRENT_SLOT_KEY = "underground_v0310_current_slot";
-const SAVE_VERSION = "v0.3.50";
+const SAVE_VERSION = "v0.3.61-member-draft-fix2";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -1368,7 +5325,7 @@ function createInitialState() {
     songTitleHistory: [],
     characterEventFlags: {},
     endingRecorded: false,
-    candidates: clone(DATA.candidateCharacters),
+    candidates: [],
     songs: [starterSong],
     pendingDrafts: [],
     playerCraft: { lyricsXp: 0, musicXp: 0 },
@@ -1467,7 +5424,7 @@ function createInitialState() {
 function generateInitialLiveEvents() {
   const firstVenue = venueById("garage");
   return [
-    { turn:5, venueId:"garage", label:"初ライブ：ライブハウスイベント", fixed:true, booked:true, cancelled:false, name:"初ライブ：ライブハウスイベント", capacity:firstVenue.capacity, fee:firstVenue.fee, prepNeed:firstVenue.prepNeed, liveType:"booking_house", invitedBandIds:["paper_moon"], initialLive:true },
+    { turn:5, venueId:"garage", label:"初ライブ：ライブハウスイベント", fixed:true, booked:true, cancelled:false, name:"初ライブ：ライブハウスイベント", capacity:firstVenue.capacity, fee:firstVenue.fee, prepNeed:firstVenue.prepNeed, liveType:"booking_house", invitedBandIds:[initialPartnerBandId()], initialLive:true },
     fixedLiveEvent(30, "big_stage", "UNDER FES", true),
     fixedLiveEvent(50, "big_stage", "GRAND UNDER FES", true)
   ];
@@ -1729,6 +5686,7 @@ function closeActionResultModal() {
 }
 
 
+// 旧セーブ互換用：関数名とofferIdはPaper Moonのまま残し、内部ではinitialPartnerBandId()でTriple Arrowsへ読み替える。
 function addStoryLiveOfferPaperMoon() { state.storyFlags = state.storyFlags || {}; if (state.storyFlags.paperMoonInvite8) return; state.storyFlags.paperMoonInvite8 = true; const offer = { id:"story_paper_moon_8", turn:8, venueId:"garage", liveType:"booking_band", invitedBandIds:["paper_moon"], accepted:false, expired:false, status:"open", createdTurn:state.turn, storyInvite:true }; state.liveOffers = Array.isArray(state.liveOffers) ? state.liveOffers : []; state.liveOffers.unshift(offer); const mailId = addMail("俺たちの企画　参加依頼", `この前のライブ、お疲れ！
 まだ荒削りだけど、お前らきっとすごくなるぜ。
 この前言ってた企画ライブ、よかったら出てくれよ。
@@ -1736,7 +5694,7 @@ function addStoryLiveOfferPaperMoon() { state.storyFlags = state.storyFlags || {
 Paper Moon Kids　タカナシ`, "live_offer", { offerId:offer.id, offerTurn:8, status:"open", sender:"Paper Moon Kids　タカナシ" }); offer.mailId = mailId; }
 function addInitialFlowMail(key, subject, body, sender="携帯通知") { state.storyFlags = state.storyFlags || {}; if (state.storyFlags[key]) return; state.storyFlags[key] = true; addMail(subject, body, key.includes("under") ? "live_offer" : "member", { sender }); }
 function applyInitialFlowTurnEvents() {
-  if ((state.liveCount || 0) > 0 && state.turn === 6) { addStoryLiveOfferPaperMoon(); }
+  if ((state.liveCount || 0) > 0 && state.turn === 6 && !bandSystemOn()) { addStoryLiveOfferPaperMoon(); }
   if ((state.liveCount || 0) > 0) return;
   if (state.turn === 2) addInitialFlowMail("t2RecruitMail", "メンバー募集の反応", `受信BOXにメンバー募集の情報が届いている。
 バンドメンバーに迎え入れるか考えよう。`, "メンバー募集掲示板");
@@ -1764,6 +5722,7 @@ function finishPendingTurnAdvance() {
   state.songcraftUsedThisTurn = false;
   state.songcraftUsedCountThisTurn = 0;
   applyInitialFlowTurnEvents();
+  if (bandSystemOn()) processBandStoryEvents("turnStart");
   if (state.hangoverTurn === state.turn) {
     state.popupQueue = state.popupQueue || [];
     state.popupQueue.push({ title:"二日酔い", body:"昨日の打ち上げが響いている。\nこのターンは休憩しかできない。", type:"warn", icon:"😵" });
@@ -1928,16 +5887,85 @@ function personAlreadyKnown(id) {
   if (currentApplicantList().some(a => a.id === id)) return true;
   return false;
 }
+function candidateJoinConditionMet(c) {
+  const cond = c?.joinCondition || {};
+  const minTurn = Number(cond.minTurn || 1);
+  if ((state.turn || 1) < minTurn) return false;
+  if (typeof cond.minFans === "number" && Number(state.band?.fans || 0) < cond.minFans) return false;
+  if (typeof cond.minFame === "number" && Number(state.band?.fame || 0) < cond.minFame) return false;
+  if (typeof cond.minIndustry === "number" && Number(state.band?.industry || 0) < cond.minIndustry) return false;
+  return true;
+}
+function validCandidateIdSet() {
+  return new Set((DATA.candidateCharacters || []).map(c => c.id));
+}
+function normalizeCandidatePoolsForCurrentData() {
+  const valid = validCandidateIdSet();
+  state.candidates = (state.candidates || []).filter(c => c && valid.has(c.id) && candidateJoinConditionMet(c));
+  state.applicants = (state.applicants || []).filter(c => c && valid.has(c.id) && candidateJoinConditionMet(c));
+  if (state.lastApplicant && (!valid.has(state.lastApplicant.id) || !candidateJoinConditionMet(state.lastApplicant))) state.lastApplicant = null;
+}
 function mergeLatestCandidatesIntoState() {
   if (!state || !Array.isArray(DATA.candidateCharacters)) return;
   if (!Array.isArray(state.candidates)) state.candidates = [];
   DATA.candidateCharacters.forEach(c => {
+    if (!candidateJoinConditionMet(c)) return;
     if (!personAlreadyKnown(c.id)) state.candidates.push(clone(c));
   });
 }
+function candidateConditionMetWithRescue(c) {
+  const cond = c?.joinCondition || {};
+  const minTurn = Number(cond.minTurn || 1);
+  if ((state.turn || 1) < Math.min(minTurn, 18)) return false;
+  // 候補枯渇救済ではファン/知名度/業界評価条件を少しだけ緩める。
+  // ただし後半候補の早出しは避けるため、lateは通常条件に任せる。
+  if (c?.joinPhase === "late") return candidateJoinConditionMet(c);
+  if (typeof cond.minFans === "number" && Number(state.band?.fans || 0) < Math.ceil(cond.minFans * 0.55)) return false;
+  if (typeof cond.minFame === "number" && Number(state.band?.fame || 0) < Math.ceil(cond.minFame * 0.55)) return false;
+  if (typeof cond.minIndustry === "number" && Number(state.band?.industry || 0) < Math.ceil(cond.minIndustry * 0.55)) return false;
+  return true;
+}
+function missingCoreInstruments() {
+  return ["vocal", "guitar", "bass", "drum"].filter(inst => bandInstrumentCoverage(inst) <= 0);
+}
+function personAlreadyKnownForRescue(id) {
+  if (!id || id === "player") return true;
+  if ((state.members || []).some(m => m.id === id)) return true;
+  if ((state.candidates || []).some(c => c.id === id)) return true;
+  if (currentApplicantList().some(a => a.id === id)) return true;
+  return false;
+}
+function tryRescueApplicantFromCoreShortage(source="募集") {
+  if ((state.turn || 1) < 15) return null;
+  const missing = missingCoreInstruments();
+  if (!missing.length) return null;
+  const pool = (DATA.candidateCharacters || []).filter(c => {
+    if (!c || personAlreadyKnownForRescue(c.id)) return false;
+    if (!candidateConditionMetWithRescue(c)) return false;
+    return missing.some(inst => candidateInstrumentScore(c, inst) >= 2.5);
+  });
+  if (!pool.length) return null;
+  pool.sort((a,b) => {
+    const score = c => missing.reduce((sum, inst) => sum + candidateInstrumentScore(c, inst), 0);
+    const phase = c => c.joinPhase === "early" ? 3 : c.joinPhase === "middle" ? 2 : 1;
+    return (score(b) + phase(b)) - (score(a) + phase(a));
+  });
+  const applicant = clone(pool[0]);
+  state.dismissedApplicantIds = (state.dismissedApplicantIds || []).filter(id => id !== applicant.id);
+  const list = currentApplicantList();
+  if (!list.some(a => a.id === applicant.id)) list.push(applicant);
+  setApplicantList(list);
+  log(`${source}救済：基本パート不足を補う候補として${applicant.name}が再連絡してきた。`);
+  return applicant;
+}
 function addApplicantFromCandidates(source="募集") {
   mergeLatestCandidatesIntoState();
-  if (!state.candidates.length) return null;
+  if (!state.candidates.length) {
+    const rescued = tryRescueApplicantFromCoreShortage(source);
+    if (rescued) return rescued;
+    log("募集候補が見つからなかった。ライブ評価・知名度・業界評価が上がると、新しい候補が増えそうだ。", "warn");
+    return null;
+  }
   const idx = pickRecruitCandidateIndex();
   if (idx < 0) return null;
   const applicant = state.candidates.splice(idx, 1)[0];
@@ -1960,11 +5988,32 @@ function maybePromoRecruitAfterCommand(command) {
   if (applicant) showEventPopup("宣伝から加入希望！", `宣伝を見た ${applicant.name} から連絡が来た。\n募集結果と重複するため、同じターンに複数人が候補に来ることがある。`, "event", "📱");
   return applicant;
 }
+
+function chooseApplicantDisplayName(applicant) {
+  if (!applicant) return applicant;
+  if (!applicant.defaultName) applicant.defaultName = applicant.name || "メンバー";
+  if (applicant.canRename !== true) return applicant;
+  let nextName = applicant.defaultName;
+  try {
+    if (typeof window !== "undefined" && typeof window.prompt === "function") {
+      const input = window.prompt("加入時の名前を変更できます。空欄ならデフォルト名のまま加入します。", applicant.defaultName);
+      if (input !== null) {
+        const trimmed = String(input).trim();
+        if (trimmed) nextName = trimmed.slice(0, 12);
+      }
+    }
+  } catch (e) {}
+  applicant.displayName = nextName;
+  applicant.name = nextName;
+  return applicant;
+}
+
 function joinApplicantById(id) {
   const list = currentApplicantList();
   const idx = list.findIndex(a => a.id === id);
   if (idx < 0) return;
-  const applicant = list.splice(idx, 1)[0];
+  let applicant = list.splice(idx, 1)[0];
+  applicant = chooseApplicantDisplayName(applicant);
   applicant.joinStatus = Math.random() < 0.45 ? "仮加入" : "本加入";
   state.members.push(applicant);
   setApplicantList(list);
@@ -1991,8 +6040,10 @@ function normalizeState() {
   if (typeof state.pendingCancelLive === "undefined") state.pendingCancelLive = null;
   if (!Array.isArray(state.applicants)) state.applicants = state.lastApplicant ? [state.lastApplicant] : [];
   if (!Array.isArray(state.dismissedApplicantIds)) state.dismissedApplicantIds = [];
+  normalizeCandidatePoolsForCurrentData();
   if (typeof state.promoRecruitTurns === "undefined") state.promoRecruitTurns = 0;
   if (!state.rivalRelations || typeof state.rivalRelations !== "object") state.rivalRelations = {};
+  normalizeBandSystemState();
   if (!Array.isArray(state.liveOffers)) state.liveOffers = [];
   if (!Array.isArray(state.phoneMails)) state.phoneMails = [];
   if (!Array.isArray(state.snsPosts)) state.snsPosts = [];
@@ -2220,56 +6271,15 @@ function shouldWarnNoLivePlan() {
 }
 
 
-function songcraftMaxPerTurn() {
-  let max = 1;
-  if ((state.liveCount || 0) >= 1) max += 1;
-  if (Math.max(craftLevel("lyrics"), craftLevel("music")) >= 4) max += 1;
-  if ((state.playerCraft?.lyricsXp || 0) >= 28 || (state.playerCraft?.musicXp || 0) >= 28) max += 1;
-  if ((state.liveCount || 0) >= 8 && (state.turn || 1) >= 36) max += 1;
-  return clamp(max, 1, 5);
-}
+function songcraftMaxPerTurn() { let max = 1; if ((state.liveCount || 0) >= 1) max += 1; if (Math.max(craftLevel("lyrics"), craftLevel("music")) >= 3) max += 1; if ((state.playerCraft?.lyricsXp || 0) >= 20 || (state.playerCraft?.musicXp || 0) >= 20) max += 1; if ((state.liveCount || 0) >= 5) max += 1; return clamp(max, 1, 5); }
 function songcraftRemainingThisTurn() { state.songcraftUsedCountThisTurn = Number(state.songcraftUsedCountThisTurn || 0); return Math.max(0, songcraftMaxPerTurn() - state.songcraftUsedCountThisTurn); }
-function songcraftCountLabel() { return `曲作り 残り${songcraftRemainingThisTurn()}/${songcraftMaxPerTurn()}`; }
-function songcraftStartedThisTurn() { return Number(state.songcraftUsedCountThisTurn || 0) > 0; }
-function songcraftMustContinueThisTurn() {
-  // v0.3.50: 曲作り回数は「曲作り枠」。通常行動とは別枠なので、
-  // 残回数があっても練習・休憩・予約などの通常行動へ進める。
-  // 完成待ちドラフトの逃げ防止は hasPendingSongFinalize() 側で維持する。
-  return false;
-}
-function canEndSongcraftTurnEarly() {
-  return songcraftStartedThisTurn() && songcraftRemainingThisTurn() > 0 && !state.pendingTurnAdvance && !hasPendingSongFinalize();
-}
-function renderSongcraftEndTurnPanel() {
-  if (!canEndSongcraftTurnEarly()) return "";
-  return `<div class="editor-summary warn-box songcraft-end-panel"><b>曲作りをここで終える</b><span>${songcraftCountLabel()}。残り回数を使わずに曲作り枠を閉じて、ホームへ戻れます。休憩や練習などの通常行動はこのあと選べます。</span><button class="songEditorChoiceBtn ghost-btn" data-action="editor:endTurn">曲作りを終えてホームへ</button></div>`;
-}
-function endSongcraftTurnEarly() {
-  if (!canEndSongcraftTurnEarly()) { render(); return; }
-  const lost = songcraftRemainingThisTurn();
-  state.songcraftUsedCountThisTurn = songcraftMaxPerTurn();
-  state.songcraftUsedThisTurn = true;
-  state.songEditor = { step:"closed" };
-  state.view = "home";
-  showEventPopup("曲作りをここで終了", `残りの曲作り回数${lost}回を使わず、今ターンの曲作り枠を閉じます。\nこのあと休憩・練習・予約などの通常行動を選べます。`, "event", "🎼");
-  render();
-}
-function scheduleSongcraftTurnAdvanceIfDone(reason) {
-  if (mustCompleteFirstDraftTutorial() || hasPendingSongFinalize()) return false;
-  if (songcraftRemainingThisTurn() <= 0) {
-    state.songcraftUsedThisTurn = true;
-    log(`${songcraftCountLabel()}。今ターンの曲作り枠を使い切った。通常行動を選ぼう。`, "song");
-    return true;
-  }
-  log(`${songcraftCountLabel()}。まだ曲作りを続けられる。通常行動へ移ることもできる。`, "song");
-  return false;
-}
+function songcraftCountLabel() { return `曲作り ${songcraftRemainingThisTurn()}/${songcraftMaxPerTurn()}`; }
 function tutorialRequiredCommandForTurn() { if ((state.liveCount || 0) > 0) return null; if (state.turn === 1) return "recruit"; if (state.turn === 2) return "practice"; if (state.turn === 3) return "promo"; if (state.turn === 4) return "rest"; return null; }
 function tutorialCommandMessage(command) { const need = tutorialRequiredCommandForTurn(); if (!need || need === command) return null; const labels = { recruit:"メンバー募集", practice:"練習", promo:"宣伝", rest:"休憩" }; const bodies = { recruit:"待ってるだけじゃメンバーは集まらない。まずは募集をしてみよう。", practice:"曲を演奏する力もライブ評価に影響する。今日は練習してみよう。", promo:"ライブに出るなら、少しでも名前を知ってもらおう。今日は宣伝してみよう。", rest:"疲労が高いとライブで力を出し切れない。ライブに備えて休もう。" }; return { title:`今は${labels[need]}を試そう`, body:bodies[need], type:"guide", icon:"👉" }; }
 function completeSongcraftTutorial() {
   state.songcraftUsedCountThisTurn = Number(state.songcraftUsedCountThisTurn || 0) + 1;
   state.songcraftUsedThisTurn = songcraftRemainingThisTurn() <= 0;
-  if (state.tutorialStage === "needSong" && songcraftRemainingThisTurn() <= 0) {
+  if (state.tutorialStage === "needSong") {
     state.tutorialStage = "needCommand";
     state.view = "home";
     state.activePopup = { title:"今週は何しよう……", body:"曲作りの手応えはあった。\n次は今週の行動を選ぼう。練習・募集・バイトなどでバンドを動かせる。", type:"event", icon:"⚡" };
@@ -2286,14 +6296,12 @@ function showTutorialBlocked(kind) {
     focusPendingSongFinalize(true);
     return true;
   }
-  if (mustCompleteFirstDraftTutorial()) {
-    if (kind === "song") return false;
+  if (mustCompleteFirstDraftTutorial() && kind !== "song") {
     state.activePopup = firstDraftTutorialPopup();
     state.view = "home";
     render();
     return true;
   }
-  // 曲作り枠と通常行動枠は別。残り曲作り回数があっても通常行動へ進める。
   if (state.tutorialStage === "needSong") {
     // 初回チュートリアル中は「作詞・作曲」だけ通す。
     // v0.3.0ではここで song もブロックしてしまい、
@@ -2391,6 +6399,7 @@ function renderMainContent() {
   else if (state.view === "shop") html = renderShopScreen();
   else if (state.view === "log") html = renderLogScreen();
   else if (state.view === "library") html = renderLibraryScreen();
+  else if (state.view === "bandbook") html = renderBandBookScreen();
   else html = renderHomeScreen();
   const homeBack = (state.view || "home") !== "home" ? `<button class="jumpTabBtn page-home-btn" data-view="home">← ホームに戻る</button>` : "";
   return `<main class="view-panel" data-view="${state.view || "home"}">${homeBack}${html}</main>`;
@@ -2444,7 +6453,7 @@ function renderUiPrepSummaryPanel() {
   const pending = (state.pendingDrafts || []).length;
   const offers = (state.liveOffers || []).filter(o => !o.accepted && !o.expired && o.turn > state.turn).length;
   const chips = [next ? `次ライブ:${next.turn}T ${liveTypeMeta(next).short}` : "ライブ予定なし", `オリジナル${originals}曲`, pending ? `未完成${pending}曲` : "未完成なし", unread ? `未読メール${unread}` : "未読なし", offers ? `出演通知${offers}件` : "通知待ち"];
-  return `<div class="card tips-card ui-prep-panel"><div class="section-title"><h2>v0.3.50 final</h2><span class="badge good">final</span></div><div class="quiet-guide-chips">${chips.map(c=>`<span class="badge">${escapeHtml(c)}</span>`).join("")}</div><small>50ターン制・Paper Moon Kids導線・フェス候補・曲作り回数・コピー曲キャップを反映したfinal版です。GRAND条件表示は内部判定と同期済みです。</small></div>`;
+  return `<div class="card tips-card ui-prep-panel"><div class="section-title"><h2>v0.3.50 仮実装</h2><span class="badge good">方向性確認</span></div><div class="quiet-guide-chips">${chips.map(c=>`<span class="badge">${escapeHtml(c)}</span>`).join("")}</div><small>50ターン制・初ライブ導線・フェス候補・曲作り回数・コピー曲キャップを確認する仮実装版です。</small></div>`;
 }
 
 function maybeShowGuidePopupOnce(key, title, body, type="event", icon="💡") {
@@ -2508,13 +6517,6 @@ function setLiveOfferStatus(offer, status) {
     mail.payload.offerId = offer.id;
   }
 }
-function liveOfferTurn(offer) { return Number(offer?.turn || 0); }
-function isPastLiveOffer(offer) { const t = liveOfferTurn(offer); return !!t && t < Number(state.turn || 1); }
-function isStoryInviteStillOpen(offer) { return !!offer?.storyInvite && !isPastLiveOffer(offer); }
-function liveOfferDeadlineText(offer) {
-  if (offer?.storyInvite) return `Paper Moon Kids（仮）からの固定招待です。${offer.turn}Tまで参加できます。`;
-  return liveBookingDeadlineText();
-}
 function liveOfferStatusLabel(offer, fallback="open") {
   const status = offer?.status || fallback;
   if (status === "accepted") return { text:"参加済み", cls:"good" };
@@ -2526,8 +6528,7 @@ function liveOfferStatusLabel(offer, fallback="open") {
 function updateLiveOfferStatuses() {
   (state.liveOffers || []).forEach(offer => {
     if (!offer || offer.accepted || offer.expired) return;
-    if (isPastLiveOffer(offer)) setLiveOfferStatus(offer, "expired");
-    else if (!offer.storyInvite && !canBookLiveTurn(offer.turn)) setLiveOfferStatus(offer, "expired");
+    if (!offer.storyInvite && !canBookLiveTurn(offer.turn)) setLiveOfferStatus(offer, "expired");
     else if (liveEventForTurn(offer.turn)) setLiveOfferStatus(offer, "conflict");
     else if (!offer.status) setLiveOfferStatus(offer, "open");
   });
@@ -2558,7 +6559,7 @@ function renderMailDetail(m) {
   const offerId = m.payload?.offerId;
   const offer = offerId ? (state.liveOffers || []).find(o => o.id === offerId) : null;
   if (offer) updateLiveOfferStatuses();
-  const canAccept = offer && !offer.accepted && !offer.expired && liveOfferTurn(offer) >= Number(state.turn || 1) && (isStoryInviteStillOpen(offer) || canBookLiveTurn(offer.turn)) && !liveEventForTurn(offer.turn);
+  const canAccept = offer && !offer.accepted && !offer.expired && (offer.storyInvite || canBookLiveTurn(offer.turn)) && !liveEventForTurn(offer.turn);
   return `<div class="mail-detail">
     <div class="section-title"><h2>${escapeHtml(m.subject || "無題")}</h2><span class="badge ${m.read ? "good" : "warn"}">${m.read ? "既読" : "未読"}</span></div>
     <small>From: ${escapeHtml(m.sender || mailSenderForKind(m.kind))} / ${m.turn || "?"}T</small>
@@ -2570,8 +6571,8 @@ function renderOfferActionsFromMail(offer, canAccept) {
   const v = venueById(offer.venueId);
   const meta = liveTypeMeta(offer);
   const status = liveOfferStatusLabel(offer);
-  if (!canAccept) return `<div class="empty-panel"><b>${escapeHtml(status.text)}</b><br>${offer.turn}T ${escapeHtml(meta.label)} / ${escapeHtml(v.name)}<br>${escapeHtml(liveOfferDeadlineText(offer))}</div>`;
-  return `<div class="mail-offer-actions"><b>${offer.turn}T ${escapeHtml(meta.label)} / ${escapeHtml(v.name)}</b><small>${escapeHtml(liveOfferDeadlineText(offer))}</small><div class="modal-actions"><button class="acceptOfferBtn big-action" data-offer-id="${escapeHtml(offer.id)}">参加する</button><button class="declineOfferBtn ghost-btn" data-offer-id="${escapeHtml(offer.id)}">見送る</button></div></div>`;
+  if (!canAccept) return `<div class="empty-panel"><b>${escapeHtml(status.text)}</b><br>${offer.turn}T ${escapeHtml(meta.label)} / ${escapeHtml(v.name)}<br>${escapeHtml(liveBookingDeadlineText())}</div>`;
+  return `<div class="mail-offer-actions"><b>${offer.turn}T ${escapeHtml(meta.label)} / ${escapeHtml(v.name)}</b><small>${escapeHtml(liveBookingDeadlineText())}</small><div class="modal-actions"><button class="acceptOfferBtn big-action" data-offer-id="${escapeHtml(offer.id)}">参加する</button><button class="declineOfferBtn ghost-btn" data-offer-id="${escapeHtml(offer.id)}">見送る</button></div></div>`;
 }
 function renderSnsScreen() {
   const sns = state.snsPosts || [];
@@ -2650,6 +6651,7 @@ function renderHomeScreen() {
           ${homeMenuButton("shop", "🛒", "ショップ", "回復・機材・演出アイテム")}
           ${homeMenuButton("log", "📺", "ログ", "イベント履歴を見る")}
           ${homeMenuButton("library", "📚", "図鑑", "発見済みジャンル・スキル・歴代バンド")}
+          ${bandSystemOn() ? homeMenuButton("bandbook", "🎤", "バンド図鑑", `出会ったバンドの記録（${bandDiscoveredCount()}/${Object.keys(BAND_DATABASE).length}）`) : ""}
         </div>
       </div>
     </div>
@@ -2695,7 +6697,7 @@ function renderSchedulePanel() {
   const houseCandidates = canBook ? buildHouseEventCandidates() : [];
   const festivalCandidates = canBook ? buildFestivalCandidates() : [];
   const offers = (state.liveOffers || [])
-    .filter(o => !o.accepted && !o.expired && o.status !== "declined" && liveOfferTurn(o) >= Number(state.turn || 1) && (isStoryInviteStillOpen(o) || canBookLiveTurn(o.turn)) && !liveEventForTurn(o.turn))
+    .filter(o => !o.accepted && !o.expired && o.status !== "declined" && (o.storyInvite || canBookLiveTurn(o.turn)) && o.turn > state.turn && !liveEventForTurn(o.turn))
     .slice(0, 4);
   const next = upcoming[0];
   return `<div class="schedule-screen-split extended-schedule ui-prep-schedule">
@@ -2758,7 +6760,7 @@ function renderLiveOfferMini(offer) {
   const v = venueById(offer.venueId);
   const meta = liveTypeMeta(offer);
   const bands = invitedBandsForEvent(offer);
-  const blocked = !!liveEventForTurn(offer.turn) || isPastLiveOffer(offer) || (!isStoryInviteStillOpen(offer) && !canBookLiveTurn(offer.turn)) || offer.expired || offer.status === "conflict";
+  const blocked = !!liveEventForTurn(offer.turn) || (!offer.storyInvite && !canBookLiveTurn(offer.turn)) || offer.expired || offer.status === "conflict";
   return `<div class="schedule-event candidate ${blocked ? "risk" : "good"}">
     <b>${offer.turn}T ${escapeHtml(meta.short)}：${escapeHtml(v.name)}</b>
     <small>${escapeHtml(meta.feeLabel)}${eventBaseCost(offer, v).toLocaleString()}円 / ${bands.length ? `共演：${bands.map(b=>escapeHtml(b.name)).join(" / ")}` : "出演枠"}</small>
@@ -2847,7 +6849,12 @@ function buildHouseEventCandidates() {
 }
 
 function generateFestivalCandidatesForTurn() {
-  const specs = [
+  const specs = bandSystemOn() ? [
+    { turn:20, type:"band_fes", venueId:"warehouse", bands:["pachi_pachi", "hyper_marmoty"], label:"バンド主催フェス" },
+    { turn:25, type:"corp_fes", venueId:"big_stage", bands:["jack_bomb", "ultimate_quokkas"], label:"企業主催フェス" },
+    { turn:35, type:"corp_fes", venueId:"big_stage", bands:["shelter", "neon_reef"], label:"企業主催フェス" },
+    { turn:40, type:"band_fes", venueId:"big_stage", bands:["rumble_sand", "kaede"], label:"バンド主催フェス" }
+  ] : [
     { turn:20, type:"band_fes", venueId:"warehouse", bands:["paper_moon", "after_school_noise"], label:"バンド主催フェス" },
     { turn:25, type:"corp_fes", venueId:"big_stage", bands:["iron_laundry", "tokyo_firefly"], label:"企業主催フェス" },
     { turn:35, type:"corp_fes", venueId:"big_stage", bands:["blue_terminal", "melted_siren"], label:"企業主催フェス" },
@@ -2961,7 +6968,8 @@ function generateSnsTrendPost() {
     return;
   }
   if (roll < 0.67) {
-    const b = RIVAL_BANDS[rand(0, RIVAL_BANDS.length-1)];
+    const roster = rosterBands();
+    const b = roster[rand(0, roster.length-1)];
     addSnsPost(`@${b.id}`, `${b.name} 次の企画に向けて対バン探し中。${b.genre}寄りの夜にしたい。`, "event");
     return;
   }
@@ -2976,8 +6984,7 @@ function acceptLiveOffer(offerId) {
   if (!offer) { log("対象の出演通知が見つからない。", "warn"); render(); return; }
   updateLiveOfferStatuses();
   if (offer.accepted) { log("この出演通知は参加済みです。", "info"); render(); return; }
-  if (isPastLiveOffer(offer)) { setLiveOfferStatus(offer, "expired"); log("この出演通知は期限切れです。", "warn"); render(); return; }
-  if (!isStoryInviteStillOpen(offer) && !canBookLiveTurn(offer.turn)) { setLiveOfferStatus(offer, "expired"); log("この出演通知は期限切れです。", "warn"); render(); return; }
+  if (!offer.storyInvite && !canBookLiveTurn(offer.turn)) { setLiveOfferStatus(offer, "expired"); log("この出演通知は期限切れです。", "warn"); render(); return; }
   if (liveEventForTurn(offer.turn)) { setLiveOfferStatus(offer, "conflict"); log("そのターンは既に別のライブ予定があるため、出演通知を見送った。", "warn"); render(); return; }
   const v = venueById(offer.venueId);
   const meta = liveTypeMeta(offer);
@@ -3018,13 +7025,13 @@ function renderCommandDesk() {
         ${currentApplicantList().length ? renderApplicantList() : ""}
       </div>
       <div class="card">
-        <div class="section-title"><h2>作詞・作曲</h2><span class="badge ${state.songcraftUsedThisTurn ? "bad" : "good"}">${songcraftCountLabel()}</span></div>
+        <div class="section-title"><h2>作詞・作曲</h2><span class="badge ${state.songcraftUsedThisTurn ? "bad" : "good"}">${state.songcraftUsedThisTurn ? "本日制作済み" : "今ターン未実行"}</span></div>
         <p><small>プルダウンではなく、曲エディタを開いて、メインジャンル2択から曲を作ります。</small></p>
         <button class="openSongEditorBtn big-action">曲エディタを開く</button>
         <hr class="soft" />
         <h2>イベント進行</h2>
         <div class="event-box"><b>NEXT EVENT</b><span>${state.turn < state.nextLiveTurn ? `${state.nextLiveTurn}ターン目：${currentLiveName()}` : "GRAND UNDER FES"}</span></div>
-        <p>${state.turn < state.nextLiveTurn ? `あと${turnsUntilNextLive()}ターンでライブ。本番までに仲間・曲・資金・疲労を整える。` : ((state.nextLiveTurn || state.turn || 1) >= 50 ? "GRAND UNDER FESに向けて、A評価以上・総合80以上に加え、オリジナル曲と代表/定番曲を育てよう。" : "UNDER FESに向けて、B評価以上＋条件達成を狙う。")}</p>
+        <p>${state.turn < state.nextLiveTurn ? `あと${turnsUntilNextLive()}ターンでライブ。本番までに仲間・曲・資金・疲労を整える。` : "GRAND UNDER FESに向けて、A評価＋総合80＋条件達成を狙う。"}</p>
       </div>
     </div>
   `;
@@ -3060,6 +7067,7 @@ function renderBandScreen() {
   `;
 }
 function renderRivalBandDirectory(limit=99) {
+  if (bandSystemOn()) return renderBandDirectoryV060();
   const groups = [1,2,3,4,5,6].map(lv => {
     const items = RIVAL_BANDS.filter(b => b.level === lv).slice(0, limit).map(b => renderRivalBandCard(b)).join("");
     return items ? `<div class="rival-band-tier"><h3>Lv${lv} ${lv <= 2 ? "地元・常連" : lv <= 4 ? "中堅〜格上" : "有名・強豪"}</h3>${items}</div>` : "";
@@ -3150,23 +7158,14 @@ function renderScheduleScreen() {
   `;
 }
 
-function grandUnderFesResult() {
-  return (state.liveResultHistory || []).slice().reverse().find(r =>
-    Number(r.turn || 0) === 50 || String(r.title || "").includes("GRAND UNDER FES")
-  ) || null;
-}
-
 function renderFesInfoPanel() {
   if (!state.fesInfoKnown) {
     return `<div class="empty-panel">フェス条件はまだ不明。ライブ後のイベントや業界評価が上がったタイミングで情報が入る。</div>`;
   }
   const originalCount = state.songs.filter(s=>!s.isCover).length;
   const hasB = state.liveResultHistory.some(r => r.rank === "B" || r.rank === "A" || r.rank === "S");
-  const grandResult = grandUnderFesResult();
-  const hasFinalA = !!grandResult && ["A","S"].includes(grandResult.rank);
-  const hasFinalTotal80 = !!grandResult && Number(grandResult.total || 0) >= 80;
-  const finalRankLabel = grandResult ? (grandResult.rank || "-") : "50Tで判定";
-  const finalTotalLabel = grandResult ? String(Math.round(Number(grandResult.total || 0))) : "50Tで判定";
+  const hasA = state.liveResultHistory.some(r => r.rank === "A" || r.rank === "S");
+  const hasGrandScore80 = state.liveResultHistory.some(r => (Number(r.total) || 0) >= 80);
   const repCount = state.songs.filter(s => hasTag(s,"代表曲候補") || hasTag(s,"定番")).length;
   const freshCount = state.songs.filter(s => !s.isCover && (s.livePlays || 0) <= 1 && state.turn - (s.createdTurn || 0) <= 10).length;
   return `<div class="goal-board compact-goals">
@@ -3176,13 +7175,13 @@ function renderFesInfoPanel() {
       ${goalChip("B評価以上", hasB)}
       ${goalChip("ファン60", state.band.fans >= 60, state.band.fans)}
       ${goalChip("知名度60", state.band.fame >= 60, state.band.fame)}
-      ${goalChip("業界評価50", state.band.industry >= 50, state.band.industry)}
+      ${goalChip("業界評価55", state.band.industry >= 55, state.band.industry)}
       ${goalChip("オリジナル5曲", originalCount >= 5, `${originalCount}曲`)}
     </div>
     <h3>50T：GRAND UNDER FES 目安</h3>
     <div class="goal-grid">
-      ${goalChip("最終ライブA評価以上", hasFinalA, finalRankLabel)}
-      ${goalChip("最終ライブ総合80以上", hasFinalTotal80, finalTotalLabel)}
+      ${goalChip("A評価以上", hasA)}
+      ${goalChip("総合80以上", hasGrandScore80)}
       ${goalChip("ファン180", state.band.fans >= 180, state.band.fans)}
       ${goalChip("知名度135", state.band.fame >= 135, state.band.fame)}
       ${goalChip("業界評価118", state.band.industry >= 118, state.band.industry)}
@@ -3289,16 +7288,15 @@ function renderSongEditor() {
   const ed = editorData();
   const used = state.songcraftUsedThisTurn;
   if ((state.band?.fatigue || 0) >= 100) {
-    return `<div class="garage-closed"><div class="section-title"><h2>曲エディタ</h2><span class="badge bad">疲労限界</span></div><div class="garage-door">GARAGE CLOSED</div><p><small>疲労が100％です。休憩やドリンクで回復してから曲作りできます。</small></p>${state.lastSongcraftResult ? `<div class="editor-summary mini"><b>直近の制作</b><span>${escapeHtml(state.lastSongcraftResult.title || "曲作り")}</span><span>${escapeHtml(state.lastSongcraftResult.body || "")}</span></div>` : ""}${renderSongcraftEndTurnPanel()}<button class="jumpTabBtn big-action garage-home-btn" data-view="home">ホームに戻る</button></div>`;
+    return `<div class="garage-closed"><div class="section-title"><h2>曲エディタ</h2><span class="badge bad">疲労限界</span></div><div class="garage-door">GARAGE CLOSED</div><p><small>疲労が100％です。休憩やドリンクで回復してから曲作りできます。</small></p>${state.lastSongcraftResult ? `<div class="editor-summary mini"><b>直近の制作</b><span>${escapeHtml(state.lastSongcraftResult.title || "曲作り")}</span><span>${escapeHtml(state.lastSongcraftResult.body || "")}</span></div>` : ""}<button class="jumpTabBtn big-action garage-home-btn" data-view="home">ホームに戻る</button></div>`;
   }
   if (ed.step === "closed") {
-    return `<div class="section-title"><h2>曲エディタ</h2><span class="badge good">${songcraftCountLabel()}</span></div><p><small>新曲作成・曲強化・未完成曲の続きはここから進めます。曲作り系は成長に応じて1ターン内で複数回進められます。</small></p><button class="songEditorChoiceBtn big-action" data-action="editor:menu">曲エディタを開く</button>`;
+    return `<div class="section-title"><h2>曲エディタ</h2><span class="badge good">今ターン未実行</span></div><p><small>新曲作成・曲強化・未完成曲の続きはここから進めます。曲作り系は成長に応じて1ターン内で複数回進められます。</small></p><button class="songEditorChoiceBtn big-action" data-action="editor:menu">曲エディタを開く</button>`;
   }
   const title = songEditorTitle(ed);
   return `<div class="song-editor">
-    <div class="section-title"><h2>${title}</h2><span class="badge ${used ? "bad" : "good"}">${songcraftCountLabel()}</span></div>
+    <div class="section-title"><h2>${title}</h2><span class="badge ${used ? "bad" : "good"}">${used ? "今ターン実行済み" : "今ターン未実行"}</span></div>
     ${craftLevelSummaryHtml()}
-    ${renderSongcraftEndTurnPanel()}
     ${renderSongEditorStep(ed)}
   </div>`;
 }
@@ -3491,7 +7489,6 @@ function handleSongEditorAction(action) {
     }
     stepSongEditorBack(ed); render(); return;
   }
-  if (action === "editor:endTurn") { endSongcraftTurnEarly(); return; }
   if (action === "editor:menu") { state.songEditor = { step: mustCompleteFirstDraftTutorial() ? "composeMenu" : "menu" }; render(); return; }
   if (action === "compose:menu") { if (!canStartAnySongcraft(["lyrics","music"], 20, "曲作成")) { render(); return; } state.songEditor = { step:"composeMenu" }; render(); return; }
   if (action === "arrange:menu") { if (mustCompleteFirstDraftTutorial()) { state.songEditor = { step:"composeMenu" }; render(); return; } if (!canStartSongcraft("music", 10, "編曲/曲編集")) { render(); return; } state.songEditor = { step:"arrangeMenu" }; render(); return; }
@@ -3514,7 +7511,6 @@ function handleSongEditorAction(action) {
     if (ok) {
       completeSongcraftTutorial();
       if (!state.songEditor || state.songEditor.step !== "draftFinalize") state.songEditor = { step:"composeMenu" };
-      if (!hasPendingSongFinalize()) scheduleSongcraftTurnAdvanceIfDone("songcraft-half");
     }
     render(); return;
   }
@@ -3528,7 +7524,6 @@ function handleSongEditorAction(action) {
     if (ok) {
       completeSongcraftTutorial();
       if (!state.songEditor || state.songEditor.step !== "draftFinalize") state.songEditor = { step:"composeMenu" };
-      if (!hasPendingSongFinalize()) scheduleSongcraftTurnAdvanceIfDone("songcraft-half");
     }
     render(); return;
   }
@@ -3546,7 +7541,6 @@ function handleSongEditorAction(action) {
     if (ok) {
       completeSongcraftTutorial();
       if (!state.songEditor || state.songEditor.step !== "draftFinalize") state.songEditor = { step:"composeMenu" };
-      if (!hasPendingSongFinalize()) scheduleSongcraftTurnAdvanceIfDone("songcraft-half");
     }
     render(); return;
   }
@@ -3563,7 +7557,6 @@ function handleSongEditorAction(action) {
     if (ok) {
       completeSongcraftTutorial();
       if (!state.songEditor || state.songEditor.step !== "draftFinalize") state.songEditor = { step:"composeMenu" };
-      if (!hasPendingSongFinalize()) scheduleSongcraftTurnAdvanceIfDone("songcraft-half");
     }
     render(); return;
   }
@@ -3572,10 +7565,7 @@ function handleSongEditorAction(action) {
     if (!d) { log("完成確認中の曲が見つかりません。"); render(); return; }
     d.titleHint = (document.getElementById("draftFinalTitle")?.value || "").trim() || d.titleHint || randomSongTitleCandidate(ed);
     d.theme = document.getElementById("draftFinalTheme")?.value || d.theme;
-    if (finishDraft(d.id)) {
-      completeSongcraftTutorial();
-      scheduleSongcraftTurnAdvanceIfDone("songcraft-complete");
-    }
+    finishDraft(d.id);
     state.songEditor = { step:"composeMenu" };
     render(); return;
   }
@@ -3589,7 +7579,6 @@ function handleSongEditorAction(action) {
     editSongMetadataFromEditor(ed.songId);
     completeSongcraftTutorial();
     state.songEditor = { step:"arrangeMenu" };
-    scheduleSongcraftTurnAdvanceIfDone("song-edit");
     render(); return;
   }
 }
@@ -3643,7 +7632,7 @@ function renderLibraryScreen() {
     <div class="card"><div class="section-title"><h2>コンボ図鑑</h2><span class="badge">仮</span></div><p><small>発見済みの組み合わせと、今後出る可能性のあるサブジャンルを確認します。</small></p>${comboKeys.map(k=>`<div class="dict-row"><b>${escapeHtml(k)}</b><small>${escapeHtml(genrePlanText(...k.split("+")))}</small></div>`).join("") || `<p><small>まだ組み合わせ履歴がありません。</small></p>`}</div>
     <div class="card"><div class="section-title"><h2>スキル図鑑</h2><span class="badge">${(state.playerSkills||[]).length}/${SKILL_DATA.length}</span></div>${renderPlayerSkillPanel()}</div>
     <div class="card"><div class="section-title"><h2>曲名履歴</h2><span class="badge">${(state.songTitleHistory||[]).length}曲</span></div>${(state.songTitleHistory||[]).slice(-30).reverse().map(x=>`<div class="dict-row"><b>${escapeHtml(x.title)}</b><small>${escapeHtml(x.genre || "")} / ${x.turn || "?"}T</small></div>`).join("") || `<p><small>完成した曲名がここに残ります。</small></p>`}</div>
-    <div class="card"><div class="section-title"><h2>ほかのバンド図鑑</h2><span class="badge">対バン候補</span></div>${renderRivalBandDirectory()}</div>
+    <div class="card"><div class="section-title"><h2>ほかのバンド図鑑</h2><span class="badge">${bandSystemOn() ? `${bandDiscoveredCount()}/${Object.keys(BAND_DATABASE).length}組` : "対バン候補"}</span></div>${bandSystemOn() ? renderBandBookSummaryForLibrary() : renderRivalBandDirectory()}</div>
     <div class="card"><div class="section-title"><h2>歴代バンド図鑑</h2><span class="badge">${histories.length}組</span></div>${histories.map(h=>`<div class="dict-row"><b>${escapeHtml(h.name || "名無しの地下バンド")}</b><small>${escapeHtml(h.ending || "END")} / ファン${h.fans} / 資金${Number(h.funds||0).toLocaleString()}円</small></div>`).join("") || `<p><small>エンディングを見たバンドだけ記録されます。</small></p>`}</div>
   </div>`;
 }
@@ -3705,11 +7694,6 @@ function renderTinyMeter(k, v) {
 }
 
 function renderNormalTurn() {
-  const originalCount = state.songs.filter(s=>!s.isCover).length;
-  const repCount = state.songs.filter(s => hasTag(s,"代表曲候補") || hasTag(s,"定番")).length;
-  const freshCount = state.songs.filter(s => !s.isCover && (s.livePlays || 0) <= 1 && state.turn - (s.createdTurn || 0) <= 10).length;
-  const grandGoalText = "A評価以上＋総合80 / ファン180 / 知名度135 / 業界評価118 / オリジナル7曲 / 代表・定番3曲 / 新しめの曲1曲";
-  const underGoalText = "B評価以上 / ファン60 / 知名度60 / 業界評価50 / オリジナル曲5曲";
   return `
     <div class="grid main-grid">
       <div class="card success-panel command-window">
@@ -3725,10 +7709,10 @@ function renderNormalTurn() {
         <hr class="soft" />
         <h2>イベント進行</h2>
         <div class="event-box"><b>NEXT EVENT</b><span>${state.turn < state.nextLiveTurn ? `${state.nextLiveTurn}ターン目：${currentLiveName()}` : "GRAND UNDER FES"}</span></div>
-        <p>${state.turn < state.nextLiveTurn ? `あと${turnsUntilNextLive()}ターンでライブ。本番までに仲間・曲・資金・疲労を整える。` : ((state.nextLiveTurn || state.turn || 1) >= 50 ? "GRAND UNDER FESに向けて、A評価以上・総合80以上に加え、オリジナル曲と代表/定番曲を育てよう。" : "UNDER FESに向けて、B評価以上＋条件達成を狙う。")}</p>
+        <p>${state.turn < state.nextLiveTurn ? `あと${turnsUntilNextLive()}ターンでライブ。本番までに仲間・曲・資金・疲労を整える。` : "GRAND UNDER FESに向けて、A評価＋総合80＋条件達成を狙う。"}</p>
         <div class="kv">
-          <b>最低クリア条件</b><span>${(state.nextLiveTurn || 0) >= 50 ? grandGoalText : underGoalText}</span>
-          <b>現在</b><span>ファン${state.band.fans} / 知名度${state.band.fame} / 業界評価${state.band.industry} / オリジナル${originalCount}曲 / 代表・定番${repCount}曲 / 新しめ${freshCount}曲</span>
+          <b>最低クリア条件</b><span>B評価以上 / ファン60 / 知名度60 / 業界評価55 / オリジナル曲5曲</span>
+          <b>現在</b><span>ファン${state.band.fans} / 知名度${state.band.fame} / 業界評価${state.band.industry} / オリジナル${state.songs.filter(s=>!s.isCover).length}曲</span>
         </div>
       </div>
     </div>
@@ -3769,7 +7753,7 @@ function renderSongcraftControls() {
     : `<option value="none">制作中の曲なし</option>`;
   return `
     <div class="songcraft-box">
-      <div class="section-title"><h2>作詞作曲</h2><span class="badge ${state.songcraftUsedThisTurn ? "bad" : "good"}">${songcraftCountLabel()}</span></div>
+      <div class="section-title"><h2>作詞作曲</h2><span class="badge ${state.songcraftUsedThisTurn ? "bad" : "good"}">${state.songcraftUsedThisTurn ? "本日制作済み" : "今ターン未実行"}</span></div>
       <p><small>作詞作曲は通常行動とは別ボタン。制作中の曲一覧から、まだ作っていない詞/曲を選んで進められます。</small></p>
       <div class="cols">
         <div><label>対象</label><select id="craftMode"><option value="new">新しい曲の種を作る</option><option value="draft">制作中の曲を進める</option><option value="boost">完成済みの曲を強化</option></select></div>
@@ -3811,16 +7795,27 @@ function renderApplicantList() {
   const list = currentApplicantList();
   return `<div class="applicant-list">${list.map(renderApplicantCard).join("")}</div>`;
 }
+function joinConditionLabel(cond) {
+  if (!cond) return "通常募集";
+  const parts = [];
+  if (cond.minTurn && cond.minTurn > 1) parts.push(`${cond.minTurn}T以降`);
+  if (cond.minFans) parts.push(`ファン${cond.minFans}+`);
+  if (cond.minFame) parts.push(`知名度${cond.minFame}+`);
+  if (cond.minIndustry) parts.push(`業界評価${cond.minIndustry}+`);
+  return parts.length ? parts.join(" / ") : "初期募集";
+}
+
 function renderApplicantCard(a) {
   return `
     <div class="member applicant-card">
-      <h4>加入候補：${escapeHtml(a.name)}</h4>
+      <h4>加入候補：${escapeHtml(a.name)}</h4>${a.canRename ? `<small>加入時に名前変更可 / 成長:${escapeHtml(a.growthType || "未設定")}</small>` : ""}
       <div class="member-head"><div class="avatar">${initials(a.name)}</div><div class="kv">
         <b>担当</b><span>${escapeHtml(a.part)}</span>
         <b>一番得意ジャンル</b><span>${escapeHtml(a.mainGenre)}</span>
         <b>二番目得意</b><span>${(a.secondMainGenres||[]).map(escapeHtml).join(" / ") || "なし"}</span>
         <b>加入難度</b><span>${escapeHtml(a.joinDifficulty || "中")}</span>
-        <b>メモ</b><span>${escapeHtml(a.replaceNote || "仮キャラ")}</span>
+        <b>加入条件</b><span>${escapeHtml(joinConditionLabel(a.joinCondition))}</span>
+        <b>メモ</b><span>${escapeHtml(a.replaceNote || a.roleHint || "加入候補")}</span>
       </div></div>
       <div class="row" style="margin-top:10px;"><button class="joinApplicantBtn" data-applicant-id="${escapeHtml(a.id)}">加入させる</button><button class="skipApplicantBtn" data-applicant-id="${escapeHtml(a.id)}">今回は見送る</button></div>
     </div>
@@ -3855,9 +7850,10 @@ function renderMemberCard(m) {
   const stats = Object.entries(m.stats).map(([k,v]) => `<span class="badge">${statLabel(k)} ${v}</span>`).join(" ");
   const discovered = discoveredSubGenresFor(m);
   const hiddenCount = hiddenSubGenreCount(m);
+  const growthLine = m.growthType ? `<p><span class="badge">成長タイプ:${escapeHtml(m.growthType)}</span><small>表示のみ。実成長倍率は今後調整予定。</small></p>` : "";
   const genreLine = `
     <p><span class="badge warn">一番得意:${m.mainGenre}</span> ${(m.secondMainGenres||[]).map(g=>`<span class="badge good">二番目:${g}</span>`).join(" ")}</p>
-    <p>${discovered.map(g=>`<span class="badge">判明サブ:${g}</span>`).join(" ")} ${hiddenCount ? `<span class="badge bad">未判明サブ ${hiddenCount}</span>` : `<span class="badge good">サブ全判明</span>`}</p>`;
+    <p>${discovered.map(g=>`<span class="badge">判明サブ:${g}</span>`).join(" ")} ${hiddenCount ? `<span class="badge bad">未判明サブ ${hiddenCount}</span>` : `<span class="badge good">サブ全判明</span>`}</p>${growthLine}`;
   return `<div class="member"><div class="member-head"><div class="avatar">${initials(m.name)}</div><div><h4>${m.name} <span class="badge good">${m.part}</span></h4><p>${stats}</p>${genreLine}</div></div>${insts}<small>${m.replaceNote || ""}</small></div>`;
 }
 
@@ -4491,13 +8487,13 @@ function renderBoostSongConfirmOverlay() {
 function renderAfterpartyOverlay() {
   const p = state.pendingAfterparty || {};
   const fatigue = Number(state.band?.fatigue || 0);
-  const canJoin = !!p.initialAfterparty || fatigue <= 80;
+  const canJoin = fatigue <= 80;
   const bands = (p.invitedBandIds || []).map(rivalById).filter(Boolean);
   return `<div class="modal-backdrop"><div class="event-modal event afterparty-modal">
     <div class="modal-icon">🍻</div>
     <div class="modal-copy"><h2>ライブ後の打ち上げに行く？</h2>
       <p>${escapeHtml(p.title || "ライブ")}が終わった。参加すると、共演バンドとの交流イベント・紹介・メンバー成長のチャンスがあるが、疲労がさらに20%増える。</p>
-      <p>現在疲労：${Math.round(fatigue)}% / 参加条件：${p.initialAfterparty ? "初ライブ打ち上げのため参加可" : "疲労80%以下"}${canJoin ? "" : "（疲れすぎて参加不可）"}</p>
+      <p>現在疲労：${Math.round(fatigue)}% / 参加条件：疲労80%以下${canJoin ? "" : "（疲れすぎて参加不可）"}</p>
       ${bands.length ? `<p>共演：${bands.map(b=>escapeHtml(b.name)).join(" / ")}</p>` : `<p>今回は他バンド込みではないため、交流・紹介イベントは発生しない。</p>`}
       <small>二日酔い発生率は1〜20%。疲労が高いほど上がり、ライブ評価が高いほど下がる。</small>
     </div>
@@ -4574,7 +8570,7 @@ function renderLiveResultOverlay() {
       </div>
       <div class="result-setlist"><b>SET LIST</b>${(r.songs || []).map((name, i) => `<span>${i + 1}. ${escapeHtml(name)}</span>`).join("")}</div>
       <div class="result-notes">
-        <p>ライブアレンジ：${escapeHtml(r.adlib || "なし")}</p>
+        <p>ライブアレンジ：${escapeHtml(r.adlib || r.adlibDisabledReason || "なし")}</p>
         <p>セトリボーナス：${escapeHtml(r.setlistBonusText || "なし")}</p>
         <p>同一曲：${escapeHtml(r.repeatText || "なし")}</p>
         <p>物販：${escapeHtml(r.merchSummary || "なし")}</p>
@@ -4654,7 +8650,7 @@ function bindEvents() {
   const toggleSkillPanelBtn = document.getElementById("toggleSkillPanelBtn");
   if (toggleSkillPanelBtn) toggleSkillPanelBtn.addEventListener("click", () => { state.skillPanelOpen = state.skillPanelOpen === false; render(); });
   const confirmBoostSongBtn = document.getElementById("confirmBoostSongBtn");
-  if (confirmBoostSongBtn) confirmBoostSongBtn.addEventListener("click", () => { const id = state.pendingBoostSong; state.pendingBoostSong = null; if (boostSongSimple(id)) { completeSongcraftTutorial(); state.songEditor = { step:"arrangeMenu" }; scheduleSongcraftTurnAdvanceIfDone("song-boost"); } render(); });
+  if (confirmBoostSongBtn) confirmBoostSongBtn.addEventListener("click", () => { const id = state.pendingBoostSong; state.pendingBoostSong = null; if (boostSongSimple(id)) { completeSongcraftTutorial(); state.songEditor = { step:"arrangeMenu" }; } render(); });
   const cancelBoostSongBtn = document.getElementById("cancelBoostSongBtn");
   if (cancelBoostSongBtn) cancelBoostSongBtn.addEventListener("click", () => { state.pendingBoostSong = null; render(); });
   document.querySelectorAll(".keywordDiceBtn").forEach(btn => btn.addEventListener("click", () => {
@@ -4764,6 +8760,9 @@ function bindEvents() {
   if (merchSel) merchSel.addEventListener("change", () => { state.livePrepMerch = merchSel.value; });
   document.querySelectorAll(".positionSelect").forEach(sel => sel.addEventListener("change", handlePositionChange));
   document.querySelectorAll(".chorusSelect").forEach(sel => sel.addEventListener("change", enforceChorusRule));
+  document.querySelectorAll(".bandBookRowBtn").forEach(btn => btn.addEventListener("click", () => { state.bandBookDetail = btn.dataset.bandId || null; state.view = "bandbook"; render(); }));
+  const bandBookBackBtn = document.getElementById("bandBookBackBtn");
+  if (bandBookBackBtn) bandBookBackBtn.addEventListener("click", () => { state.bandBookDetail = null; render(); });
 }
 
 function continuePostLiveFlow() {
@@ -4814,10 +8813,31 @@ function attendAfterparty() {
     const fatigueBefore = state.band.fatigue || 0;
     state.pendingAfterparty = null;
     addFatigue(20);
-    setRelationshipWithBand("paper_moon", relationshipWithBand("paper_moon") + 18);
     const original = (state.livePrepSetlist || []).map(id => state.songs.find(song => song.id === id)).find(song => song && !song.isCover) || state.songs.find(song => !song.isCover);
     activeMembers().forEach(m => { m.stats.teamwork = clamp((m.stats.teamwork || 0) + 2, 1, 99); m.stats.mental = clamp((m.stats.mental || 0) + 1, 1, 99); m.stats.charisma = clamp((m.stats.charisma || 0) + 1, 1, 99); });
-    state.activePopup = { title:"はじめての打ち上げ", body:`Paper Moon Kids（仮）のスバル：
+    if (bandSystemOn()) {
+      // Triple Arrows初回打ち上げ：DBイベントの効果を直接適用（ポップはこの専用演出で代替）
+      const ta = BAND_EVENT_DATABASE.event_triple_arrows_first_after_party;
+      applyBandEventEffects(ta, { silentPopup: true });
+      state.activePopup = { title:"はじめての打ち上げ", body:`Triple Arrowsのスバル：
+「え、あれで初ライブかよ。${original?.title || "オリジナル曲"}って曲、よかったぜ」
+
+Triple Arrowsのタカナシ：
+「連絡先、交換しとこう。今度やる俺たちの企画にも来てくれよ」
+
+主人公：
+「ぜひ！また、ライブハウスで会いましょう」
+
+Triple Arrowsと連絡先を交換した。
+交流が深まった。バンド図鑑にTriple Arrowsが登録された。
+Triple Arrowsの刺激を受け、ステータスが上がった。
+
+主人公：
+「ふう、疲れが溜まってたら二日酔いだったな…」
+疲労+${Math.max(0, Math.round((state.band.fatigue || 0) - fatigueBefore))}%`, type:"event", icon:"🍻" };
+    } else {
+      setRelationshipWithBand("paper_moon", relationshipWithBand("paper_moon") + 18);
+      state.activePopup = { title:"はじめての打ち上げ", body:`Paper Moon Kids（仮）のスバル：
 「え、あれで初ライブかよ。${original?.title || "オリジナル曲"}って曲、よかったぜ」
 
 Paper Moon Kids（仮）のタカナシ：
@@ -4833,6 +8853,7 @@ Paper Moon Kids（仮）の刺激を受け、ステータスが上がった。
 主人公：
 「ふう、疲れが溜まってたら二日酔いだったな…」
 疲労+${Math.max(0, Math.round((state.band.fatigue || 0) - fatigueBefore))}%`, type:"event", icon:"🍻" };
+    }
     schedulePendingTurnAdvance("afterparty");
     render();
     return;
@@ -4852,7 +8873,7 @@ Paper Moon Kids（仮）の刺激を受け、ステータスが上がった。
     bands.forEach(b => setRelationshipWithBand(b.id, relationshipWithBand(b.id) + 8 + (partyEvent.rel || 0)));
     activeMembers().forEach(m => { m.stats.teamwork = clamp(m.stats.teamwork + 1, 1, 99); m.stats.mental = clamp(m.stats.mental + 1, 1, 99); if (["S","A"].includes(p.rank)) m.stats.charisma = clamp(m.stats.charisma + 1, 1, 99); });
     partyStatAmount = applyAfterpartyStatEvent(partyEvent, exposure, p.rank);
-    const introChance = clamp(partyEvent.applicant || 0.12, 0.05, 0.75);
+    const introChance = clamp((partyEvent.applicant || 0.12) + bandSkillAfterPartyBonusPct() / 100, 0.05, 0.80);
     if (Math.random() < introChance) {
       const applicant = addApplicantFromCandidates("打ち上げ紹介");
       if (applicant) {
@@ -4880,6 +8901,10 @@ Paper Moon Kids（仮）の刺激を受け、ステータスが上がった。
   state.popupQueue = state.popupQueue || [];
   state.popupQueue.push({ title:"打ち上げ結果", body:`${relText}${partyEvent ? `\nイベント：${partyEvent.title} - ${partyEvent.text}` : ""}${statLines.length ? "\n" + statLines.join("\n") : ""}${introText}\n疲労+${Math.round(state.band.fatigue-before)}%。二日酔い判定${Math.round(chance*100)}%${hungover ? " → 発生" : " → なし"}。`, type:hungover ? "warn" : "event", icon:"🍻" });
   log(`打ち上げに参加した。${relText}${partyEvent ? " / " + partyEvent.title : ""}${statLines.length ? " / " + statLines.join(" / ") : ""}${introText ? " / " + introText.trim() : ""} 疲労+${Math.round(state.band.fatigue-before)}%。二日酔い判定${Math.round(chance*100)}%${hungover ? " → 発生" : " → なし"}。`, hungover ? "warn" : "event");
+  if (bandSystemOn()) {
+    processBandStoryEvents("afterParty");
+    checkCommonSkillAcquisition();
+  }
   state.pendingAfterparty = null;
   continuePostLiveFlow();
   render();
@@ -4898,8 +8923,6 @@ function makeLiveEventRecord(turn, venueId, liveType, invitedBandIds=[]) {
   return { id:`live_${turn}_${venueId}_${liveType}_${Date.now()}_${Math.floor(Math.random()*9999)}`, turn, venueId, liveType, invitedBandIds:[...new Set(invitedBandIds || [])], label:meta.label, fixed:false, booked:true, cancelled:false, name:meta.label, capacity:v.capacity, fee:v.fee, prepNeed:v.prepNeed };
 }
 function addLiveEventPreservingSchedule(ev) {
-  if (!ev || !ev.turn) return false;
-  if (Number(ev.turn || 0) < Number(state.turn || 1)) return false;
   state.liveEvents = Array.isArray(state.liveEvents) ? state.liveEvents : [];
   const exists = state.liveEvents.some(e => !e.cancelled && Number(e.turn) === Number(ev.turn));
   if (exists) return false;
@@ -5152,7 +9175,7 @@ function pickRecruitCandidateIndex() {
 function executeCommand(command) {
   const b = state.band;
   if (command === "practice") {
-    const cost = Math.round((1500 + activeMembers().length * 500) * lateGameCostMultiplier());
+    const cost = 1500 + activeMembers().length * 500;
     state.band.funds -= cost;
     activeMembers().forEach(m => {
       const practiceBoost = (hasSkill("practice_efficiency") ? 1.2 : 1) * fatigueEffectMultiplier();
@@ -5196,10 +9219,10 @@ function executeCommand(command) {
     }
   }
   if (command === "promo") {
-    const cost = Math.round(3000 * lateGameCostMultiplier());
+    const cost = 3000;
     b.funds -= cost;
     const eff = fatigueEffectMultiplier();
-    const snsBoost = hasSkill("sns_master") ? 1.35 : 1;
+    const snsBoost = (hasSkill("sns_master") ? 1.35 : 1) * (1 + bandSkillInfluencerPct() / 100);
     b.fame = clamp(b.fame + Math.max(1, Math.round(rand(4,8) * eff * snsBoost)), 0, 999);
     state.songs.forEach(s => s.recognition = clamp(s.recognition + Math.max(0, Math.round(rand(1,3) * eff)), 0, 99));
     if (eff < 1) log(`疲労が高く、宣伝効率が${Math.round(eff*100)}%まで落ちている。`, "warn");
@@ -5220,7 +9243,8 @@ function executeCommand(command) {
 
 function joinApplicant() {
   if (!state.lastApplicant) return;
-  const applicant = state.lastApplicant;
+  let applicant = state.lastApplicant;
+  applicant = chooseApplicantDisplayName(applicant);
   applicant.joinStatus = Math.random() < 0.45 ? "仮加入" : "本加入";
   state.members.push(applicant);
   log(`${applicant.name}が${applicant.joinStatus}として加入した。加入済みメンバーは全員バンド構成に入り、ライブ準備で担当を選べる。`);
@@ -5360,14 +9384,14 @@ function executeSongcraftFromForm() {
     else ok = advanceDraftById(draftId, type, member);
   }
   if (mode === "boost") { boostSong(type, member, document.getElementById("craftSong")?.value); ok = true; }
-  if (ok) { completeSongcraftTutorial(); if (mode === "boost" || !hasPendingSongFinalize()) scheduleSongcraftTurnAdvanceIfDone(mode === "boost" ? "song-boost" : "songcraft-half"); }
+  if (ok) completeSongcraftTutorial();
   render();
 }
 
 function executeDraftCraft(draftId, type) {
   const member = activeMembers().find(m => m.id === document.getElementById("craftMember")?.value) || state.player;
   const ok = advanceDraftById(draftId, type, member);
-  if (ok) { completeSongcraftTutorial(); if (!hasPendingSongFinalize()) scheduleSongcraftTurnAdvanceIfDone("songcraft-half"); }
+  if (ok) completeSongcraftTutorial();
   render();
 }
 
@@ -5391,8 +9415,7 @@ function canStartSongcraft(type, baseCost, label) {
   }
   const cost = plannedSongcraftFatigueCost(type, baseCost);
   if ((state.band.fatigue || 0) + cost > 100) {
-    const extra = canEndSongcraftTurnEarly() ? "\n曲作りを続けられない場合は「曲作りを終えてホームへ」で休憩などの通常行動へ進めます。" : "";
-    showEventPopup("疲労限界", `${label}には疲労${cost}%が必要です。疲労が100％を超えるため、休憩かドリンクで回復しよう。${extra}`, "warn", "⚠️");
+    showEventPopup("疲労限界", `${label}には疲労${cost}%が必要です。疲労が100％を超えるため、先に休憩かドリンクを使おう。`, "warn", "⚠️");
     return false;
   }
   return true;
@@ -5406,8 +9429,7 @@ function canStartAnySongcraft(types, baseCost, label) {
   const remaining = 100 - (state.band.fatigue || 0);
   const minCost = Math.min(...list.map(t => plannedSongcraftFatigueCost(t, baseCost)));
   if (remaining < minCost) {
-    const extra = canEndSongcraftTurnEarly() ? "\n曲作りを続けられない場合は「曲作りを終えてホームへ」で休憩などの通常行動へ進めます。" : "";
-    showEventPopup("疲労限界", `${label}には最低でも疲労${minCost}%の余力が必要です。休憩かドリンクで回復しよう。${extra}`, "warn", "⚠️");
+    showEventPopup("疲労限界", `${label}には最低でも疲労${minCost}%の余力が必要です。先に休憩かドリンクを使おう。`, "warn", "⚠️");
     return false;
   }
   return true;
@@ -5424,7 +9446,7 @@ function songcraftFatigueCost(type, baseCost) {
 function applySongcraftFatigue(type, baseCost, member, label) {
   const r = songcraftFatigueCost(type, baseCost);
   if ((state.band.fatigue || 0) + r.cost > 100) {
-    showEventPopup("疲労限界", `${label}には疲労${r.cost}%が必要です。疲労が100％を超えるため、休憩かドリンクで回復しよう。`, "warn", "⚠️");
+    showEventPopup("疲労限界", `${label}には疲労${r.cost}%が必要です。疲労が100％を超えるため、先に休憩かドリンクを使おう。`, "warn", "⚠️");
     return false;
   }
   const fatigueBeforeCraft = state.band.fatigue || 0;
@@ -5465,7 +9487,7 @@ function fatigueEffectMultiplier() {
   if (f >= 60) return 0.90;
   return 1;
 }
-function fatigueGainMultiplier() { return hasSkill("self_management") ? 0.8 : 1; }
+function fatigueGainMultiplier() { return (hasSkill("self_management") ? 0.8 : 1) * (1 - bandSkillFatigueReducePct() / 100); }
 function addFatigue(amount, reason="") {
   const before = state.band.fatigue || 0;
   const inc = Math.round(Number(amount || 0) * fatigueGainMultiplier());
@@ -5585,6 +9607,7 @@ ${done}完成度：${val(score)}%
 ${bonus.length ? "ボーナス：" + bonus.join(" / ") + "\n" : ""}次は${next}をしよう！`;
     state.lastSongcraftResult = { title:`${done} 50％完成！`, body:halfBody, bars };
     showEventPopup(`${done} 50％完成！`, halfBody, "song", d.lyricsDone ? "✍️" : "🎼", { bars });
+    schedulePendingTurnAdvance("songcraft-half");
   }
   return true;
 }
@@ -5609,7 +9632,7 @@ function makeTitle(keyword, theme) {
 
 function finishDraft(draftId) {
   const idx = state.pendingDrafts.findIndex(d => d.id === draftId);
-  if (idx < 0) return false;
+  if (idx < 0) return;
   const d = state.pendingDrafts[idx];
   const avgScore = (d.lyricsScore + d.musicScore) / 2;
   const liveExperienceBonus = Math.min(12, (state.liveCount || 0) * 2 + Math.floor((state.band.industry || 0) / 20));
@@ -5687,7 +9710,7 @@ ${liveExperienceBonus ? `ライブ経験ボーナス：+${val(liveExperienceBonu
     { label:"キャッチー", value:val(song.catchy) },
     { label:"流行", value:val(song.trend) }
   ] });
-  return true;
+  schedulePendingTurnAdvance("songcraft-complete");
 }
 
 function registerGenreDiscovery(genre, songTitle="") {
@@ -5702,27 +9725,13 @@ function registerGenreDiscovery(genre, songTitle="") {
   return { genre, rare: !!rare };
 }
 
-function songBoostCost(song) {
-  const level = Number(song?.boostLevel || 0);
-  const highLevelFee = Math.max(0, level - 5) * 1600 + Math.max(0, level - 9) * 3600;
-  return Math.round((1800 + level * 650 + highLevelFee) * lateGameCostMultiplier());
-}
-function songBoostGrowthMultiplier(levelBefore) {
-  if (levelBefore >= 10) return 0.42;
-  if (levelBefore >= 8) return 0.48;
-  if (levelBefore >= 4) return 0.72;
-  return 1.00;
-}
 function boostSongSimple(songId) {
   const s = state.songs.find(x => x.id === songId);
   if (!s) return false;
-  const boostCost = songBoostCost(s);
   if (!applySongcraftFatigue("music", 10, state.player, "曲強化")) return false;
-  state.band.funds = Math.round((state.band.funds || 0) - boostCost);
   const levelBefore = Number(s.boostLevel || 0);
   const base = 4 + Math.min(8, Math.floor((state.band.industry || 0) / 35)) + Math.min(5, levelBefore);
-  const rawGain = base + rand(0, 4) - Math.floor((state.band.fatigue || 0) / 35);
-  const gain = clamp(Math.round(rawGain * songBoostGrowthMultiplier(levelBefore)), levelBefore >= 8 ? 1 : 2, 16);
+  const gain = clamp(base + rand(0, 4) - Math.floor((state.band.fatigue || 0) / 35), 2, 16);
   s.performance = clamp((s.performance || 0) + gain, 0, 99);
   s.lyrics = clamp((s.lyrics || 0) + Math.ceil(gain * 0.45), 0, 99);
   s.catchy = clamp((s.catchy || 0) + Math.ceil(gain * 0.35), 0, 99);
@@ -5737,10 +9746,10 @@ function boostSongSimple(songId) {
   const bars = ["catchy","tempo","recognition","lyrics","performance","trend"].map(k => ({ label: statSongLabel(k), value: val(s[k]||0) }));
   state.lastSongcraftResult = { title:"曲強化完了", body:`「${s.title}」を強化した。
 強化Lv ${levelBefore} → ${s.boostLevel}
-演奏+${val(gain)} / 歌詞・キャッチーも少しUP
-制作費-${boostCost.toLocaleString()}円`, bars };
+演奏+${val(gain)} / 歌詞・キャッチーも少しUP`, bars };
   showEventPopup("曲強化完了", state.lastSongcraftResult.body, "song", "📈", { bars });
-  log(`「${s.title}」を曲強化。強化Lv${levelBefore}→${s.boostLevel}、演奏+${val(gain)}、制作費-${boostCost.toLocaleString()}円。`, "song");
+  log(`「${s.title}」を曲強化。強化Lv${levelBefore}→${s.boostLevel}、演奏+${val(gain)}。`, "song");
+  schedulePendingTurnAdvance("song-boost");
   return true;
 }
 
@@ -5911,7 +9920,7 @@ function fesShortageLines(lastResult=null, grand=false) {
     if (originalCount < 5) lines.push(`オリジナル曲 あと${5 - originalCount}曲`);
     if (b.fans < 60) lines.push(`ファン あと${60 - Math.round(b.fans)}人`);
     if (b.fame < 60) lines.push(`知名度 あと${60 - Math.round(b.fame)}`);
-    if (b.industry < 50) lines.push(`業界評価 あと${50 - Math.round(b.industry)}`);
+    if (b.industry < 55) lines.push(`業界評価 あと${55 - Math.round(b.industry)}`);
     if (lastResult && !["S","A","B"].includes(lastResult.rank)) lines.push(`直近ライブ評価 B以上が必要（今回は${lastResult.rank}）`);
   } else {
     if (originalCount < 7) lines.push(`オリジナル曲 あと${7 - originalCount}曲`);
@@ -5921,7 +9930,7 @@ function fesShortageLines(lastResult=null, grand=false) {
     if (b.fame < 135) lines.push(`知名度 あと${135 - Math.round(b.fame)}`);
     if (b.industry < 118) lines.push(`業界評価 あと${118 - Math.round(b.industry)}`);
     if (lastResult && !["S","A"].includes(lastResult.rank)) lines.push(`直近ライブ評価 A以上が必要（今回は${lastResult.rank}）`);
-    if (lastResult && Number(lastResult.total || 0) < 80) lines.push(`直近ライブ総合80以上が必要（今回は${val(lastResult.total || 0)}）`);
+    if (lastResult && (Number(lastResult.total) || 0) < 80) lines.push(`直近ライブ総合80以上が必要（今回は${val(lastResult.total)}）`);
   }
   if (b.fatigue > 80) lines.push(`疲労が高すぎる（${Math.round(b.fatigue)}%。練習/宣伝効率も下がる）`);
   if (b.funds < 0) lines.push("資金がマイナス（バイト・小さめ会場で立て直し）");
@@ -5991,7 +10000,7 @@ function analyzeSetlistBonus(setlist, liveArrange) {
       staleSongs.push(song.title);
     }
   });
-  const ignored = !!(liveArrange && liveArrange.text && liveArrange.text !== "なし" && !liveArrange.disabled);
+  const ignored = !!(liveArrange && !liveArrange.disabled && liveArrange.text && liveArrange.text !== "なし");
   if (ignored) {
     return { newCount, existingCount, coverCount, mixBonus, repeatPenalty:0, songPenalty:0, total:mixBonus, mixLabel, repeatLabel:"ライブアレンジで同一セトリ/マンネリを突破", staleSongs, ignored:true, history:hist };
   }
@@ -6158,7 +10167,7 @@ function analyzeRepeatSetlist(setlist) {
 
 function resolveRepeatSetlist(info, adlib) {
   if (!info.hasRepeats) return { ...info, boom:false, boomBoost:0, text:"同一曲なし" };
-  if (adlib && adlib.text !== "なし" && !adlib.disabled) {
+  if (adlib && !adlib.disabled && adlib.text !== "なし") {
     return {
       ...info,
       boom:true,
@@ -6247,8 +10256,7 @@ function calculateRevenue(total, rank, merch, supports, setlist) {
   const partnerShare = ev.liveType === "self_taiban" ? 0.35 : ev.liveType === "booking_band" ? 0.25 : ev.liveType === "booking_house" ? 0.30 : 1.0;
   const selfShare = ev.liveType === "booking_house" ? 0.55 : ev.liveType === "booking_band" ? 0.62 : 1.0;
   const ticketRevenue = Math.round(ownAudience * ticket * selfShare + partnerAudience * ticket * partnerShare);
-  const bonusBase = total <= 90 ? (total - 45) * 180 : (45 * 180 + (Math.min(total, 110) - 90) * 100 + Math.max(0, total - 110) * 60);
-  const bonus = Math.max(0, Math.round(bonusBase * (meta.reward || 1)));
+  const bonus = Math.max(0, Math.round((total - 45) * 180 * (meta.reward || 1)));
   const merchData = merchRevenue(merch, attendees, rank, setlist);
   const supportCost = sum(supports.map(s => s.cost));
   const baseCost = eventBaseCost(ev, venue);
@@ -6311,16 +10319,6 @@ function applyLiveResult(r, setlist, supports) {
   let coreGain = ({ S:12, A:8, B:5, C:2, D:1, E:0 }[r.rank] || 0) * (meta.growth || 1);
   let industryGain = (industryGainBase + (r.originalCount >= 4 ? 4 : 0) - (state.turn === state.maxTurn ? r.coverCount * 2 : 0)) * (meta.growth || 1);
   if (ev.liveType === "self_one_man" && ["S","A"].includes(r.rank)) { fanGain += 12; fameGain += 8; industryGain += 6; }
-  if (ev.liveType === "corp_fes") {
-    const fesRankBonus = { S:4, A:3, B:2, C:1, D:0, E:0 }[r.rank] || 0;
-    fameGain += 8 + fesRankBonus;
-    industryGain += 7 + fesRankBonus;
-  }
-  if (ev.liveType === "band_fes") {
-    const fesRankBonus = { S:3, A:2, B:1, C:1, D:0, E:0 }[r.rank] || 0;
-    fameGain += 5 + fesRankBonus;
-    industryGain += 5 + fesRankBonus;
-  }
   if (r.coreEvent) { coreGain += 10; fanGain += 2; }
   const relationDeltaBase = (meta.relation || 0) + ({ S:6, A:4, B:2, C:0, D:-3, E:-6 }[r.rank] || 0) - Math.round(manners.penalty / 3);
   invitedBandsForEvent(ev).forEach(band => setRelationshipWithBand(band.id, relationshipWithBand(band.id) + relationDeltaBase));
@@ -6329,6 +10327,9 @@ function applyLiveResult(r, setlist, supports) {
     r.mannerWarning = manners.reasons.join(" / ");
   }
   r.relationDelta = relationDeltaBase;
+  if (bandSystemOn()) {
+    recordBandBattlesAfterLive(ev, r);
+  }
   r.gains = { fans: Math.max(0, Math.round(fanGain)), fame: Math.max(0, Math.round(fameGain)), core: Math.max(0, Math.round(coreGain)), industry: Math.max(0, Math.round(industryGain)), funds: r.revenue.finalProfit };
   b.fans += r.gains.fans;
   b.fame += r.gains.fame;
@@ -6353,7 +10354,6 @@ function applyLiveResult(r, setlist, supports) {
     }
     growSongAfterLive(baseSong || song, r.rank, slot, r.coreEvent);
   });
-  applyMilestoneSongLegacyBoost(r, setlist, ev);
   registerSetlistAfterLive(setlist, r);
   maybeUnlockProgressSkills("live");
   revealSubGenresAfterLive(r, setlist);
@@ -6364,7 +10364,7 @@ function applyLiveResult(r, setlist, supports) {
   activeMembers().filter(m => r.performers.includes(m.id)).forEach(m => growMemberAfterLive(m, r.rank, r.positions[m.id]));
   const exposureBands = invitedBandsForEvent(ev);
   if (exposureBands.length) {
-    const exposure = rivalBandExposureBonus(exposureBands);
+    const exposure = rivalBandExposureBonus(exposureBands) + bandSkillRivalryExposureBonus(r.rank);
     const rankPlus = { S:2, A:2, B:1, C:1, D:0, E:0 }[r.rank] || 0;
     activeMembers().filter(m => r.performers.includes(m.id)).forEach(m => {
       m.stats.technique = clamp(m.stats.technique + Math.max(1, Math.floor(exposure / 2)), 1, 99);
@@ -6389,6 +10389,9 @@ function applyLiveResult(r, setlist, supports) {
     state.band.fame = clamp(state.band.fame + 1, 0, 999);
     activeMembers().forEach(m => m.stats.charisma = clamp(m.stats.charisma + 1, 1, 99));
   }
+  if (bandSystemOn()) {
+    processBandStoryEvents("postLive");
+  }
   state.pendingAfterparty = { rank:r.rank, total:val(r.total), liveType:ev.liveType || "special", invitedBandIds:Array.isArray(ev.invitedBandIds) ? ev.invitedBandIds.slice() : [], title:currentLiveName(), fatigueAfterLive:Math.round(state.band.fatigue || 0), initialAfterparty: (state.liveCount || 0) === 0 };
   const summary = [
     `【${currentLiveName()} 結果】評価:${r.rank} / 総合:${val(r.total)}`,
@@ -6398,7 +10401,7 @@ function applyLiveResult(r, setlist, supports) {
     activeMembers().length > 4 ? `大所帯ボーナス：人数で熱量は上がったが、管理コストと事故リスクも増えた。` : "",
     `Vo:${r.vocalistName} / Cho:${r.chorusName} / オリジナル${r.originalCount}曲・コピー${r.coverCount}曲`,
     `セトリボーナス：${setlistBonusText(r.setlistBonus)}`,
-    r.adlib.text !== "なし" ? `ライブアレンジ:${r.adlib.text}。マンネリや同一曲の不利を一部無視した。` : `ライブアレンジは起きなかった。`,
+    r.adlib.disabled ? `ライブアレンジ:${r.adlib.disabledReason || "なし"}。` : (r.adlib.text !== "なし" ? `ライブアレンジ:${r.adlib.text}。マンネリや同一曲の不利を一部無視した。` : `ライブアレンジは起きなかった。`),
     r.repeatInfo?.hasRepeats ? `${r.repeatInfo.boom ? "同一曲再演ボーナス" : "同一曲再演ペナルティ"}：${r.repeatInfo.text}` : "",
     r.coreEvent ? `ライブ全体は完璧ではなかったが、刺さったコアなファンがいた。コア人気が伸びた。` : "",
     r.mannerWarning ? `交流注意:${r.mannerWarning}。対バン/ブッキングでは交流が下がる。` : "",
@@ -6434,6 +10437,7 @@ function makeLiveResultModal(r, setlist) {
     originalCount: r.originalCount,
     coverCount: r.coverCount,
     adlib: r.adlib.text,
+    adlibDisabledReason: r.adlib.disabledReason || "",
     setlistBonusText: setlistBonusText(r.setlistBonus),
     repeatText: r.repeatInfo?.hasRepeats ? r.repeatInfo.text : "なし",
     mannerWarning: r.mannerWarning || "",
@@ -6451,63 +10455,6 @@ function revealSubGenresAfterLive(result, setlist) {
       if (song.subGenre) revealSubGenre(m, song.subGenre, "ライブ経験");
     });
   });
-}
-
-function addSongLegacyPoints(song, amount, reason="") {
-  if (!song || song.isCover || amount <= 0) return false;
-  const before = Number(song.standardPoints || 0);
-  song.standardPoints = before + amount;
-  const notes = [];
-  if (before < 5 && song.standardPoints >= 5 && !hasTag(song, "定番")) {
-    song.tags = [...new Set([...(song.tags || []), "定番"])];
-    song.mannerism = 0;
-    notes.push("定番曲化");
-  }
-  const repReady = hasTag(song, "定番") && !hasTag(song, "代表曲候補") &&
-    ((song.recognition || 0) >= 45 || (song.boostLevel || 0) >= 3) &&
-    ((song.lyrics || 0) >= 54 || (song.catchy || 0) >= 54 || (song.performance || 0) >= 54);
-  if (repReady) {
-    song.tags = [...new Set([...(song.tags || []), "代表曲候補"])];
-    notes.push("代表曲候補化");
-  }
-  if (amount > 0) {
-    log(`「${song.title}」に代表/定番ポイント+${amount}${reason ? `（${reason}）` : ""}${notes.length ? `：${notes.join(" / ")}` : ""}`, "song");
-  }
-  return notes.length > 0;
-}
-
-function applyMilestoneSongLegacyBoost(result, setlist, ev) {
-  if (!result || !["S", "A", "B"].includes(result.rank)) return;
-  const originals = setlist.map((song, idx) => ({
-    song: !song?.isCover ? state.songs.find(s => s.id === song.id) : null,
-    slot: idx + 1
-  })).filter(x => x.song);
-  if (!originals.length) return;
-  const grants = new Map();
-  const grant = (song, amount) => {
-    if (!song || amount <= 0) return;
-    grants.set(song.id, Math.max(grants.get(song.id) || 0, amount));
-  };
-  const ranked = [...originals].sort((a, b) => {
-    const aSlot = (a.slot === 1 || a.slot === 5) ? 18 : 0;
-    const bSlot = (b.slot === 1 || b.slot === 5) ? 18 : 0;
-    return (songTotalScore(b.song) + bSlot + (b.song.recognition || 0) * 0.25) - (songTotalScore(a.song) + aSlot + (a.song.recognition || 0) * 0.25);
-  });
-  const liveName = String(ev?.label || ev?.name || "");
-  const isUnderFes = ev?.venueId === "big_stage" && (state.turn === 30 || liveName.includes("UNDER FES"));
-  const isLateFes = ["corp_fes", "band_fes"].includes(ev?.liveType) && (state.turn || 1) >= 35;
-  if (isUnderFes) {
-    originals.forEach(x => { if (x.slot === 1 || x.slot === 5) grant(x.song, result.rank === "B" ? 2 : 3); });
-    if (ranked[0]) grant(ranked[0].song, result.rank === "B" ? 1 : 2);
-    if (["S", "A"].includes(result.rank) && ranked[1]) grant(ranked[1].song, 1);
-  }
-  if (isLateFes) {
-    if (ranked[0]) grant(ranked[0].song, result.rank === "B" ? 1 : 2);
-    if (["S", "A"].includes(result.rank) && ranked[1]) grant(ranked[1].song, 1);
-  }
-  if (!grants.size) return;
-  const reason = isUnderFes ? "UNDER突破" : "後半フェス経験";
-  grants.forEach((amount, id) => addSongLegacyPoints(state.songs.find(s => s.id === id), amount, reason));
 }
 
 function growSongAfterLive(liveSong, rank, slot, coreEvent) {
@@ -6538,10 +10485,20 @@ function growMemberAfterLive(m, rank, role) {
 }
 
 function continueAfterEnding() {
-  state.ended = true;
-  state.maxTurn = 50;
+  const oldMax = state.maxTurn || 50;
+  state.ended = false;
+  state.maxTurn = oldMax + 20;
+  state.turn = Math.min((state.turn || oldMax) + 1, state.maxTurn - 3);
+  state.view = "home";
   state.pendingEndingAfterLive = false;
-  log("v0.3.50は50T完結です。もう一度遊ぶ場合は『はじめから』を選んでください。", "info");
+  state.scheduleTutorialStage = "done";
+  state.liveEvents = (state.liveEvents || []).filter(e => !e.cancelled);
+  if (!(state.liveEvents || []).some(e => !e.cancelled && e.turn >= state.turn)) {
+    state.liveEvents.push(fixedLiveEvent(Math.min(state.turn + 4, state.maxTurn - 1), "livehouse_m", "延長ライブ", false));
+  }
+  refreshLiveSchedule();
+  scheduleNextLive();
+  log("エンディング後も活動を継続することにした。延長活動が始まり、通常ライブ予約も再開した。", "event");
   saveGame(false);
   render();
 }
@@ -6555,7 +10512,7 @@ function renderEnding() {
   let tier = "GRAND条件未達";
   const repCount = state.songs.filter(s => hasTag(s,"代表曲候補") || hasTag(s,"定番")).length;
   const freshCount = state.songs.filter(s => !s.isCover && (s.livePlays || 0) <= 1 && state.turn - (s.createdTurn || 0) <= 10).length;
-  const minimum = final && ["A","S"].includes(final.rank) && Number(final.total || 0) >= 80 && b.fans >= 180 && b.fame >= 135 && b.industry >= 118 && originals >= 7 && repCount >= 3 && freshCount >= 1;
+  const minimum = final && ["A","S"].includes(final.rank) && (Number(final.total) || 0) >= 80 && b.fans >= 180 && b.fame >= 135 && b.industry >= 118 && originals >= 7 && repCount >= 3 && freshCount >= 1;
   const attention = final && final.rank === "S" && final.total >= 82 && b.fans >= 230 && b.fame >= 180 && b.industry >= 165 && repCount >= 3 && final.originalCount === 5;
   const huge = final && final.rank === "S" && final.total >= 90 && b.fans >= 280 && b.fame >= 220 && b.industry >= 200 && repCount >= 4 && final.originalCount === 5;
   if (b.funds < -50000) { title = "赤字解散エンド"; tier = "BAD MONEY"; body = "鳴らしたい音はあった。でも、続けるための資金が尽きた。次は物販と会場選びを見直そう。"; }
@@ -6566,7 +10523,8 @@ function renderEnding() {
   if (attention) { title = "GRAND UNDER FES 注目枠"; tier = "HEADLINER候補"; body = "資料の上の方に、バンド名が載っている。もうただの地下バンドじゃない。"; }
   if (huge) { title = "伝説のインディーズバンドエンド"; tier = "LEGEND END"; body = "ステージ袖から見える客席は、これまでで一番広かった。鳴らせば、夜が明ける。"; }
   if (!state.endingRecorded) { saveBandHistory({ name:b.name || "名無しの地下バンド", ending:tier, fans:b.fans, fame:b.fame, industry:b.industry, funds:b.funds, songs:originals }); state.endingRecorded = true; }
-  app.innerHTML = `<div class="app-shell"><div class="hero"><h1>${title}</h1><p>${body}</p></div><div class="grid"><div class="card"><h2>最終結果：${tier}</h2><div class="kv"><b>ファン</b><span>${b.fans}人</span><b>知名度</b><span>${b.fame}</span><b>業界評価</b><span>${b.industry}</span><b>オリジナル曲</b><span>${originals}曲</span><b>資金</b><span>${b.funds.toLocaleString()}円</span><b>最終ライブ</b><span>${final ? final.rank + " / " + val(final.total) : "なし"}</span></div><div class="modal-actions ending-actions"><button id="newAfterEndingBtn" class="big-action">はじめから選ぶ</button></div><small>v0.3.50は50T完結です。続きは次回プレイで挑戦しよう。</small></div><div class="card"><h2>ログ</h2><div class="log">${state.logs.slice(0, 90).map(l => `<div class="log-line">${escapeHtml(l)}</div>`).join("")}</div></div></div></div>`;
+  app.innerHTML = `<div class="app-shell"><div class="hero"><h1>${title}</h1><p>${body}</p></div><div class="grid"><div class="card"><h2>最終結果：${tier}</h2><div class="kv"><b>ファン</b><span>${b.fans}人</span><b>知名度</b><span>${b.fame}</span><b>業界評価</b><span>${b.industry}</span><b>オリジナル曲</b><span>${originals}曲</span><b>資金</b><span>${b.funds.toLocaleString()}円</span><b>最終ライブ</b><span>${final ? final.rank + " / " + val(final.total) : "なし"}</span></div><div class="modal-actions ending-actions"><button id="continueAfterEndingBtn" class="big-action">このまま続ける</button><button id="newAfterEndingBtn" class="ghost-btn">はじめから選ぶ</button></div><small>続ける場合は延長活動として20ターン追加されます。</small></div><div class="card"><h2>ログ</h2><div class="log">${state.logs.slice(0, 90).map(l => `<div class="log-line">${escapeHtml(l)}</div>`).join("")}</div></div></div></div>`;
+  document.getElementById("continueAfterEndingBtn")?.addEventListener("click", () => { continueAfterEnding(); });
   document.getElementById("newAfterEndingBtn")?.addEventListener("click", () => { uiMode = "slot-new"; render(); });
 }
 

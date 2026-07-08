@@ -2487,3 +2487,11 @@ button:focus:not(:focus-visible), input:focus:not(:focus-visible), select:focus:
   .wide-card { grid-column:span 1; }
   .phone-app-grid { grid-template-columns:1fr; }
 }
+
+/* ===== v0.3.60-big-draft バンド図鑑 ===== */
+.bandbook-list { display: flex; flex-direction: column; gap: 6px; }
+.bandbook-row { display: block; width: 100%; text-align: left; cursor: pointer; }
+.bandbook-row.unknown { opacity: 0.55; }
+.bandbook-row b { margin-right: 6px; }
+.bandbook-detail .kv { margin: 8px 0; }
+.bandbook-grid .candidate-cloud { margin-bottom: 6px; }
