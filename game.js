@@ -4,7 +4,7 @@
   - 旧「（仮）」候補ブロックとPaper Moon Kids系コードは、旧セーブ互換/退避用に残すが、有効候補はMEMBER_DATABASEで上書きする。
 */
 
-const VERSION = "v0.4.1a-visual-foundation-draft";
+const VERSION = "v0.4.1c-livehouse-draft";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -1956,7 +1956,7 @@ function renderBandBookScreen() {
   return `<div class="grid bandbook-grid">
     <div class="card">
       <div class="section-title"><h2>バンド図鑑</h2><span class="badge good">${found}/${total}組</span></div>
-      <p><small>対バン・打ち上げ・噂で出会ったバンドが記録される。交流が深まると、表示される情報が増えていく。</small></p>
+      <p><small>対バンや打ち上げで出会った顔ぶれ。仲良くなるほど読める。</small></p>
       <div class="section-title"><h3>獲得した交流スキル</h3><span class="badge">${skills.length}件</span></div>
       <div class="candidate-cloud">${skillChips}</div>
     </div>
@@ -1997,7 +1997,7 @@ function renderBandBookDetail(id) {
   if (unknown) {
     return `<div class="card bandbook-detail">
       <div class="section-title"><h2>？？？</h2><span class="badge">未遭遇</span></div>
-      <p><small>まだ出会っていない。対バンやライブハウスの噂で情報が集まるかもしれない。</small></p>
+      <p><small>まだ会っていない。対バンか、ライブハウスの噂待ち。</small></p>
       <div class="modal-actions">${backBtn}</div>
     </div>`;
   }
@@ -2022,7 +2022,7 @@ function renderBandBookDetail(id) {
       <b>対バン回数</b><span>${entry.battleCount}回</span>
       <b>初遭遇</b><span>${entry.firstMetTurn ? `${entry.firstMetTurn}T` : "-"}</span>
       <b>代表</b><span>${repText}</span>
-    </div>` : `<p><small>まだ直接の交流はない。対バンや打ち上げで距離が縮まる。</small></p>`;
+    </div>` : `<p><small>まだ挨拶だけ。対バンか打ち上げで距離が縮まる。</small></p>`;
   const profilePanel = `<div class="bandbook-tab-panel">
     <div class="kv">
       <b>読み</b><span>${escapeHtml(b.kana)}</span>
@@ -6528,7 +6528,7 @@ function renderDevScreen() {
   </div>`;
 }
 
-const SAVE_VERSION = "v0.4.1a-visual-foundation-draft";
+const SAVE_VERSION = "v0.4.1c-livehouse-draft";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -8125,15 +8125,15 @@ function actionableMails() {
 function renderPhoneActionRequiredSection() {
   const rows = actionableMails();
   if (!rows.length) {
-    return `<div class="card phone-card phone-action-required ok"><div class="section-title"><h2>要返信</h2><span class="badge good">なし</span></div><p><small>今すぐ返す必要のあるメールはありません。未読やSNSは下のアプリから確認できます。</small></p></div>`;
+    return `<div class="card phone-card phone-action-required ok"><div class="section-title"><h2>要返信</h2><span class="badge good">なし</span></div><p><small>返信待ちなし。未読やSNSは下のアプリから。</small></p></div>`;
   }
-  return `<div class="card phone-card phone-action-required"><div class="section-title"><h2>要返信</h2><span class="badge warn">${rows.length}件</span></div><p><small>ライブ招待やメンバー候補など、進行に関わる連絡を上に固定しています。</small></p><div class="mail-list pinned-mail-list">${rows.map(renderMailRow).join("")}</div></div>`;
+  return `<div class="card phone-card phone-action-required"><div class="section-title"><h2>要返信</h2><span class="badge warn">${rows.length}件</span></div><p><small>返信待ちの連絡。ここから返せる。</small></p><div class="mail-list pinned-mail-list">${rows.map(renderMailRow).join("")}</div></div>`;
 }
 function renderPhoneBandBookScreen() {
   const previousDetail = state.bandBookDetail;
   const content = renderBandBookScreen();
   state.bandBookDetail = previousDetail;
-  return `<div class="phone-screen grid phone-bandbook-screen"><div class="card phone-card wide-card"><div class="section-title"><h2>バンド図鑑</h2><span class="badge">携帯内</span></div><button class="phoneModeBtn ghost-btn" data-phone-mode="menu">← 携帯メニュー</button><p><small>出会ったバンド、交流、スキル、今後のコメント/裏話をここに集約していきます。</small></p></div>${content}</div>`;
+  return `<div class="phone-screen grid phone-bandbook-screen"><div class="card phone-card wide-card"><div class="section-title"><h2>バンド図鑑</h2><span class="badge">携帯内</span></div><button class="phoneModeBtn ghost-btn" data-phone-mode="menu">← 携帯メニュー</button><p><small>出会ったバンドの記録。交流が深いほど読める話が増える。</small></p></div>${content}</div>`;
 }
 function renderPhoneScreen() {
   const mode = state.phoneSubView || "menu";
@@ -8146,7 +8146,7 @@ function renderPhoneScreen() {
     ${renderPhoneActionRequiredSection()}
     <div class="card phone-card phone-launch-card">
       <div class="section-title"><h2>携帯</h2><span class="badge ${unread ? "warn" : "good"}">${unread ? unread + "件未読" : "通知なし"}</span></div>
-      <p><small>外の世界はここに集約。返信が必要なものは上、読み物や反応はアプリから開きます。</small></p>
+      <p><small>返信待ちは上。読み物は下のアプリから。</small></p>
       <div class="phone-app-grid">
         <button class="phoneModeBtn phone-app-btn" data-phone-mode="mail"><span>✉️</span><b>メール</b><small>件名/送信者から確認${unread ? ` / 未読${unread}` : ""}</small></button>
         <button class="phoneModeBtn phone-app-btn" data-phone-mode="sns"><span>💬</span><b>SNS</b><small>口コミ・告知・雑多な投稿</small></button>
@@ -8356,7 +8356,7 @@ function nextActionSuggestion() {
   if (t >= 26 && t < 30) return { icon:"🔥", text:"30T UNDER FESが近い。条件と疲労、セトリを確認。", view:"schedule" };
   if (typeof shouldWarnNoLivePlan === "function" && shouldWarnNoLivePlan()) return { icon:"📅", text:"7ターン先まで本番がない。予定表でライブを入れよう。", view:"schedule" };
   if ((state.songs || []).filter(s => !s.isCover).length < 7 && t >= 20) return { icon:"✍️", text:`オリジナル曲${(state.songs||[]).filter(s=>!s.isCover).length}/7。GRANDに向けて曲を増やそう。`, view:"songs" };
-  return { icon:"🎸", text:"行動を選んで今週を進めよう。練習・宣伝・募集はホーム下のメニューから。", view:"command" };
+  return { icon:"🎸", text:"今週どうする？ 練習・宣伝・募集は下のメニューから。", view:"command" };
 }
 function renderNextActionPanel() {
   const s = nextActionSuggestion();
@@ -9891,7 +9891,7 @@ function livePrepCheckItems(v, setlistIds=ensureLivePrepSetlist()) {
 function renderLivePrepCheckPanel(v, { showStepLinks=false }={}) {
   const items = livePrepCheckItems(v);
   const rows = items.map(it => `<span class="badge ${it.warn ? "warn" : "good"}">${it.warn ? "⚠" : "✅"} ${escapeHtml(it.label)}${showStepLinks && it.warn ? ` <button type="button" class="prepStepJumpBtn inline-step-link" data-step="${it.step}">直す</button>` : ""}</span>`).join("");
-  return `<div class="prep-check-panel"><b>ライブ準備チェック</b><div class="prep-check-grid">${rows}</div><small>警告があっても本番には進めます。準備不足を避けるための確認メモです。</small></div>`;
+  return `<div class="prep-check-panel"><b>ライブ準備チェック</b><div class="prep-check-grid">${rows}</div><small>警告があっても本番には出られる。楽屋の確認メモ。</small></div>`;
 }
 function livePrepStepMeta() {
   return [
@@ -9952,27 +9952,27 @@ function renderLivePrep() {
       ${renderLivePrepStepNav(step)}
       <div class="live-prep-step-stack">
         ${renderLivePrepStepPanel(step, 1, `
-          <div class="prep-step-heading"><h3>① セトリ</h3><small>5曲を決めます。コピー曲が多すぎる場合は最終チェックで警告します。</small></div>
+          <div class="prep-step-heading"><h3>① セトリ</h3><small>5曲と順番を決める。コピー多めは最終確認で注意が出る。</small></div>
           <div class="venue-info audience-info"><b>客層：${escapeHtml(audience.label)}</b><span>${escapeHtml(audience.detail)}</span><small>${mixHint}</small></div>
           <div class="setlist-hint-panel"><b>セトリ自動ヒント</b>${livePrepAutoHints(selectedSongs, v, audience).map(h=>`<span>${escapeHtml(h)}</span>`).join("")}</div>
-          <p class="setlist-help"><small>各枠の「曲を選ぶ」から別メニューで選択します。詳細だけ確認して戻ることもできます。</small></p>
+          <p class="setlist-help"><small>各枠の「曲を選ぶ」から選ぶ。詳細だけ見て戻ってもいい。</small></p>
           <div class="prep-step-actions"><button id="autoSetlistBtn" class="big-action wide-cancel">セトリ自動セット</button><button id="resetSetlistBtn" class="ghost-btn wide-cancel">セトリをリセット</button></div>
           ${renderLivePrepSetlist()}
           ${renderLivePrepStepControls(step)}
         `)}
         ${renderLivePrepStepPanel(step, 2, `
-          <div class="prep-step-heading"><h3>② 担当</h3><small>Vo/Gt/Ba/Drとコーラスを決めます。ボーカルはコーラス不可。初ライブだけ主人公Vo固定です。</small></div>
+          <div class="prep-step-heading"><h3>② 担当</h3><small>Vo/Gt/Ba/Drとコーラスを決める。Voはコーラス兼任不可。初ライブは主人公Vo固定。</small></div>
           ${renderPositionControls()}
           ${renderLivePrepStepControls(step)}
         `)}
         ${renderLivePrepStepPanel(step, 3, `
-          <div class="prep-step-heading"><h3>③ サポート/物販</h3><small>不足パートは名前付きサポートで補えます。物販は仕入れすぎに注意。</small></div>
-          <div class="prep-subsection"><h3>名前付きサポート契約</h3><p><small>汎用サポートは廃止。誰に頼むかを選びます。Piano/Synth・Sax/Brass・Percussionも追加済み。</small></p><div class="checkbox-grid support-grid">${supports}</div></div>
+          <div class="prep-step-heading"><h3>③ サポート/物販</h3><small>足りないパートはサポートで埋める。物販は仕入れすぎ注意。</small></div>
+          <div class="prep-subsection"><h3>名前付きサポート契約</h3><p><small>誰に頼むかを選ぶ。鍵盤・管・パーカッションも呼べる。</small></p><div class="checkbox-grid support-grid">${supports}</div></div>
           <div class="prep-subsection"><h3>物販</h3>${renderMerchPrepControls(v, audience)}</div>
           ${renderLivePrepStepControls(step)}
         `)}
         ${renderLivePrepStepPanel(step, 4, `
-          <div class="prep-step-heading"><h3>④ 最終チェック</h3><small>準備不足があれば「直す」から該当ステップへ戻れます。問題なければ本番へ。</small></div>
+          <div class="prep-step-heading"><h3>④ 最終チェック</h3><small>気になる所は「直す」で戻れる。よければ本番へ。</small></div>
           ${renderLivePrepCheckPanel(v, { showStepLinks:true })}
           <div class="live-prep-final-actions"><button id="performLiveBtn" class="big-action">ライブ本番へ</button>${!currentLiveEvent().fixed ? `<button id="noShowLiveBtn" class="ghost-btn danger wide-cancel">ライブをドタキャンする</button>` : ""}</div>
           ${currentApplicantList().length ? renderApplicantList() : ""}

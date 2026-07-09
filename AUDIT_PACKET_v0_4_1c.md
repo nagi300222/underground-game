@@ -1,0 +1,12 @@
+# AUDIT PACKET v0.4.1c-livehouse-draft
+- node --check：OK / VERSION・SAVE_VERSION・index title・sw cache：4点更新済み
+- 3系統50T完走（ノベルON/OFF・バンドOFF）：進行不能ゼロ、30T UNDER・50T GRAND・エンディング継続まで
+- 初ライブ導線・打上イベント・通常行動イベント・バンドイベント：スモーク内で全発火（1T加入/5T打上/6T招待/CARBONS/under_fes_before）
+- 旧セーブ欠損正規化：logs・liveResultHistory欠損＋PMK進行中の旧セーブで移行通過
+- メール承認（ライブ/候補）・キャンセル・ロード破棄：全通過。pendingMailAction保存除外維持
+- ライブ準備4ステップ：step2表示状態で4パネル同一DOM・active1枚・保護class全存在を実測
+- 図鑑導線：未遭遇？？？カード／タブ／裏話境界（30/60）既存テスト維持
+- 右下携帯ボタン：render()シェルに常時マウント、押下でトップ復帰（0.4.1a実装を確認）
+- 下部ナビ5タブ：data-view結線・全ビュー描画巡回OK
+- 改行対策CSS：balance/pretty/nowrap導入（最終見た目は実機確認項目）
+- 320/375/430：メディアクエリ実装（静的確認のみ）
