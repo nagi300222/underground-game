@@ -1,3 +1,22 @@
+# アンダーグラウンド（仮） v0.3.67-ui-support-growth-tuning-draft
+
+## v0.3.67-ui-support-growth-tuning-draft 追加内容
+
+- 汎用サポートをライブ準備画面から廃止し、名前付きサポートのみ選択対象に変更。
+- 名前付き特殊サポート3人を追加：リオ（Piano/Synth）、ナツメ（Sax/Brass）、ミツキ（Percussion）。
+- ライブ準備に「準備チェック」パネルを追加。基本パート、セトリ、コピー曲、疲労、資金、サポート人数を表示。
+- メール本文を一覧下部表示ではなくモーダル表示に変更。
+- 成長タイプ体感調整：focused growth発火率、序盤型/晩成型カーブを仮調整。
+- v0.3.66-fix1の重要維持仕様（GRAND条件、ターン進行、メール返信導線、DEV、コピー曲ガード）は維持。
+
+## 同梱資料
+
+- CHANGELOG_v0_3_67_ui_support_growth_tuning.md
+- AUDIT_PACKET_v0_3_67.md
+- AUDIT_v0_3_67_ui_support_growth_tuning_draft.md
+
+---
+
 # アンダーグラウンド（仮） v0.3.66-balance-draft-fix1
 
 v0.3.50 を土台に、バンド図鑑・交流スキル・他バンドイベントの骨格を一括で載せた「大きめドラフト」版です。

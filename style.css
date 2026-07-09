@@ -2551,3 +2551,23 @@ button:focus:not(:focus-visible), input:focus:not(:focus-visible), select:focus:
   .story-result-card{bottom:calc(38px + env(safe-area-inset-bottom));max-height:68vh}
   .story-actors{inset:0 0 190px 0}
 }
+
+/* v0.3.67: mail modal / named support / live prep check */
+.mail-modal-screen { position: relative; }
+.mail-reader-modal { max-width: 620px; grid-template-columns: 48px 1fr; }
+.mail-reader-modal .modal-copy { max-height: 70vh; overflow: auto; padding-right: 4px; }
+.mail-reader-modal .mail-detail p { white-space: normal; line-height: 1.65; }
+.mail-reader-modal .section-title { align-items: start; gap: 8px; }
+.mail-reader-modal .modal-actions { grid-column: 1 / -1; }
+.mail-modal-backdrop { z-index: 80; }
+.prep-check-panel { border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.055); border-radius:16px; padding:12px; margin:12px 0; display:grid; gap:8px; }
+.prep-check-grid { display:flex; flex-wrap:wrap; gap:8px; }
+.support-grid { align-items:stretch; }
+.named-support-card { display:block; }
+.named-support-card b { margin-right:6px; }
+.named-support-card small { display:block; margin-top:4px; }
+@media (max-width: 640px) {
+  .mail-reader-modal { grid-template-columns: 42px 1fr; max-height: 88vh; }
+  .mail-reader-modal .modal-copy { max-height: 66vh; }
+  .prep-check-grid .badge { width:100%; box-sizing:border-box; justify-content:flex-start; }
+}

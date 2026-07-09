@@ -4,7 +4,7 @@
   - 旧「（仮）」候補ブロックとPaper Moon Kids系コードは、旧セーブ互換/退避用に残すが、有効候補はMEMBER_DATABASEで上書きする。
 */
 
-const VERSION = "v0.3.66-balance-draft-fix1";
+const VERSION = "v0.3.67-ui-support-growth-tuning-draft";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -283,7 +283,7 @@ function arrangeStatus(arrange) {
   return { status, multiplier, missing, effects:data.effects, boost:data.boost || [], rare:data.rare || [] };
 }
 function instrumentLabel(inst) {
-  return ({ guitar:"ギター", bass:"ベース", drum:"ドラム", key:"キーボード/ピアノ", dj:"DJ", vocal:"ボーカル", chorus:"コーラス" })[inst] || inst;
+  return ({ guitar:"ギター", bass:"ベース", drum:"ドラム", key:"キーボード/ピアノ", dj:"DJ", vocal:"ボーカル", chorus:"コーラス", piano:"ピアノ/シンセ", brass:"サックス/ブラス", percussion:"パーカッション" })[inst] || inst;
 }
 function possibleDerivedSubGenres(a, b, arrange="") {
   const parents = [...new Set([a, b])];
@@ -2139,14 +2139,7 @@ const DATA = {
     { id: "cover_04", title: "コピー曲：フェス向けギターポップ", isCover: true, catchy: 27, tempo: 22, mainGenre: "ポップ", subGenre: "ギターポップ", genre: "ギターポップ", recognition: 18, lyrics: 13, performance: 19, trend: 16, tags: ["客受け"] },
     { id: "cover_05", title: "コピー曲：重低音ラップロック", isCover: true, catchy: 19, tempo: 25, mainGenre: "ヒップホップ", subGenre: "ラップロック", genre: "ラップロック", recognition: 12, lyrics: 11, performance: 22, trend: 13, tags: ["個性"] }
   ],
-  supportOptions: [
-    { id: "sup_guitar", name: "サポートギター", instrument: "guitar", cost: 5000, score: 8, genres: ["ロック", "ギターロック", "オルタナロック", "メロディックパンク"] },
-    { id: "sup_bass", name: "サポートベース", instrument: "bass", cost: 5000, score: 8, genres: ["ポップ", "ギターポップ", "メロディックパンク", "ミクスチャー"] },
-    { id: "sup_drum", name: "サポートドラム", instrument: "drum", cost: 8000, score: 11, genres: ["パンク", "青春パンク", "メロディックパンク", "ハードコア"] },
-    { id: "sup_key", name: "サポートキーボード", instrument: "key", cost: 7000, score: 10, genres: ["ポップ", "シティポップ", "ジャズロック", "クラシック"] },
-    { id: "sup_dj", name: "サポートDJ", instrument: "dj", cost: 9000, score: 12, genres: ["ヒップホップ", "ラップロック", "トラップ", "ミクスチャー"] },
-    { id: "sup_other", name: "その他楽器サポート", instrument: "other", cost: 6000, score: 7, genres: ["ジャズ", "クラシック", "ポップ", "ロック"] }
-  ]};
+  supportOptions: []};
 
 // 旧v0.2.1: 仮キャラ退避ブロック。
 // v0.3.61以降は下部の MEMBER_DATABASE で DATA.candidateCharacters を上書きするため、
@@ -2508,12 +2501,12 @@ function memberGrowthCurveMultiplier(member, source="practice") {
   if (curve === "early") {
     if (turn <= 15) return 1.12;
     if (turn <= 30) return 1.04;
-    return 0.98;
+    return 0.90;
   }
   if (curve === "late") {
     if (turn < 20) return 0.92;
     if (turn < 35) return 1.04;
-    return 1.14;
+    return 1.20;
   }
   if (curve === "stable") return source === "fatigue" ? 0.96 : 1.04;
   return 1.0;
@@ -5242,9 +5235,52 @@ const SUPPORT_MEMBER_DATABASE = Object.freeze([
       "エモロック"
     ],
     "note": "仮歌・コーラス補助。実処理はボーカルサポート"
+  },
+  {
+    "id": "support_rio",
+    "name": "リオ",
+    "instrument": "piano",
+    "cost": 7600,
+    "score": 10,
+    "genres": [
+      "ピアノロック",
+      "ポップ",
+      "エモロック",
+      "クラシカルロック"
+    ],
+    "note": "Piano/Synth補助。余韻・鍵盤アレンジに強い"
+  },
+  {
+    "id": "support_natsume",
+    "name": "ナツメ",
+    "instrument": "brass",
+    "cost": 8200,
+    "score": 10,
+    "genres": [
+      "ジャズ",
+      "フュージョン",
+      "ミクスチャー",
+      "フェスロック"
+    ],
+    "note": "Sax/Brass補助。フェス映え・華やかさに強い"
+  },
+  {
+    "id": "support_mitsuki",
+    "name": "ミツキ",
+    "instrument": "percussion",
+    "cost": 6800,
+    "score": 8,
+    "genres": [
+      "パンク",
+      "ミクスチャー",
+      "ダンスロック",
+      "ラップロック"
+    ],
+    "note": "Percussion補助。リズムとライブ感を足す"
   }
 ]);
-DATA.supportOptions.push(...clone(SUPPORT_MEMBER_DATABASE));
+DATA.supportOptions = clone(SUPPORT_MEMBER_DATABASE);
+const LEGACY_GENERIC_SUPPORT_IDS = Object.freeze(["sup_guitar", "sup_bass", "sup_drum", "sup_key", "sup_dj", "sup_other"]);
 
 normalizeInitialData();
 
@@ -5285,8 +5321,8 @@ function sum(arr) { return arr.reduce((a,b)=>a+b,0); }
 function hasTag(song, tag) { return (song.tags || []).includes(tag); }
 function val(n) { return Math.round(n); }
 function escapeHtml(str) { return String(str).replace(/[&<>\"]/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[s])); }
-function instLabel(inst) { return { vocal:"Vo", guitar:"Gt", bass:"Ba", guitar_vocal:"GtVo", bass_vocal:"BaVo", drum:"Dr", key:"Key", dj:"DJ", chorus:"Cho", other:"Pf等", off:"休" }[inst] || inst; }
-function instFullLabel(inst) { return { vocal:"ボーカル", guitar:"ギター", bass:"ベース", guitar_vocal:"ギターボーカル", bass_vocal:"ベースボーカル", drum:"ドラム", key:"キーボード/シンセ", dj:"DJ", chorus:"コーラス", other:"ピアノなど", off:"ステージ外" }[inst] || inst; }
+function instLabel(inst) { return { vocal:"Vo", guitar:"Gt", bass:"Ba", guitar_vocal:"GtVo", bass_vocal:"BaVo", drum:"Dr", key:"Key", dj:"DJ", chorus:"Cho", other:"Pf等", piano:"Pf/Syn", brass:"Sax/Br", percussion:"Perc", off:"休" }[inst] || inst; }
+function instFullLabel(inst) { return { vocal:"ボーカル", guitar:"ギター", bass:"ベース", guitar_vocal:"ギターボーカル", bass_vocal:"ベースボーカル", drum:"ドラム", key:"キーボード/シンセ", dj:"DJ", chorus:"コーラス", other:"ピアノなど", piano:"ピアノ/シンセ", brass:"サックス/ブラス", percussion:"パーカッション", off:"ステージ外" }[inst] || inst; }
 function statLabel(key) { return { stamina:"体力", technique:"技術", knowledge:"知識", sense:"センス", mental:"メンタル", teamwork:"協調性", rhythm:"リズム", charisma:"カリスマ" }[key] || key; }
 function skillById(id) { return SKILL_DATA.find(s => s.id === id) || null; }
 function hasSkill(id) { return (state.playerSkills || []).includes(id); }
@@ -6057,7 +6093,7 @@ function renderDevScreen() {
   </div>`;
 }
 
-const SAVE_VERSION = "v0.3.66-balance-draft-fix1";
+const SAVE_VERSION = "v0.3.67-ui-support-growth-tuning-draft";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -7186,6 +7222,7 @@ function normalizeState() {
   if (typeof state.livePrepSetlist === "undefined") state.livePrepSetlist = null;
   if (!state.livePrepPositions || typeof state.livePrepPositions !== "object") state.livePrepPositions = {};
   if (!Array.isArray(state.livePrepSupportIds)) state.livePrepSupportIds = [];
+  state.livePrepSupportIds = state.livePrepSupportIds.filter(id => DATA.supportOptions.some(s => s.id === id));
   if (typeof state.livePrepChorus === "undefined") state.livePrepChorus = "none";
   if (typeof state.livePrepMerch === "undefined") state.livePrepMerch = "none";
   if (!state.livePrepMerchOrders || typeof state.livePrepMerchOrders !== "object") state.livePrepMerchOrders = {};
@@ -7634,16 +7671,22 @@ function renderMailScreen() {
   updateLiveOfferStatuses();
   const mails = state.phoneMails || [];
   const selected = mails.find(m => m.id === state.activeMailId) || null;
-  return `<div class="phone-screen grid">
-    <div class="card phone-card mail-card">
+  return `<div class="phone-screen grid mail-modal-screen">
+    <div class="card phone-card mail-card wide-card">
       <div class="section-title"><h2>メール</h2><span class="badge ${unreadMailCount() ? "warn" : "good"}">${unreadMailCount()}件未読</span></div>
       <button class="phoneModeBtn ghost-btn" data-phone-mode="menu">← 携帯メニュー</button>
+      <p><small>件名を押すと、本文をメール窓で開きます。返信や予定確認も本文内からできます。</small></p>
       <div class="mail-list subject-only">${mails.length ? mails.map(renderMailRow).join("") : `<div class="empty-panel">メールなし</div>`}</div>
     </div>
-    <div class="card phone-card mail-detail-card">
-      ${selected ? renderMailDetail(selected) : `<div class="empty-panel">件名を押すと本文を確認できます。既読になります。</div>`}
-    </div>
+    ${selected ? renderMailModal(selected) : ""}
   </div>`;
+}
+function renderMailModal(m) {
+  return `<div class="modal-backdrop mail-modal-backdrop"><div class="event-modal event mail-reader-modal"><div class="modal-icon">📩</div><div class="modal-copy">${renderMailDetail(m)}</div><div class="modal-actions confirm-wide"><button class="closeMailDetailBtn ghost-btn">閉じる</button></div></div></div>`;
+}
+function closeMailDetail() {
+  state.activeMailId = null;
+  render();
 }
 function renderMailRow(m) {
   return `<button class="mail-row mailOpenBtn ${m.kind || "info"} ${m.read ? "read" : "unread"}" data-mail-id="${escapeHtml(m.id)}">
@@ -9164,10 +9207,65 @@ function renderLivePrepSongSlot(slot, song) {
     </div>
   </div>`;
 }
+function livePrepSelectedSupportSet() {
+  const valid = new Set(DATA.supportOptions.map(s => s.id));
+  state.livePrepSupportIds = (state.livePrepSupportIds || []).filter(id => valid.has(id));
+  return new Set(state.livePrepSupportIds || []);
+}
+function livePrepInstrumentCountsFromState() {
+  const counts = { vocal:0, guitar:0, bass:0, drum:0, key:0, dj:0, chorus:0, other:0, piano:0, brass:0, percussion:0 };
+  activeMembers().forEach(m => {
+    const role = state.livePrepPositions?.[m.id] || (state.liveCount === 0 && m.id === "player" ? "vocal" : m.mainInstrument || "off");
+    positionInstrumentParts(role).forEach(inst => { counts[inst] = (counts[inst] || 0) + 1; });
+  });
+  normalizeLivePrepChorusIds().filter(id => id && id !== "none").forEach(() => { counts.chorus = (counts.chorus || 0) + 1; });
+  (state.livePrepSupportIds || []).map(id => DATA.supportOptions.find(s => s.id === id)).filter(Boolean).forEach(s => { counts[s.instrument] = (counts[s.instrument] || 0) + 1; });
+  return counts;
+}
+function livePrepCheckItems(v, setlistIds=ensureLivePrepSetlist()) {
+  const counts = livePrepInstrumentCountsFromState();
+  const songs = setlistIds.map(songById).filter(Boolean);
+  const coverCount = songs.filter(s => s.isCover).length;
+  const ev = currentLiveEvent();
+  const supportCost = sum((state.livePrepSupportIds || []).map(id => DATA.supportOptions.find(s => s.id === id)?.cost || 0));
+  const merchCost = sum(MERCH_ITEMS.map(item => item.cost * ((state.livePrepMerchOrders || {})[item.id] || 0)));
+  const liveCost = eventBaseCost(ev, v) + supportCost + merchCost;
+  const missing = [];
+  if ((counts.vocal || 0) < 1) missing.push("Vo");
+  if ((counts.guitar || 0) < 1) missing.push("Gt");
+  if ((counts.bass || 0) < 1) missing.push("Ba");
+  if ((counts.drum || 0) < 1) missing.push("Dr");
+  const items = [];
+  items.push({ ok:missing.length === 0, warn:missing.length > 0, label:missing.length ? `不足:${missing.join("/")}` : "基本パートOK" });
+  items.push({ ok:songs.length >= 5, warn:songs.length < 5, label:songs.length >= 5 ? "セトリ5曲OK" : `セトリ${songs.length}/5曲` });
+  items.push({ ok:coverCount <= 2, warn:coverCount >= 3, label:coverCount >= 3 ? `コピー曲多め:${coverCount}曲` : `コピー曲${coverCount}曲` });
+  items.push({ ok:state.band.fatigue < 65, warn:state.band.fatigue >= 65, label:state.band.fatigue >= 65 ? `疲労高め:${val(state.band.fatigue)}` : `疲労${val(state.band.fatigue)}` });
+  items.push({ ok:state.band.funds >= liveCost, warn:state.band.funds < liveCost, label:state.band.funds >= liveCost ? `資金OK:${liveCost.toLocaleString()}円` : `資金注意:${liveCost.toLocaleString()}円` });
+  items.push({ ok:true, warn:false, label:`サポート${(state.livePrepSupportIds || []).length}人` });
+  return items;
+}
+function renderLivePrepCheckPanel(v) {
+  const items = livePrepCheckItems(v);
+  return `<div class="prep-check-panel"><b>ライブ準備チェック</b><div class="prep-check-grid">${items.map(it => `<span class="badge ${it.warn ? "warn" : "good"}">${it.warn ? "⚠" : "✅"} ${escapeHtml(it.label)}</span>`).join("")}</div><small>警告があっても本番には進めます。準備不足を避けるための確認メモです。</small></div>`;
+}
+function supportInstrumentPriorityScore(s) {
+  const counts = livePrepInstrumentCountsFromState();
+  const core = ["vocal", "guitar", "bass", "drum"];
+  let score = 0;
+  if (core.includes(s.instrument) && (counts[s.instrument] || 0) < 1) score += 100;
+  if (["piano", "brass", "percussion", "key", "dj", "chorus"].includes(s.instrument)) score += 10;
+  return score;
+}
+function renderSupportOptionCard(s, selectedSupports) {
+  const checked = selectedSupports.has(s.id) ? "checked" : "";
+  const affinity = state.supportAffinity?.[s.id] || 0;
+  return `<label class="check-card named-support-card"><input type="checkbox" class="supportCheck" value="${escapeHtml(s.id)}" ${checked} /> <b>${escapeHtml(s.name)}</b><span class="badge">${escapeHtml(instFullLabel(s.instrument))}</span><br><small>${Number(s.cost || 0).toLocaleString()}円 / 効果${Number(s.score || 0)} / 相性${affinity}</small><small>${escapeHtml((s.genres || []).join("・"))}</small><small>${escapeHtml(s.note || "")}</small></label>`;
+}
 function renderLivePrep() {
   ensureLivePrepSetlist();
-  const selectedSupports = new Set(state.livePrepSupportIds || []);
-  const supports = DATA.supportOptions.map(s => `<label class="check-card"><input type="checkbox" class="supportCheck" value="${s.id}" ${selectedSupports.has(s.id) ? "checked" : ""} /> ${s.name}<br><small>${s.cost.toLocaleString()}円 / ${s.genres.join("・")}</small></label>`).join("");
+  const selectedSupports = livePrepSelectedSupportSet();
+  const supportList = DATA.supportOptions.slice().sort((a,b) => supportInstrumentPriorityScore(b) - supportInstrumentPriorityScore(a) || (a.cost || 0) - (b.cost || 0));
+  const supports = supportList.map(s => renderSupportOptionCard(s, selectedSupports)).join("");
   const ev = currentLiveEvent();
   const v = venueById(ev.venueId);
   const liveMeta = liveTypeMeta(ev);
@@ -9181,14 +9279,16 @@ function renderLivePrep() {
       <div class="section-title"><h2>${currentLiveName()}：ライブ準備</h2><span class="badge warn">${escapeHtml(liveMeta.short)} / ${v.name} / ${prepState}</span></div>
       <div class="venue-info"><b>${escapeHtml(liveMeta.label)} / ${v.name}</b><span>キャパ${v.capacity} / ${escapeHtml(liveMeta.feeLabel)}${eventBaseCost(ev, v).toLocaleString()}円 / 要準備${v.prepNeed} / 現在準備${val(prep)}</span><div class="quiet-guide-chips">${renderRiskBadges(riskProfile)}</div><small>${escapeHtml(liveMeta.desc)}</small><small>${escapeHtml(v.note)}</small><small>${escapeHtml(venueRequirementText(v))}</small></div>
       <div class="venue-info audience-info"><b>客層：${escapeHtml(audience.label)}</b><span>${escapeHtml(audience.detail)}</span><small>${mixHint}</small></div>
+      ${renderLivePrepCheckPanel(v)}
       <div class="setlist-hint-panel"><b>セトリ自動ヒント</b>${livePrepAutoHints(ensureLivePrepSetlist().map(id=>songById(id)).filter(Boolean), v, audience).map(h=>`<span>${escapeHtml(h)}</span>`).join("")}</div>
       <p><small>ボーカルはコーラス不可。初ライブだけ主人公Vo固定。その他メンバーの担当楽器をライブごとに決められます。</small></p>
       <div class="grid live-grid">
         <div>
           <h3>バンドポジション</h3>
           ${renderPositionControls()}
-          <h3>サポート契約</h3>
-          <div class="checkbox-grid">${supports}</div>
+          <h3>名前付きサポート契約</h3>
+          <p><small>汎用サポートは廃止。誰に頼むかを選びます。Piano/Synth・Sax/Brass・Percussionも追加済み。</small></p>
+          <div class="checkbox-grid support-grid">${supports}</div>
         </div>
         <div>
           <h3>5曲セトリ</h3>
@@ -9913,13 +10013,14 @@ function bindEvents() {
   if (bookLiveBtn) bookLiveBtn.addEventListener("click", () => bookLiveFromHome());
   document.querySelectorAll(".liveCandidateBtn").forEach(btn => btn.addEventListener("click", () => { state.pendingBooking = { turn:Number(btn.dataset.turn), venueId:btn.dataset.venue, liveType:btn.dataset.liveType || "self_one_man", invitedBandIds:(btn.dataset.bands || "").split(",").filter(Boolean) }; render(); }));
   document.querySelectorAll(".acceptOfferBtn").forEach(btn => btn.addEventListener("click", () => requestLiveOfferAccept(btn.dataset.offerId)));
-  document.querySelectorAll(".phoneModeBtn").forEach(btn => btn.addEventListener("click", () => { state.phoneSubView = btn.dataset.phoneMode || "menu"; render(); }));
+  document.querySelectorAll(".phoneModeBtn").forEach(btn => btn.addEventListener("click", () => { state.phoneSubView = btn.dataset.phoneMode || "menu"; if (state.phoneSubView !== "mail") state.activeMailId = null; render(); }));
   document.querySelectorAll(".mailOpenBtn").forEach(btn => btn.addEventListener("click", () => openMail(btn.dataset.mailId)));
+  document.querySelectorAll(".closeMailDetailBtn").forEach(btn => btn.addEventListener("click", closeMailDetail));
   document.querySelectorAll(".snsPostBtn").forEach(btn => btn.addEventListener("click", () => snsPost(btn.dataset.snsPost || "chat")));
   document.querySelectorAll(".declineOfferBtn").forEach(btn => btn.addEventListener("click", () => declineLiveOffer(btn.dataset.offerId)));
   document.querySelectorAll(".meetApplicantMailBtn").forEach(btn => btn.addEventListener("click", () => requestMeetApplicantFromMail(btn.dataset.mailId)));
-  document.querySelectorAll(".openBandFromMailBtn").forEach(btn => btn.addEventListener("click", () => { state.view = "band"; state.phoneSubView = "menu"; render(); }));
-  document.querySelectorAll(".openScheduleFromMailBtn").forEach(btn => btn.addEventListener("click", () => { state.view = "schedule"; state.phoneSubView = "menu"; render(); }));
+  document.querySelectorAll(".openBandFromMailBtn").forEach(btn => btn.addEventListener("click", () => { state.activeMailId = null; state.view = "band"; state.phoneSubView = "menu"; render(); }));
+  document.querySelectorAll(".openScheduleFromMailBtn").forEach(btn => btn.addEventListener("click", () => { state.activeMailId = null; state.view = "schedule"; state.phoneSubView = "menu"; render(); }));
   const confirmMailActionBtn = document.getElementById("confirmMailActionBtn");
   if (confirmMailActionBtn) confirmMailActionBtn.addEventListener("click", confirmMailAction);
   const cancelMailActionBtn = document.getElementById("cancelMailActionBtn");
@@ -10403,7 +10504,7 @@ function executeCommand(command) {
       const practiceBoost = (hasSkill("practice_efficiency") ? 1.2 : 1) * fatigueEffectMultiplier();
       applyMemberStatGrowth(m, "technique", rand(1,3) * practiceBoost, "practice");
       applyMemberStatGrowth(m, "rhythm", rand(0,2) * practiceBoost, "practice");
-      maybeApplyFocusedGrowth(m, "practice", 1, 0.32);
+      maybeApplyFocusedGrowth(m, "practice", 1, 0.45);
       const inst = m.instruments[m.mainInstrument];
       if (inst) inst.lv = clamp(inst.lv + rand(2,5) * (inst.growth || 1) * memberGrowthCurveMultiplier(m, "practice"), 1, inst.potentialCap || inst.cap);
     });
@@ -11068,7 +11169,7 @@ function performLive() {
   const domIds = [...document.querySelectorAll(".setlistSelect")].map(x => x.value);
   const ids = domIds.length ? domIds : ensureLivePrepSetlist();
   const setlist = ids.map(id => clone(allSongs.find(s => s.id === id))).filter(Boolean);
-  const supportIds = [...document.querySelectorAll(".supportCheck:checked")].map(x => x.value);
+  const supportIds = [...document.querySelectorAll(".supportCheck:checked")].map(x => x.value).filter(id => DATA.supportOptions.some(s => s.id === id));
   state.livePrepSupportIds = supportIds;
   const supports = supportIds.map(id => DATA.supportOptions.find(s => s.id === id)).filter(Boolean);
   const merch = collectMerchOrdersFromDom();
@@ -11463,6 +11564,9 @@ function instrumentComboScore(instruments) {
   if (instruments.has("vocal") && instruments.has("chorus")) { strategy += 8; }
   if (instruments.has("guitar") && instruments.has("bass") && instruments.has("drum") && instruments.has("key")) { strategy += 12; }
   if (instruments.has("bass") && instruments.has("drum") && instruments.has("dj")) { strategy += 14; performance += 6; }
+  if (instruments.has("piano") || instruments.has("key")) { strategy += 4; }
+  if (instruments.has("brass")) { strategy += 5; performance += 2; }
+  if (instruments.has("percussion")) { stability += 3; performance += 3; }
   return { performance, strategy, stability };
 }
 function adlibResult(sense, teamwork, mental, rhythm, trust, fatigue) {
@@ -11711,7 +11815,7 @@ function growMemberAfterLive(m, rank, role) {
   const gain = { S:3, A:2, B:1, C:1, D:0, E:0 }[rank] || 0;
   applyMemberStatGrowth(m, "mental", gain, "live");
   applyMemberStatGrowth(m, "charisma", (rank === "S" ? 2 : rank === "A" ? 1 : 0), "live");
-  if (["S", "A", "B"].includes(rank)) maybeApplyFocusedGrowth(m, "live", rank === "S" ? 2 : 1, rank === "S" ? 0.70 : 0.45);
+  if (["S", "A", "B"].includes(rank)) maybeApplyFocusedGrowth(m, "live", rank === "S" ? 2 : 1, rank === "S" ? 0.70 : 0.55);
   const roles = positionInstrumentParts(role).filter(x => x !== "vocal" || role === "vocal" || role === "guitar_vocal" || role === "bass_vocal");
   const targets = roles.length ? roles : [m.mainInstrument];
   targets.forEach(r => {

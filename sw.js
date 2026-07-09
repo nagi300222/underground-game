@@ -1,4 +1,4 @@
-const CACHE_NAME = "underground-v0-3-66-balance-draft-fix1";
+const CACHE_NAME = "underground-v0-3-67-ui-support-growth-tuning-draft";
 const ASSETS = [
   "./",
   "./index.html",
