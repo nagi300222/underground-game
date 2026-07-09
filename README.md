@@ -1,19 +1,100 @@
-# アンダーグラウンド（仮） v0.3.67-ui-support-growth-tuning-draft
+# アンダーグラウンド（仮） v0.4.0-rc2
 
-## v0.3.67-ui-support-growth-tuning-draft 追加内容
+## v0.4.0-rc2 追加内容
 
-- 汎用サポートをライブ準備画面から廃止し、名前付きサポートのみ選択対象に変更。
-- 名前付き特殊サポート3人を追加：リオ（Piano/Synth）、ナツメ（Sax/Brass）、ミツキ（Percussion）。
-- ライブ準備に「準備チェック」パネルを追加。基本パート、セトリ、コピー曲、疲労、資金、サポート人数を表示。
-- メール本文を一覧下部表示ではなくモーダル表示に変更。
-- 成長タイプ体感調整：focused growth発火率、序盤型/晩成型カーブを仮調整。
-- v0.3.66-fix1の重要維持仕様（GRAND条件、ターン進行、メール返信導線、DEV、コピー曲ガード）は維持。
+Fable5外部監査で検出された `maybeSeedWorldReactionPosts()` のSNS人格投稿シード経路不発を最小修正したRC2。
+新機能追加はありません。
+
+## 修正内容
+
+- 旧構造 `state.bandBook.discovered` 参照を廃止。
+- 現行構造 `state.bandBook.bands[id].state` から遭遇済みバンドを取得。
+- `band_voice_*` SNS投稿がシード経路でも発火するよう修正。
 
 ## 同梱資料
 
-- CHANGELOG_v0_3_67_ui_support_growth_tuning.md
-- AUDIT_PACKET_v0_3_67.md
-- AUDIT_v0_3_67_ui_support_growth_tuning_draft.md
+- FABLE5_EXTERNAL_AUDIT_v0_4_0_rc1.md
+- CHANGELOG_v0_4_0_rc2.md
+- AUDIT_PACKET_v0_4_0_rc2.md
+- AUDIT_v0_4_0_rc2.md
+- audit40rc2_band_voice_fix.js
+
+## コード確認
+
+- `node --check game.js`：OK。
+- `node audit40a_smoke.js`：OK。
+- `node audit40b_live_prep.js`：OK。
+- `node audit40c_phone_tutorial.js`：OK。
+- `node audit40d_bandbook_lore.js`：OK。
+- `node audit40e_world_reactions.js`：OK。
+- `node audit40rc_oldsave.js`：OK。
+- `node audit40rc_full.js`：OK。
+- `node audit40rc2_band_voice_fix.js`：OK。
+
+---
+
+# アンダーグラウンド（仮） v0.4.0b-live-prep-steps-draft
+
+## v0.4.0b 追加内容
+
+- ライブ準備画面を4ステップ型へ整理。
+  1. セトリ
+  2. 担当
+  3. サポート/物販
+  4. 最終チェック
+- ステップ切替はCSS表示切替方式。
+- `.setlistSelect` / `.positionSelect` / `.chorusSelect` / 物販入力DOMは同一DOM内に維持。
+- `performLive()` / `getPositionMapFromDom()` / `collectMerchOrdersFromDom()` は変更なし。
+- v0.4.0aの5タブ入口・ホーム再構成は維持。
+
+## 同梱資料
+
+- CHANGELOG_v0_4_0b_live_prep_steps.md
+- AUDIT_PACKET_v0_4_0b.md
+- AUDIT_v0_4_0b_live_prep_steps_draft.md
+- audit40a_smoke.js
+- audit40b_live_prep.js
+
+## コード確認
+
+- `node --check game.js`：OK。
+- `node audit40a_smoke.js`：OK。
+- `node audit40b_live_prep.js`：OK。
+
+---
+
+# アンダーグラウンド（仮） v0.3.70-band-events-extension-draft
+
+## v0.3.70-band-events-extension-draft 追加内容
+
+- 他バンド短編イベントを7本追加。
+  - IN-BAB / POLARIS / JACK BOMB / HYPER MARMOTY / ultimate quokkas / RUMBLE SAND / Neon Reef。
+- 追加7イベントを `BAND_EVENT_DATABASE` に登録。
+- 追加7イベントを `BAND_EVENT_STORY_MAP` と `STORY_SCENE_DATABASE` へ接続。
+- 既存の1ターン1件制御、フェス日抑制、優先度制御に従う形で実装。
+- v0.3.67のサポート整理・メールモーダル・ライブ準備チェックを維持。
+- v0.3.68の打ち上げイベントを維持。
+- v0.3.69の通常行動ミニイベントを維持。
+- GRAND条件、ターン進行ルール、コピー曲ガード、DEV補助は変更なし。
+
+## 同梱資料
+
+- CHANGELOG_v0_3_70_band_events_extension.md
+- AUDIT_PACKET_v0_3_70.md
+- AUDIT_v0_3_70_band_events_extension_draft.md
+- audit70_smoke.js
+- audit70_regression.js
+
+## コード確認
+
+- `node --check game.js`：OK。
+- `node audit70_smoke.js`：OK。
+- `node audit70_regression.js`：OK。
+
+## 注意
+
+追加イベントの一部は、既存のSHELTER/KAEDE/LACT系イベントが未消化の場合、そちらが先に発火する。
+これは優先度制御と1ターン1件制御による正常挙動で、持ち越し後に発火する。
 
 ---
 
@@ -133,3 +214,45 @@ v0.3.50 を土台に、バンド図鑑・交流スキル・他バンドイベン
 - ノベルイベントの次へ/スキップ/結果OKボタン位置をスマホ向けに少し上へ調整。
 
 次の確認は、DEV移動後のチュートリアル残り、携帯メールからのライブ予定追加、メンバー候補返信、ノベルボタンの押しやすさを優先してください。
+
+## v0.4.0c-phone-tutorial-draft
+- 携帯トップに要返信固定セクションを追加。
+- 携帯アプリとしてメール/SNS/バンド図鑑を整理。
+- ホームに初ライブまでのチュートリアル進行カードを追加。
+- T3宣伝時にSNS初期反応を1件追加。
+- ライブ招待承認後、予定タブへ移動して予定を確認しやすくした。
+- 新しい進行ブロック/一時オーバーレイ状態は追加せず、進行不能リスクを抑制。
+
+
+## v0.4.0d-bandbook-lore-draft
+
+- バンド図鑑を「プロフィール / コメント / 裏話」の3タブへ拡張。
+- 全22組に代表者コメント枠を追加。
+- 優先8組に裏話を2本ずつ追加。
+- セーブ拡張なし。交流値・イベント既読・flagsを参照する静的読み物拡張。
+- v0.4.0a〜cのUI/ライブ準備/携帯チュートリアル回帰スモーク通過。
+
+
+## v0.4.0e-world-reactions-draft
+
+- SNS人格化：世界の投稿、バンド別の短い声、UNDER/GRAND前のタイムライン演出を追加。
+- メール演出強化：差出人アイコン、種別チップ、本文ヘッダーの視認性を改善。
+- 目標カード強化：ホームにUNDER/GRANDまでの残りT、世界の温度、不足上位を表示。
+- LACT専用演出：50T/GRAND周辺のSNS投稿として追加。新規オーバーレイや進行ブロックは追加しない。
+- v0.4.0a〜dの回帰確認を継続。
+
+## v0.4.0-rc1
+
+v0.4.0a〜e統合後のRC監査版。
+新機能追加を止め、進行不能・旧セーブ互換・50T通しを確認。
+
+RCでの小修正：
+- `snsWorldSeen` 欠損旧セーブの正規化
+- `logs` 欠損旧セーブの正規化
+- `liveResultHistory` 欠損旧セーブの正規化
+
+追加監査：
+- `audit40rc_oldsave.js`
+- `audit40rc_full.js`
+
+次：Fable5外部RC監査、または実機スマホ確認。

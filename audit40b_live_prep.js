@@ -1,0 +1,37 @@
+const fs = require('fs');
+const vm = require('vm');
+const code = fs.readFileSync('game.js','utf8') + `\n;globalThis.__dbg={getState:()=>state, fns:{startNewGameInSlot,render,isLiveTurn,currentLivePrepStep,renderLivePrep,ensureLivePrepSetlist,getPositionMapFromDom,collectMerchOrdersFromDom,performLive}};`;
+function makeEl(){return{innerHTML:'',value:'',checked:false,dataset:{},style:{},classList:{add(){},remove(){},toggle(){},contains(){return false}},addEventListener(){},removeEventListener(){},appendChild(){},querySelector(){return null},querySelectorAll(){return[]},focus(){},click(){},closest(){return null},scrollLeft:0,offsetLeft:0,clientWidth:360};}
+const app=makeEl();
+const store=new Map();
+const sb={console,document:{getElementById:(id)=>id==='app'?app:makeEl(),querySelector:()=>null,querySelectorAll:()=>[],createElement:()=>makeEl(),body:makeEl()},localStorage:{getItem:k=>store.has(k)?store.get(k):null,setItem:(k,v)=>store.set(k,String(v)),removeItem:k=>store.delete(k)},navigator:{serviceWorker:null},location:{reload(){}},setTimeout:(fn)=>{ return 1;},clearTimeout(){},requestAnimationFrame:(fn)=>{try{fn()}catch(e){}},alert(){},confirm:()=>true,prompt:()=>null,Date,Math,JSON,Object,Array,Number,String,Boolean,RegExp,Set,Map,Promise,Error};
+sb.window=sb; sb.globalThis=sb;
+vm.createContext(sb); vm.runInContext(code,sb,{filename:'game.js'});
+const d=sb.__dbg, F=d.fns;
+function ok(c,msg){ if(!c){ console.error('[NG]',msg); process.exitCode=1; } else console.log('[OK]',msg); }
+F.startNewGameInSlot(1);
+const state=d.getState();
+state.introSeen=true; state.tutorialStage='done'; state.scheduleTutorialStage='done';
+state.turn=5;
+state.liveSchedule=[5];
+state.liveEvents = state.liveEvents || [];
+if(!state.liveEvents.some(e=>Number(e.turn)===5)) state.liveEvents.push({turn:5, venueId:'basement', fixed:true, liveType:'house_event', invitedBandIds:['triple_arrows']});
+state.livePrepSetlist = null;
+state.livePrepStep = 1;
+F.render();
+let html=app.innerHTML;
+ok(html.includes('live-prep-step-nav'),'ステップナビ描画');
+ok((html.match(/class="prepStepBtn/g)||[]).length===4,'ステップボタン4個');
+ok(html.includes('data-step-panel="1"') && html.includes('data-step-panel="2"') && html.includes('data-step-panel="3"') && html.includes('data-step-panel="4"'),'4ステップパネルが同一HTMLに存在');
+ok((html.match(/class="setlistSelect/g)||[]).length===5,'setlistSelect 5枠がDOMに存在');
+ok(html.includes('class="positionSelect"'),'positionSelectがDOMに存在');
+ok(html.includes('class="chorusSelect"'),'chorusSelectがDOMに存在');
+ok(html.includes('class="merchQtyInput"'),'merchQtyInputがDOMに存在');
+ok(html.includes('class="merchDigitSelect"'),'merchDigitSelectがDOMに存在');
+ok(html.includes('id="performLiveBtn"'),'performLiveBtnが最終チェック内に存在');
+state.livePrepStep = 4;
+F.render();
+html=app.innerHTML;
+ok(html.includes('ライブ本番へ'),'ステップ4で本番ボタン描画');
+ok(html.includes('prepStepJumpBtn') || html.includes('ライブ準備チェック'),'最終チェック導線描画');
+console.log('AUDIT40B LIVE PREP SMOKE PASSED');
