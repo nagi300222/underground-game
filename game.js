@@ -4,7 +4,7 @@
   - 旧「（仮）」候補ブロックとPaper Moon Kids系コードは、旧セーブ互換/退避用に残すが、有効候補はMEMBER_DATABASEで上書きする。
 */
 
-const VERSION = "v0.4.0-rc2";
+const VERSION = "v0.4.1a-visual-foundation-draft";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -6486,6 +6486,15 @@ function devPrepareStage(stage) {
   log(`DEV：${stage} 状態を準備した。`, "event");
   render();
 }
+
+function devGroupIsOpen(id, fallback=false) {
+  const rec = state.devOpenGroups || {};
+  return typeof rec[id] === "boolean" ? rec[id] : !!fallback;
+}
+function devDetailsAttr(id, fallback=false) {
+  return devGroupIsOpen(id, fallback) ? " open" : "";
+}
+
 function renderDevScreen() {
   if (!devModeOn()) return `<div class="card"><h2>開発用モードOFF</h2></div>`;
   const storyOptions = storyEventOptions().map(o => `<option value="${escapeHtml(o.id)}">${escapeHtml(o.title)}</option>`).join("");
@@ -6502,7 +6511,7 @@ function renderDevScreen() {
       </div>
     </div>
     <div class="card dev-card"><h3>ターン移動</h3><div class="cols"><div><label>指定ターン</label><input id="devTurnInput" type="number" min="1" max="70" value="${state.turn || 1}" /></div></div><button id="devJumpTurnBtn" class="big-action">指定ターンへ移動</button></div>
-    <details class="dev-group" open><summary>📊 進行・数値</summary><div class="card dev-card"><h3>バンドステータス</h3><div class="cols">
+    <details class="dev-group" data-dev-group="progress"${devDetailsAttr("progress", true)}><summary>📊 進行・数値</summary><div class="card dev-card"><h3>バンドステータス</h3><div class="cols">
       <div><label>資金</label><input id="devFunds" type="number" value="${Number(state.band.funds || 0)}" /></div>
       <div><label>ファン</label><input id="devFans" type="number" value="${Number(state.band.fans || 0)}" /></div>
       <div><label>知名度</label><input id="devFame" type="number" value="${Number(state.band.fame || 0)}" /></div>
@@ -6510,16 +6519,16 @@ function renderDevScreen() {
       <div><label>信頼度</label><input id="devTrust" type="number" value="${Number(state.band.trust || 0)}" /></div>
       <div><label>疲労</label><input id="devFatigue" type="number" min="0" max="100" value="${Number(state.band.fatigue || 0)}" /></div>
     </div><button id="devApplyStatsBtn" class="big-action">ステータス反映</button></div>
-    </details><details class="dev-group"><summary>🎬 イベント・候補</summary><div class="card dev-card"><h3>ノベルイベント再生</h3><div class="cols"><div><label>イベント</label><select id="devStorySelect">${storyOptions}</select></div></div><button id="devStartStoryBtn" class="big-action">イベント再生</button></div>
+    </details><details class="dev-group" data-dev-group="events"${devDetailsAttr("events", false)}><summary>🎬 イベント・候補</summary><div class="card dev-card"><h3>ノベルイベント再生</h3><div class="cols"><div><label>イベント</label><select id="devStorySelect">${storyOptions}</select></div></div><button id="devStartStoryBtn" class="big-action">イベント再生</button></div>
     <div class="card dev-card"><h3>加入候補追加</h3><div class="cols"><div><label>候補</label><select id="devApplicantSelect">${applicantOptions}</select></div></div><button id="devAddApplicantBtn" class="big-action">候補に出す</button><button id="devRecruitBtn" class="ghost-btn">通常募集を1回実行</button></div>
-    </details><details class="dev-group"><summary>🎁 スキル・成長</summary><div class="card dev-card"><h3>スキル確認</h3><p><small>主人公：${(state.playerSkills||[]).map(id=>skillById(id)?.name).filter(Boolean).join("・")||"なし"}<br>交流：${Object.entries(state.ownedBandSkills||{}).map(([id,rec])=>{const sk=bandSkillById(id);return sk?`${sk.name}${sk.type==="common"?`Lv${rec.level}`:""}`:"";}).filter(Boolean).join("・")||"なし"}</small></p><div class="cols"><div><label>主人公スキル付与</label><select id="devPlayerSkillSelect">${SKILL_DATA.map(sk=>`<option value="${sk.id}">${escapeHtml(sk.name)}</option>`).join("")}</select></div><div><label>交流スキル付与</label><select id="devBandSkillSelect">${Object.values(BAND_SKILL_DATABASE).filter(sk=>sk.id!=="diamond_shine").map(sk=>`<option value="${sk.id}">${escapeHtml(sk.name)}</option>`).join("")}</select></div></div><button id="devGrantPlayerSkillBtn" class="ghost-btn">主人公スキルを付与</button><button id="devGrantBandSkillBtn" class="ghost-btn">交流スキルを付与</button></div>
+    </details><details class="dev-group" data-dev-group="skills"${devDetailsAttr("skills", false)}><summary>🎁 スキル・成長</summary><div class="card dev-card"><h3>スキル確認</h3><p><small>主人公：${(state.playerSkills||[]).map(id=>skillById(id)?.name).filter(Boolean).join("・")||"なし"}<br>交流：${Object.entries(state.ownedBandSkills||{}).map(([id,rec])=>{const sk=bandSkillById(id);return sk?`${sk.name}${sk.type==="common"?`Lv${rec.level}`:""}`:"";}).filter(Boolean).join("・")||"なし"}</small></p><div class="cols"><div><label>主人公スキル付与</label><select id="devPlayerSkillSelect">${SKILL_DATA.map(sk=>`<option value="${sk.id}">${escapeHtml(sk.name)}</option>`).join("")}</select></div><div><label>交流スキル付与</label><select id="devBandSkillSelect">${Object.values(BAND_SKILL_DATABASE).filter(sk=>sk.id!=="diamond_shine").map(sk=>`<option value="${sk.id}">${escapeHtml(sk.name)}</option>`).join("")}</select></div></div><button id="devGrantPlayerSkillBtn" class="ghost-btn">主人公スキルを付与</button><button id="devGrantBandSkillBtn" class="ghost-btn">交流スキルを付与</button></div>
     <div class="card dev-card"><h3>成長タイプ確認</h3><p><small>${activeMembers().map(m => escapeHtml(`${m.name}：${growthTypeSummary(m)}`)).join("<br>") || "メンバーなし"}</small></p></div>
-    </details><details class="dev-group"><summary>🧪 バランス・補助</summary><div class="card dev-card"><h3>v0.3.66 バランス確認</h3><p><small>${escapeHtml(formatGrandConditionSnapshot()).replace(/\n/g,"<br>")}</small></p><div class="dev-quick-grid"><button id="devGrandCheckBtn" class="ghost-btn">GRAND条件チェック</button><button class="devBalanceProfileBtn" data-profile="under_border">UNDER目安セット</button><button class="devBalanceProfileBtn" data-profile="grand_border">GRAND最低値セット</button><button class="devBalanceProfileBtn" data-profile="grand_strong">GRAND注目枠セット</button><button id="devBandEventSeedBtn" class="ghost-btn">主要バンドイベント土台セット</button></div></div>
+    </details><details class="dev-group" data-dev-group="balance"${devDetailsAttr("balance", false)}><summary>🧪 バランス・補助</summary><div class="card dev-card"><h3>v0.3.66 バランス確認</h3><p><small>${escapeHtml(formatGrandConditionSnapshot()).replace(/\n/g,"<br>")}</small></p><div class="dev-quick-grid"><button id="devGrandCheckBtn" class="ghost-btn">GRAND条件チェック</button><button class="devBalanceProfileBtn" data-profile="under_border">UNDER目安セット</button><button class="devBalanceProfileBtn" data-profile="grand_border">GRAND最低値セット</button><button class="devBalanceProfileBtn" data-profile="grand_strong">GRAND注目枠セット</button><button id="devBandEventSeedBtn" class="ghost-btn">主要バンドイベント土台セット</button></div></div>
     <div class="card dev-card"><h3>補助</h3><button id="devEnsureSongsBtn" class="ghost-btn">オリジナル7曲を補充</button><button id="devClearTutorialBtn" class="ghost-btn">チュートリアル解除</button><button id="devClearEphemeralBtn" class="ghost-btn">一時モーダル状態を破棄</button></div></details>
   </div>`;
 }
 
-const SAVE_VERSION = "v0.4.0-rc2";
+const SAVE_VERSION = "v0.4.1a-visual-foundation-draft";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -6895,7 +6904,8 @@ function createInitialState() {
     tutorialSkipHints: false,
     tutorialLastPhonePromptTurn: 0,
     tutorialFirstLiveGoalSeen: false,
-    bandBookDetailTab: "profile"
+    bandBookDetailTab: "profile",
+    devOpenGroups: { progress: true, events: false, skills: false, balance: false }
   };
 }
 
@@ -7652,6 +7662,8 @@ function normalizeState() {
   if (typeof state.tutorialLastPhonePromptTurn === "undefined") state.tutorialLastPhonePromptTurn = 0;
   if (typeof state.tutorialFirstLiveGoalSeen === "undefined") state.tutorialFirstLiveGoalSeen = false;
   if (typeof state.skillPanelOpen === "undefined") state.skillPanelOpen = true;
+  if (!state.devOpenGroups || typeof state.devOpenGroups !== "object" || Array.isArray(state.devOpenGroups)) state.devOpenGroups = { progress: true, events: false, skills: false, balance: false };
+  ["progress","events","skills","balance"].forEach((id, idx) => { if (typeof state.devOpenGroups[id] !== "boolean") state.devOpenGroups[id] = idx === 0; });
   if (typeof state.uiPrepNotesSeen === "undefined") state.uiPrepNotesSeen = false;
   (state.songs || []).forEach((song, idx) => {
     if (typeof song.createdTurn === "undefined") song.createdTurn = idx === 0 ? 0 : (state.turn || 1);
@@ -7905,20 +7917,22 @@ function render() {
   surfaceQueuedPopupIfIdle();
   if (state.ended) return renderEnding();
   const liveMode = isLiveTurn();
+  const phoneDuringLive = liveMode && state.view === "phone";
   app.innerHTML = `
-    <div class="app-shell">
-      <div class="hero">
+    <div class="app-shell app-shell-v041a">
+      <div class="hero hero-v041a">
         <div>
           <h1>アンダーグラウンド（仮） ${VERSION}</h1>
-          <p>v0.4.0-rc1：0.4.0a〜e統合後のRC監査版。新機能追加を止め、進行不能・旧セーブ・50T通しを確認。</p>
+          <p>右下の携帯、週の流れ、読みやすさを調整中。ゲーム進行はそのまま。</p>
         </div>
         <div class="hero-actions"><button class="jumpTabBtn ghost-btn schedule-head-btn" data-view="schedule">予定</button><button id="refreshAppBtn" class="ghost-btn update-btn">最新版</button><button id="saveBtn" class="ghost-btn">セーブ</button><button id="loadBtn" class="ghost-btn">ロード</button><button id="titleBtn" class="ghost-btn">タイトルへ</button></div>
       </div>
-      ${renderTimeline()}
       ${renderTopStats()}
+      ${renderTimeline()}
       ${renderTelop()}
       ${renderNav(liveMode)}
-      ${liveMode ? renderLivePrep() : renderMainContent()}
+      ${liveMode && !phoneDuringLive ? renderLivePrep() : renderMainContent()}
+      ${renderGlobalPhoneButton(liveMode)}
       ${renderFloatingHomeButton(liveMode)}
       ${renderOverlays()}
     </div>
@@ -7928,6 +7942,12 @@ function render() {
   scheduleLiveProgressTimer();
   scheduleTurnNoticeTimer();
   autoSaveGame();
+}
+
+function renderGlobalPhoneButton(liveMode=false) {
+  const unread = unreadMailCount();
+  const active = state.view === "phone";
+  return `<button class="globalPhoneBtn global-phone-btn ${active ? "active" : ""}" title="携帯を開く"><span class="global-phone-icon">📱</span><b>携帯</b>${unread ? `<em>${unread}</em>` : ""}</button>`;
 }
 
 function renderFloatingHomeButton(liveMode=false) {
@@ -8347,54 +8367,61 @@ function renderNextActionPanel() {
 function renderHomePrimaryAction() {
   const locked = state.tutorialStage === "needSong" || mustCompleteFirstDraftTutorial();
   const view = locked ? "songs" : "command";
-  const label = locked ? "曲を仕上げる" : "今週の行動";
-  const sub = locked ? "初ライブに向けて、まず曲を完成させよう。" : "練習・宣伝・募集など、ターンを進める行動を選ぶ。";
-  return `<button class="jumpTabBtn home-primary-action" data-view="${view}"><span>${locked ? "🎼" : "⚡"}</span><b>${label}</b><small>${sub}</small></button>`;
+  const label = locked ? "曲を仕上げる" : "今週どうする？";
+  const sub = locked ? "まずは初ライブ用の曲を完成。" : "練習・宣伝・募集から選ぶ。";
+  return `<button class="jumpTabBtn home-primary-action v041-home-primary" data-view="${view}"><span>${locked ? "🎼" : "▶"}</span><b>${label}</b><small>${sub}</small></button>`;
 }
 
 function renderHomeScheduleStrip() {
   const max = state.maxTurn || 50;
-  const items = [];
-  for (let i=0; i<5; i++) {
-    const turn = (state.turn || 1) + i;
-    if (turn > max) break;
+  const base = Number(state.turn || 1);
+  const turns = new Set();
+  for (let i=0; i<5; i++) { if (base + i <= max) turns.add(base + i); }
+  (state.liveEvents || []).filter(e => !e.cancelled && e.turn >= base && e.turn <= base + 8).forEach(e => turns.add(e.turn));
+  if (base <= 30) turns.add(30);
+  if (base <= 50) turns.add(50);
+  const items = [...turns].sort((a,b)=>a-b).slice(0, 8).map(turn => {
     const live = (state.liveEvents || []).find(e => !e.cancelled && e.turn === turn);
-    const isNow = turn === (state.turn || 1);
-    let label = isNow ? "今日" : `${turn}T`;
-    let note = live ? (live.fixed ? "固定ライブ" : liveTypeMeta(live).short) : (turn === 30 ? "UNDER" : turn === 50 ? "GRAND" : "準備");
-    let icon = live ? "🎤" : (turn === 30 || turn === 50 ? "🔥" : "·");
-    items.push(`<button class="jumpTabBtn mini-turn-chip ${isNow ? "now" : ""} ${live ? "live" : ""}" data-view="schedule"><b>${icon} ${escapeHtml(label)}</b><small>${escapeHtml(note)}</small></button>`);
-  }
-  return `<div class="card home-schedule-strip"><div class="section-title"><h2>予定ミニライン</h2><span class="badge">今日〜+4T</span></div><div class="mini-turn-row">${items.join("")}</div></div>`;
+    const isNow = turn === base;
+    const isFes = turn === 30 || turn === 50;
+    let label = isNow ? "今" : `T${turn}`;
+    let note = live ? (live.fixed ? "固定" : liveTypeMeta(live).short) : (turn === 30 ? "UNDER" : turn === 50 ? "GRAND" : "準備");
+    let icon = live ? "🎤" : isFes ? "🔥" : "·";
+    return `<button class="jumpTabBtn mini-turn-chip ${isNow ? "now" : ""} ${live ? "live" : ""} ${isFes ? "fes" : ""}" data-view="schedule"><b>${icon} ${escapeHtml(label)}</b><small>${escapeHtml(note)}</small></button>`;
+  });
+  return `<div class="card home-schedule-strip v041-home-schedule" aria-label="予定ミニライン"><div class="section-title"><h2>週の流れ</h2><span class="badge">予定</span></div><div class="mini-turn-row">${items.join("")}</div></div>`;
 }
 
 function renderHomeUtilityTiles() {
   const unread = unreadMailCount();
-  return `<div class="card home-utility-card"><div class="section-title"><h2>管理メニュー</h2><span class="badge">L2</span></div><div class="home-utility-grid">
-    ${homeSongMenuButton()}
-    ${homeMenuButton("schedule", "📅", "予定", canBookSchedules() ? "予約・確認" : "初ライブ後に解放", !canBookSchedules())}
-    ${homeMenuButton("phone", `📱${unread ? `<em class="nav-badge">${unread}</em>` : ""}`, "携帯", "メール・SNS")}
-    ${homeMenuButton("band", "👥", "バンド", "メンバー・スキル")}
-    ${homeMenuButton("shop", "🛒", "機材/ショップ", "回復・機材")}
-    ${homeMenuButton("library", "📚", "図鑑/記録", "スキル・歴代")}
-    ${bandSystemOn() ? homeMenuButton("bandbook", "🎤", "バンド図鑑", `出会い ${bandDiscoveredCount()}/${Object.keys(BAND_DATABASE).length}`) : ""}
-    ${homeMenuButton("log", "📺", "ログ", "履歴")}
-    ${devModeOn() ? homeMenuButton("dev", "🛠️", "DEV", "確認・復旧") : ""}
-  </div></div>`;
+  const core = [
+    homeSongMenuButton(),
+    homeMenuButton("schedule", "📅", "予定", canBookSchedules() ? "予約・確認" : "初ライブ後", !canBookSchedules()),
+    homeMenuButton("band", "👥", "バンド", "メンバー"),
+    devModeOn() ? homeMenuButton("dev", "🛠️", "DEV", "確認") : ""
+  ].join("");
+  const more = [
+    homeMenuButton("phone", `📱${unread ? `<em class="nav-badge">${unread}</em>` : ""}`, "携帯", "メール・SNS"),
+    homeMenuButton("shop", "🛒", "ショップ", "機材・回復"),
+    homeMenuButton("library", "📚", "記録", "図鑑・歴代"),
+    bandSystemOn() ? homeMenuButton("bandbook", "🎤", "バンド図鑑", `${bandDiscoveredCount()}/${Object.keys(BAND_DATABASE).length}組`) : "",
+    homeMenuButton("log", "📺", "ログ", "履歴")
+  ].join("");
+  return `<div class="card home-utility-card v041-home-menu" aria-label="管理メニュー"><div class="section-title"><h2>メニュー</h2><span class="badge">よく使う</span></div><div class="home-utility-grid v041-core-menu">${core}</div><details class="v041-more-menu"><summary>ほかのメニュー</summary><div class="home-utility-grid">${more}</div></details></div>`;
 }
 
 function renderHomeScreen() {
   const latest = firstLine(state.logs[0]);
   return `
-    <div class="home-simple home-v040a">
+    <div class="home-simple home-v040a home-v041a">
+      ${renderHomePrimaryAction()}
+      ${renderHomeScheduleStrip()}
       ${renderNextActionPanel()}
       ${renderGoalPulseCard()}
       ${renderTutorialProgressCard()}
-      ${renderHomePrimaryAction()}
-      ${renderHomeScheduleStrip()}
-      <details class="card home-log-card home-log-details"><summary><b>最新ログ</b><small>${escapeHtml(latest || "地下から始まる。")}</small></summary><div class="home-latest-log">${escapeHtml(latest || "地下から始まる。")}</div></details>
-      ${renderQuietGuidePanel()}
       ${renderHomeUtilityTiles()}
+      <details class="card home-log-card home-log-details v041-home-details"><summary><b>最新ログ</b><small>${escapeHtml(latest || "地下から始まる。")}</small></summary><div class="home-latest-log">${escapeHtml(latest || "地下から始まる。")}</div></details>
+      <details class="card v041-home-details"><summary><b>状況メモ</b><small>${escapeHtml(quietGuideLine())}</small></summary>${renderQuietGuidePanel()}</details>
     </div>
   `;
 }
@@ -9449,17 +9476,26 @@ function renderLogScreen() {
 
 function renderTimeline() {
   refreshLiveSchedule();
-  const cells = [];
-  for (let i = 1; i <= state.maxTurn; i++) {
+  const cur = Number(state.turn || 1);
+  const max = Number(state.maxTurn || 50);
+  const turns = new Set();
+  for (let i = Math.max(1, cur - 1); i <= Math.min(max, cur + 4); i++) turns.add(i);
+  (state.liveEvents || []).filter(e => !e.cancelled && e.turn >= cur && e.turn <= cur + 8).forEach(e => turns.add(e.turn));
+  if (cur <= 30) turns.add(30);
+  if (cur <= 50) turns.add(50);
+  const cells = [...turns].filter(t => t >= 1 && t <= max).sort((a,b)=>a-b).slice(0, 10);
+  const parts = cells.map(i => {
     const ev = liveEventForTurn(i);
-    const live = !!ev;
-    const cls = i === state.turn ? "now" : i < state.turn ? "done" : live ? (ev.fixed ? "live fixed" : "live booked") : "";
-    const label = ev ? (i === state.maxTurn ? "FES" : ev.fixed ? "FIX" : "LIVE") : "育成";
-    const venue = ev ? venueById(ev.venueId).name : "";
-    cells.push(`<div class="turn-cell ${cls}" data-turn="${i}" title="${escapeHtml(venue)}"><b>${i}</b><span>${label}</span></div>`);
-  }
+    const isNow = i === cur;
+    const isPast = i < cur;
+    const isFes = i === 30 || i === 50;
+    const cls = isNow ? "now" : isPast ? "done" : ev ? (ev.fixed ? "live fixed" : "live booked") : isFes ? "fes" : "";
+    const label = isNow ? "今" : ev ? (i === max ? "GRAND" : ev.fixed ? "固定" : "LIVE") : i === 30 ? "UNDER" : i === 50 ? "GRAND" : "準備";
+    const venue = ev ? venueById(ev.venueId).name : label;
+    return `<button class="jumpTabBtn turn-cell rail-cell ${cls}" data-view="schedule" data-turn="${i}" title="${escapeHtml(venue)}"><b>T${i}</b><span>${escapeHtml(label)}</span></button>`;
+  });
   const next = state.nextLiveTurn ? `${currentLiveName()} あと${turnsUntilNextLive()}T` : "予定なし";
-  return `<div class="timeline-wrap schedule-board"><div class="schedule-title compact-title"><b>${state.turn}/${state.maxTurn}ターン</b><span>NEXT：${escapeHtml(next)}</span></div><div class="timeline long schedule-scroll one-line">${cells.join("")}</div></div>`;
+  return `<div class="timeline-wrap schedule-board v041-turn-rail"><div class="schedule-title compact-title"><b>週の流れ</b><span>${escapeHtml(next)}</span></div><div class="timeline long schedule-scroll one-line v041-rail-scroll">${parts.join("")}</div></div>`;
 }
 
 function renderTelop() {
@@ -9484,17 +9520,20 @@ function nextMilestoneLabel() {
 function renderTopStats() {
   const b = state.band;
   const unread = unreadMailCount();
-  const stats = [
-    { k:"TURN", label:`${state.turn || 1}/${state.maxTurn || 50}T`, meter:null },
-    { k:"山場", label:nextMilestoneLabel(), meter:null },
-    { k:"資金", label:`¥${shortMoney(b.funds)}`, meter:null, alert:b.funds < 0 },
-    { k:"ファン", label:`${Math.round(b.fans)}人`, meter:null },
-    { k:"知名度", label:Math.round(b.fame), meter:b.fame },
-    { k:"業界評価", label:Math.round(b.industry), meter:b.industry },
-    { k:"疲労", label:`${fatigueFace(b.fatigue)} ${Math.round(b.fatigue)}%`, meter:b.fatigue, alert:b.fatigue > 80 },
-    { k:"未読", label:unread ? `${unread}件` : "なし", meter:null, alert:unread > 0 }
+  const next = state.nextLiveTurn ? `${currentLiveName()}まで${turnsUntilNextLive()}T` : nextMilestoneLabel();
+  const main = [
+    { k:"ターン", label:`T${state.turn || 1}/${state.maxTurn || 50}` },
+    { k:"資金", label:`¥${shortMoney(b.funds)}`, alert:b.funds < 0 },
+    { k:"ファン", label:`${Math.round(b.fans)}人` },
+    { k:"疲労", label:`${Math.round(b.fatigue)}%`, alert:b.fatigue > 80 }
   ];
-  return `<div class="success-dashboard compact-dashboard l0-dashboard"><div class="compact-stat-strip slim-stats l0-stat-strip">${stats.map(x=>`<div class="stat success-stat compact-stat ${x.alert ? "danger-stat" : ""}"><span>${x.k}</span><b>${x.label}</b>${x.meter !== null ? renderTinyMeter(x.k, x.meter) : ""}</div>`).join("")}</div></div>`;
+  const sub = [
+    `次：${next}`,
+    `知名度 ${Math.round(b.fame)}`,
+    `業界 ${Math.round(b.industry)}`,
+    unread ? `未読 ${unread}` : "未読なし"
+  ];
+  return `<div class="success-dashboard compact-dashboard l0-dashboard v041-status-board"><div class="compact-stat-strip slim-stats l0-stat-strip v041-status-main">${main.map(x=>`<div class="stat success-stat compact-stat ${x.alert ? "danger-stat" : ""}"><span>${x.k}</span><b>${x.label}</b></div>`).join("")}</div><div class="v041-status-sub">${sub.map(x=>`<span>${escapeHtml(x)}</span>`).join("")}</div></div>`;
 }
 function shortMoney(n) {
   const num = Number(n) || 0;
@@ -10558,12 +10597,23 @@ function downloadSetlistImage() {
 
 function bindEvents() {
   document.querySelectorAll(".command-card").forEach(btn => btn.addEventListener("click", () => handleCommandClick(btn.dataset.command)));
+  document.querySelectorAll(".globalPhoneBtn").forEach(btn => btn.addEventListener("click", () => {
+    if (state.turnNotice) clearTurnNotice();
+    state.phoneSubView = "menu";
+    state.activeMailId = null;
+    state.view = "phone";
+    render();
+  }));
   document.querySelectorAll(".tabBtn:not(:disabled), .jumpTabBtn").forEach(btn => btn.addEventListener("click", () => {
     const v = btn.dataset.view || "home";
     if (state.turnNotice) clearTurnNotice();
     if (v !== "home" && v !== "dev" && showTutorialBlocked(v === "command" ? "command" : v === "schedule" ? "schedule" : v === "songs" ? "song" : "other")) return;
     if (v === "songs" && hasPendingSongFinalize()) { focusPendingSongFinalize(false); return; }
     if (v !== "songs" && hasPendingSongFinalize()) { focusPendingSongFinalize(true); return; }
+    if (v === "phone") {
+      state.phoneSubView = "menu";
+      state.activeMailId = null;
+    }
     state.view = v;
     if (v === "schedule" && state.scheduleTutorialStage === "needSchedule") {
       state.scheduleTutorialStage = "done";
@@ -10715,6 +10765,10 @@ function bindEvents() {
   }));
   document.querySelectorAll(".bandBookTabBtn").forEach(btn => btn.addEventListener("click", () => { state.bandBookDetailTab = btn.dataset.bandbookTab || "profile"; render(); }));
 
+  document.querySelectorAll(".dev-group[data-dev-group]").forEach(el => el.addEventListener("toggle", () => {
+    state.devOpenGroups = state.devOpenGroups || {};
+    state.devOpenGroups[el.dataset.devGroup] = el.open;
+  }));
   const devJumpTurnBtn = document.getElementById("devJumpTurnBtn");
   if (devJumpTurnBtn) devJumpTurnBtn.addEventListener("click", () => devJumpToTurn(document.getElementById("devTurnInput")?.value || state.turn));
   document.querySelectorAll(".devStageBtn").forEach(btn => btn.addEventListener("click", () => devPrepareStage(btn.dataset.stage)));
