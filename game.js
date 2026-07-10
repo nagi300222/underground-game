@@ -4,7 +4,10 @@
   - 旧「（仮）」候補ブロックとPaper Moon Kids系コードは、旧セーブ互換/退避用に残すが、有効候補はMEMBER_DATABASEで上書きする。
 */
 
-const VERSION = "v0.4.1c-livehouse-draft";
+const VERSION = "v0.5.0-playtest-draft";
+// ▼配布テスト設定：フォームURLを入れると「フォームを開く」ボタンが出る（空なら非表示）
+const FEEDBACK_FORM_URL = "";
+const PLAYTEST_BUILD = true;
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -6528,7 +6531,7 @@ function renderDevScreen() {
   </div>`;
 }
 
-const SAVE_VERSION = "v0.4.1c-livehouse-draft";
+const SAVE_VERSION = "v0.5.0-playtest-draft";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -7177,6 +7180,7 @@ function closeActivePopup() {
   if (!state.activePopup && state.pendingEndingAfterLive) {
     state.pendingEndingAfterLive = false;
     state.ended = true;
+    try { updatePlaytestMetrics(x => { x.endingSeen = true; }); } catch (e) {}
   }
   if (maybeFinishPendingTurnAdvanceAfterPopups()) return;
   render();
@@ -7251,6 +7255,7 @@ function finishPendingTurnAdvance() {
   state.songcraftUsedCountThisTurn = 0;
   applyInitialFlowTurnEvents();
   if (bandSystemOn()) processBandStoryEvents("turnStart");
+  try { updatePlaytestMetrics(m => { m.maxTurn = Math.max(m.maxTurn || 1, state.turn || 1); m.lastView = state.view || "-"; }); } catch (e) {}
   if (state.hangoverTurn === state.turn) {
     state.popupQueue = state.popupQueue || [];
     state.popupQueue.push({ title:"二日酔い", body:"昨日の打ち上げが響いている。\nこのターンは休憩しかできない。", type:"warn", icon:"😵" });
@@ -7721,7 +7726,87 @@ function normalizeState() {
 
 
 
+/* ================= v0.5.0 playtest: 計測・エラー捕捉・フィードバック =================
+   すべて端末内(localStorage)のみ。自動送信なし。個人情報は扱わない。 */
+const PT_METRICS_KEY = "underground_playtest_metrics";
+const PT_ERROR_KEY = "underground_playtest_last_error";
+function loadPlaytestMetrics() {
+  try { const raw = localStorage.getItem(PT_METRICS_KEY); const m = raw ? JSON.parse(raw) : {}; return (m && typeof m === "object") ? m : {}; } catch (e) { return {}; }
+}
+function updatePlaytestMetrics(fn) {
+  try { const m = loadPlaytestMetrics(); fn(m); m.updatedAt = new Date().toISOString(); m.version = VERSION; localStorage.setItem(PT_METRICS_KEY, JSON.stringify(m)); } catch (e) { /* 計測失敗はゲームに影響させない */ }
+}
+function recordPlaytestError(message, source, line) {
+  try {
+    const info = { message: String(message || "unknown").slice(0, 300), source: String(source || "").split("/").pop().slice(0, 80), line: line || 0, turn: (typeof state === "object" && state) ? (state.turn || 0) : 0, view: (typeof state === "object" && state) ? (state.view || "-") : "-", version: VERSION, at: new Date().toISOString() };
+    localStorage.setItem(PT_ERROR_KEY, JSON.stringify(info));
+    updatePlaytestMetrics(m => { m.errorCount = (m.errorCount || 0) + 1; });
+  } catch (e) {}
+}
+try {
+  if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+    window.addEventListener("error", ev => recordPlaytestError(ev?.message, ev?.filename, ev?.lineno));
+    window.addEventListener("unhandledrejection", ev => recordPlaytestError(ev?.reason?.message || ev?.reason, "promise", 0));
+  }
+} catch (e) {}
+function playtestLastError() {
+  try { const raw = localStorage.getItem(PT_ERROR_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+}
+function buildFeedbackText() {
+  const m = loadPlaytestMetrics();
+  const s = (typeof state === "object" && state) ? state : null;
+  const b = s?.band || {};
+  const err = playtestLastError();
+  const lines = [];
+  lines.push(`【アンダーグラウンド（仮） 感想メモ】`);
+  lines.push(`版: ${VERSION} / ${new Date().toLocaleString("ja-JP")}`);
+  if (s && s.turn) {
+    lines.push(`進行: ${s.turn}T / バンド「${b.name || "未命名"}」 / ライブ${s.liveCount || 0}回`);
+    lines.push(`状態: ファン${Math.round(b.fans || 0)} / 資金${Math.round(b.funds || 0).toLocaleString()}円 / 疲労${Math.round(b.fatigue || 0)}%`);
+  }
+  const marks = [];
+  if (m.firstLiveTurn) marks.push(`初ライブ${m.firstLiveTurn}T`);
+  if (m.underRank) marks.push(`UNDER:${m.underRank}`);
+  if (m.grandRank) marks.push(`GRAND:${m.grandRank}`);
+  if (m.endingSeen) marks.push("エンディング到達");
+  if (m.continued) marks.push("延長プレイ");
+  lines.push(`節目: ${marks.join(" / ") || "初ライブ前"}（最大到達${m.maxTurn || s?.turn || 1}T・累計ライブ${m.liveCount || 0}回・起動${m.sessions || 1}回）`);
+  if (err) lines.push(`直近エラー: ${err.message}（${err.turn}T/${err.view}）`);
+  lines.push(``);
+  lines.push(`― ここから自由に ―`);
+  lines.push(`楽しかった所: `);
+  lines.push(`迷った・詰まった所: `);
+  lines.push(`変だった所（バグ？）: `);
+  return lines.join("\n");
+}
+function copyFeedbackText() {
+  const text = buildFeedbackText();
+  const ta = document.getElementById("feedbackTextArea");
+  if (ta) { ta.value = text; ta.focus(); ta.select(); }
+  try {
+    if (navigator.clipboard?.writeText) { navigator.clipboard.writeText(text); return true; }
+  } catch (e) {}
+  try { document.execCommand && document.execCommand("copy"); return true; } catch (e) {}
+  return false;
+}
+function renderPhoneFeedbackScreen() {
+  const formBtn = FEEDBACK_FORM_URL ? `<a class="big-action feedback-form-link" href="${escapeHtml(FEEDBACK_FORM_URL)}" target="_blank" rel="noopener">フォームを開く</a>` : "";
+  return `<div class="phone-screen grid">
+    <div class="card phone-card wide-card feedback-card">
+      <div class="section-title"><h2>感想を送る</h2><span class="badge warn">テスト版</span></div>
+      <p><small>下のメモをコピーして、LINEやDMでそのまま送ってください。進行状況とエラー情報が自動で入ります。送信は行いません（端末内のみ）。</small></p>
+      <textarea id="feedbackTextArea" class="feedback-textarea" rows="11" readonly>${escapeHtml(buildFeedbackText())}</textarea>
+      <div class="modal-actions">
+        <button id="copyFeedbackBtn" class="big-action">全文をコピー</button>
+        ${formBtn}
+        <button class="phoneModeBtn ghost-btn" data-phone-mode="menu">← 携帯メニュー</button>
+      </div>
+    </div>
+  </div>`;
+}
+let __ptSessionCounted = false;
 function renderTitleScreen() {
+  if (!__ptSessionCounted) { __ptSessionCounted = true; updatePlaytestMetrics(m => { m.sessions = (m.sessions || 0) + 1; }); }
   const canContinue = hasAnySave();
   app.innerHTML = `
     <div class="title-screen">
@@ -7733,6 +7818,8 @@ function renderTitleScreen() {
           <button id="titleNewBtn" class="big-action">はじめから</button>
           <button id="titleContinueBtn" class="big-action secondary" ${canContinue ? "" : "disabled"}>つづきから</button>
         </div>
+        <div class="title-version-row"><span class="title-version-chip">${VERSION}</span>${PLAYTEST_BUILD ? `<span class="title-test-chip">テスト版</span>` : ""}</div>
+        ${PLAYTEST_BUILD ? `<small class="playtest-note">これは配布テスト版。荒い所・バグが残っています。気づいた事は、ゲーム内の携帯📱→「感想を送る」から教えてください（送信はされません。コピーして渡す方式）。</small>` : ""}
         <small>セーブは2スロット。はじめからを押しても、スロット選択と確認をするまで既存データは消えません。</small>
       </div>
     </div>
@@ -8140,6 +8227,7 @@ function renderPhoneScreen() {
   if (mode === "mail") return renderMailScreen();
   if (mode === "sns") return renderSnsScreen();
   if (mode === "bandbook") return renderPhoneBandBookScreen();
+  if (mode === "feedback") return renderPhoneFeedbackScreen();
   const unread = unreadMailCount();
   const nextLive = (state.liveEvents || []).find(e => !e.cancelled && e.turn >= state.turn);
   return `<div class="phone-screen grid phone-menu-screen">
@@ -8151,6 +8239,7 @@ function renderPhoneScreen() {
         <button class="phoneModeBtn phone-app-btn" data-phone-mode="mail"><span>✉️</span><b>メール</b><small>件名/送信者から確認${unread ? ` / 未読${unread}` : ""}</small></button>
         <button class="phoneModeBtn phone-app-btn" data-phone-mode="sns"><span>💬</span><b>SNS</b><small>口コミ・告知・雑多な投稿</small></button>
         <button class="phoneModeBtn phone-app-btn" data-phone-mode="bandbook"><span>🎤</span><b>バンド図鑑</b><small>出会ったバンド・交流・スキル</small></button>
+        <button class="phoneModeBtn phone-app-btn" data-phone-mode="feedback"><span>📝</span><b>感想を送る</b><small>テスト版フィードバック</small></button>
       </div>
     </div>
     <div class="card phone-card">
@@ -8450,7 +8539,7 @@ function renderSavePanel() {
 function renderPwaPanel() {
   return `<div class="pwa-panel">
     <b>スマホ確認</b>
-    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。v0.3.26は縦画面推奨。古い表示なら「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
+    <span>GitHub Pagesで開いたら、ブラウザメニューから「ホーム画面に追加」。縦画面推奨。表示が古い時は「最新版を読み込む」。</span><button id="pwaRefreshBtn" class="ghost-btn update-btn">最新版を読み込む</button>
   </div>`;
 }
 
@@ -10721,6 +10810,8 @@ function bindEvents() {
   document.querySelectorAll(".liveCandidateBtn").forEach(btn => btn.addEventListener("click", () => { state.pendingBooking = { turn:Number(btn.dataset.turn), venueId:btn.dataset.venue, liveType:btn.dataset.liveType || "self_one_man", invitedBandIds:(btn.dataset.bands || "").split(",").filter(Boolean) }; render(); }));
   document.querySelectorAll(".acceptOfferBtn").forEach(btn => btn.addEventListener("click", () => requestLiveOfferAccept(btn.dataset.offerId)));
   document.querySelectorAll(".phoneModeBtn").forEach(btn => btn.addEventListener("click", () => { state.phoneSubView = btn.dataset.phoneMode || "menu"; if (state.phoneSubView !== "mail") state.activeMailId = null; render(); }));
+  const copyFeedbackBtn = document.getElementById("copyFeedbackBtn");
+  if (copyFeedbackBtn) copyFeedbackBtn.addEventListener("click", () => { const ok = copyFeedbackText(); copyFeedbackBtn.textContent = ok ? "コピーした！そのまま貼り付けて送れる" : "コピー失敗…長押しで全選択して"; });
   document.querySelectorAll(".tutorialSkipHintsBtn").forEach(btn => btn.addEventListener("click", () => { state.tutorialSkipHints = true; log("チュートリアルの案内表示を少なめにした。", "event"); render(); }));
   document.querySelectorAll(".mailOpenBtn").forEach(btn => btn.addEventListener("click", () => openMail(btn.dataset.mailId)));
   document.querySelectorAll(".closeMailDetailBtn").forEach(btn => btn.addEventListener("click", closeMailDetail));
@@ -12544,7 +12635,8 @@ function applyLiveResult(r, setlist, supports) {
   if (bandSystemOn()) {
     recordBandBattlesAfterLive(ev, r);
   }
-  r.gains = { fans: Math.max(0, Math.round(fanGain)), fame: Math.max(0, Math.round(fameGain)), core: Math.max(0, Math.round(coreGain)), industry: Math.max(0, Math.round(industryGain)), funds: r.revenue.finalProfit };
+try { updatePlaytestMetrics(m => { m.liveCount = (m.liveCount || 0) + 1; m.maxTurn = Math.max(m.maxTurn || 1, state.turn || 1); if (!m.firstLiveTurn) m.firstLiveTurn = state.turn || 1; if (ev?.fixed && state.turn === 30) m.underRank = r.rank; if (ev?.fixed && state.turn === 50) m.grandRank = r.rank; }); } catch (e) {}
+    r.gains = { fans: Math.max(0, Math.round(fanGain)), fame: Math.max(0, Math.round(fameGain)), core: Math.max(0, Math.round(coreGain)), industry: Math.max(0, Math.round(industryGain)), funds: r.revenue.finalProfit };
   b.fans += r.gains.fans;
   b.fame += r.gains.fame;
   b.core += r.gains.core;
@@ -12702,6 +12794,7 @@ function growMemberAfterLive(m, rank, role) {
 }
 
 function continueAfterEnding() {
+  try { updatePlaytestMetrics(m => { m.continued = true; }); } catch (e) {}
   const oldMax = state.maxTurn || 50;
   state.ended = false;
   state.maxTurn = oldMax + 20;
