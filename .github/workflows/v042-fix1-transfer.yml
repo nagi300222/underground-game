@@ -1,0 +1,28 @@
+name: v0.4.2 fix1 transfer
+
+on:
+  push:
+    branches:
+      - codex/v0.4.2-home-mobile-rebuild-draft-fix1
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v041e-main-snapshot
+          path: |
+            README.md
+            VERSION.txt
+            game.js
+            index.html
+            style.css
+            sw.js
+          if-no-files-found: error
