@@ -15,20 +15,23 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Apply payload when present
+      - name: Apply payload when complete
         shell: bash
         run: |
           set -euo pipefail
-          PAYLOAD="fix1_payload.tar.xz.b64"
-          if [ ! -f "$PAYLOAD" ]; then
-            echo "Payload not present; nothing to apply."
+          PARTS_DIR="fix1_payload_parts"
+          READY="fix1_payload.ready"
+          if [ ! -f "$READY" ]; then
+            echo "Payload is not complete yet; nothing to apply."
             exit 0
           fi
-          base64 -d "$PAYLOAD" > /tmp/fix1_payload.tar.xz
+          test -d "$PARTS_DIR"
+          cat "$PARTS_DIR"/part-* > /tmp/fix1_payload.tar.xz.b64
+          base64 -d /tmp/fix1_payload.tar.xz.b64 > /tmp/fix1_payload.tar.xz
           mkdir -p /tmp/fix1_payload
           tar -xJf /tmp/fix1_payload.tar.xz -C /tmp/fix1_payload
           cp -a /tmp/fix1_payload/. ./
-          rm -f "$PAYLOAD"
+          rm -rf "$PARTS_DIR" "$READY"
           rm -f .github/workflows/apply-v041e-fix1.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
