@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - codex/v0.4.2-home-mobile-rebuild-draft-fix1
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
