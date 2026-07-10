@@ -4,7 +4,7 @@
 
 ## 現行版
 
-`v0.4.1d-ui-rebuild-fix1`
+`v0.4.1e-profile-mobile-draft-fix1`
 
 ## GitHub Pages 公開に必要なルートファイル
 

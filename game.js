@@ -4,7 +4,7 @@
   - 旧「（仮）」候補ブロックとPaper Moon Kids系コードは、旧セーブ互換/退避用に残すが、有効候補はMEMBER_DATABASEで上書きする。
 */
 
-const VERSION = "v0.4.1d-ui-rebuild-fix1";
+const VERSION = "v0.4.1e-profile-mobile-draft-fix1";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -6528,7 +6528,7 @@ function renderDevScreen() {
   </div>`;
 }
 
-const SAVE_VERSION = "v0.4.1d-ui-rebuild-fix1";
+const SAVE_VERSION = "v0.4.1e-profile-mobile-draft-fix1";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -6845,8 +6845,11 @@ function createInitialState() {
     phoneMails: [],
     activeMailId: null,
     phoneSubView: "menu",
+    account: { email: "bandname@under-mail.jp", snsDisplayName: "", snsUserName: "@bandname" },
+    openingStep: 0,
     snsPosts: [],
     snsWorldSeen: {},
+    snsLastSeenCount: 0,
     snsLastPostTurn: 0,
     snsPostCount: 0,
     liveDiagnostics: [],
@@ -7613,6 +7616,12 @@ function normalizeState() {
   if (!Array.isArray(state.snsPosts)) state.snsPosts = [];
   if (typeof state.activeMailId === "undefined") state.activeMailId = null;
   if (!state.phoneSubView) state.phoneSubView = "menu";
+  if (!state.account || typeof state.account !== "object" || Array.isArray(state.account)) state.account = {};
+  if (!state.account.email) state.account.email = `${safeProfileSlug(state.band?.name || "bandname")}@under-mail.jp`;
+  if (!state.account.snsDisplayName) state.account.snsDisplayName = state.band?.name || "";
+  if (!state.account.snsUserName) state.account.snsUserName = `@${safeProfileSlug(state.band?.name || "bandname")}`;
+  if (typeof state.openingStep === "undefined") state.openingStep = state.introSeen ? 7 : 0;
+  if (typeof state.snsLastSeenCount === "undefined") state.snsLastSeenCount = 0;
   if (!state.snsWorldSeen || typeof state.snsWorldSeen !== "object" || Array.isArray(state.snsWorldSeen)) state.snsWorldSeen = {};
   if (typeof state.snsLastPostTurn === "undefined") state.snsLastPostTurn = 0;
   if (typeof state.snsPostCount === "undefined") state.snsPostCount = 0;
@@ -12823,6 +12832,269 @@ function renderEnding() {
   app.innerHTML = `<div class="app-shell"><div class="hero"><h1>${title}</h1><p>${body}</p></div><div class="grid"><div class="card"><h2>最終結果：${tier}</h2><div class="kv"><b>ファン</b><span>${b.fans}人</span><b>知名度</b><span>${b.fame}</span><b>業界評価</b><span>${b.industry}</span><b>オリジナル曲</b><span>${originals}曲</span><b>資金</b><span>${b.funds.toLocaleString()}円</span><b>最終ライブ</b><span>${final ? final.rank + " / " + val(final.total) : "なし"}</span></div><div class="modal-actions ending-actions"><button id="continueAfterEndingBtn" class="big-action">このまま続ける</button><button id="newAfterEndingBtn" class="ghost-btn">はじめから選ぶ</button></div><small>続ける場合は延長活動として20ターン追加されます。</small></div><div class="card"><h2>ログ</h2><div class="log">${state.logs.slice(0, 90).map(l => `<div class="log-line">${escapeHtml(l)}</div>`).join("")}</div></div></div></div>`;
   document.getElementById("continueAfterEndingBtn")?.addEventListener("click", () => { continueAfterEnding(); });
   document.getElementById("newAfterEndingBtn")?.addEventListener("click", () => { uiMode = "slot-new"; render(); });
+}
+
+// v0.4.1e Phase 1: mobile profile shell and compact home timeline overrides.
+function renderGlobalPhoneButton(liveMode=false) {
+  if (liveMode || state.view === "home") return "";
+  const unread = unreadMailCount();
+  const active = state.view === "phone";
+  return `<button class="globalPhoneBtn global-phone-btn ${active ? "active" : ""}" title="携帯を開く"><span class="global-phone-icon">📱</span><b>携帯</b>${unread ? `<em>${unread}</em>` : ""}</button>`;
+}
+
+function renderHomeScheduleStrip() {
+  const max = Number(state.maxTurn || 50);
+  const base = Number(state.turn || 1);
+  const items = Array.from({ length: max }, (_, i) => i + 1).map(turn => {
+    const live = (state.liveEvents || []).find(e => !e.cancelled && Number(e.turn) === turn);
+    const isNow = turn === base;
+    const isFes = turn === 30 || turn === 50;
+    const note = live ? (live.fixed ? "固定" : liveTypeMeta(live).short) : (turn === 30 ? "UNDER" : turn === 50 ? "GRAND" : "準備");
+    const icon = live ? "🎤" : isFes ? "★" : "・";
+    const cls = `${turn < base ? "done" : ""} ${isNow ? "now" : ""} ${live ? "live" : ""} ${isFes ? "fes" : ""}`;
+    return `<button class="jumpTabBtn mini-turn-chip turn-cell ${cls}" data-view="schedule" data-turn="${turn}"><b>${icon} T${turn}</b><small>${escapeHtml(note)}</small></button>`;
+  });
+  return `<div class="card home-schedule-strip v041-home-schedule" aria-label="週の流れ"><div class="section-title"><h2>週の流れ</h2><span class="badge">${base}ターン / ${max}ターン</span></div><div class="mini-turn-row schedule-scroll">${items.join("")}</div></div>`;
+}
+
+function renderTopStats() {
+  const b = state.band || {};
+  const unread = unreadMailCount();
+  const next = state.nextLiveTurn ? `${currentLiveName()}まで${turnsUntilNextLive()}T` : nextMilestoneLabel();
+  const main = [
+    { k:"ターン", label:`T${state.turn || 1}/${state.maxTurn || 50}` },
+    { k:"資金", label:`¥${shortMoney(b.funds)}`, alert:b.funds < 0 },
+    { k:"ファン", label:`${Math.round(b.fans || 0)}人` },
+    { k:"疲労", label:`${Math.round(b.fatigue || 0)}%`, alert:b.fatigue > 80 }
+  ];
+  const sub = [
+    `次：${next}`,
+    `知名度 ${Math.round(b.fame || 0)}`,
+    `集客力 ${displayAudiencePower(b)}`,
+    `業界評価 ${Math.round(b.industry || 0)}`
+  ];
+  return `<div class="success-dashboard compact-dashboard l0-dashboard v041-status-board"><div class="v041-top-row"><div class="v041-profile-names"><b>${escapeHtml(b.name || "名無しの地下バンド")}</b><small>${escapeHtml(state.player?.name || "主人公")}</small></div><button class="globalPhoneBtn global-phone-btn home-phone-btn ${state.view === "phone" ? "active" : ""}" title="携帯を開く"><span class="global-phone-icon">📱</span>${unread ? `<em>${unread}</em>` : ""}</button></div><div class="compact-stat-strip slim-stats l0-stat-strip v041-status-main">${main.map(x=>`<div class="stat success-stat compact-stat ${x.alert ? "danger-stat" : ""}"><span>${x.k}</span><b>${x.label}</b></div>`).join("")}</div><div class="v041-status-sub">${sub.map(x=>`<span>${escapeHtml(x)}</span>`).join("")}</div></div>`;
+}
+
+function profileAccount() {
+  if (!state.account || typeof state.account !== "object") state.account = {};
+  const band = state.band?.name || "名無しの地下バンド";
+  const slug = safeProfileSlug(band || "bandname");
+  state.account.email = state.account.email || `${slug}@under-mail.jp`;
+  state.account.snsDisplayName = state.account.snsDisplayName || band;
+  state.account.snsUserName = state.account.snsUserName || `@${slug}`;
+  return state.account;
+}
+
+function safeProfileSlug(text) {
+  const raw = String(text || "bandname").normalize("NFKD").replace(/[^\w]+/g, "").toLowerCase();
+  return (raw || "bandname").slice(0, 20);
+}
+
+function cleanProfileInput(value, fallback="", max=24) {
+  return String(value || "").trim().replace(/[\r\n\t<>]/g, "").slice(0, max) || fallback;
+}
+
+function snsUnreadCount() {
+  const seen = Number(state.snsLastSeenCount || 0);
+  return Math.max(0, (state.snsPosts || []).length - seen);
+}
+
+function phoneNotificationCounts() {
+  const mail = unreadMailCount();
+  const sns = snsUnreadCount();
+  return { mail, sns, contacts: 0, total: mail + sns };
+}
+
+function renderPhoneScreen() {
+  const mode = state.phoneSubView || "menu";
+  if (mode === "mail") return renderMailScreen();
+  if (mode === "sns") { state.snsLastSeenCount = (state.snsPosts || []).length; return renderSnsScreen(); }
+  if (mode === "account") return renderAccountSettingsScreen();
+  if (mode === "bandbook") return renderPhoneBandBookScreen();
+  const counts = phoneNotificationCounts();
+  const badge = n => n ? `<em class="nav-badge">${n}</em>` : "";
+  return `<div class="phone-screen grid phone-menu-screen">
+    ${renderPhoneActionRequiredSection()}
+    <div class="card phone-card phone-launch-card">
+      <div class="section-title"><h2>携帯</h2><span class="badge ${counts.total ? "warn" : "good"}">${counts.total ? counts.total + "件" : "通知なし"}</span></div>
+      <div class="phone-app-grid">
+        <button class="phoneModeBtn phone-app-btn" data-phone-mode="mail"><span>✉</span><b>メール</b>${badge(counts.mail)}<small>出演依頼と連絡</small></button>
+        <button class="phoneModeBtn phone-app-btn" data-phone-mode="sns"><span>#</span><b>SNS</b>${badge(counts.sns)}<small>タイムライン</small></button>
+        <button class="phoneModeBtn phone-app-btn" data-phone-mode="bandbook"><span>☰</span><b>バンド図鑑</b><small>交流記録</small></button>
+        <button class="phoneModeBtn phone-app-btn" data-phone-mode="account"><span>⚙</span><b>アカウント設定</b><small>名前と表示</small></button>
+      </div>
+    </div>
+    <div class="card phone-card">
+      <div class="section-title"><h2>次の予定</h2><span class="badge">ライブ予定</span></div>
+      ${(state.liveEvents || []).find(e => !e.cancelled && e.turn >= state.turn) ? renderPhoneLiveSummary((state.liveEvents || []).find(e => !e.cancelled && e.turn >= state.turn)) : `<div class="empty-panel">今後のライブ予定なし。</div>`}
+    </div>
+  </div>`;
+}
+
+function renderMailRow(m) {
+  const kind = m.kind || "info";
+  const needsReply = isActionableMail(m);
+  const preview = firstLine(m.body || "").slice(0, 58);
+  return `<button class="mail-row mailOpenBtn mail-row-enhanced gmail-row ${kind} ${m.read ? "read" : "unread"}" data-mail-id="${escapeHtml(m.id)}">
+    <span class="mail-sender-icon">${mailSenderIcon(kind)}</span>
+    <span class="mail-row-main"><b>${escapeHtml(m.sender || mailSenderForKind(kind))}</b><strong>${m.read ? "" : "● "}${escapeHtml(m.subject || "無題")}</strong><small>${escapeHtml(preview)}</small></span>
+    <span class="mail-kind-chip">${needsReply ? "要返信" : mailKindLabel(kind)}</span>
+    <em>${m.turn || "?"}T</em>
+  </button>`;
+}
+
+function renderMailDetail(m) {
+  const acc = profileAccount();
+  const offerId = m.payload?.offerId;
+  const offer = offerId ? (state.liveOffers || []).find(o => o.id === offerId) : null;
+  if (offer) updateLiveOfferStatuses();
+  const canAccept = offer && !offer.accepted && !offer.expired && (offer.storyInvite || canBookLiveTurn(offer.turn)) && !liveEventForTurn(offer.turn);
+  return `<div class="mail-detail gmail-detail">
+    <div class="section-title"><h2>${escapeHtml(m.subject || "無題")}</h2><span class="badge ${m.read ? "good" : "warn"}">${m.read ? "既読" : "未読"}</span></div>
+    <div class="mail-meta"><b>差出人</b><span>${escapeHtml(m.sender || mailSenderForKind(m.kind))}</span><b>宛先</b><span>${escapeHtml(acc.email)}</span><b>時刻</b><span>${m.turn || "?"}T</span></div>
+    <p>${escapeHtml(m.body || "").replace(/\n/g,"<br>")}</p>
+    ${offer ? renderOfferActionsFromMail(offer, canAccept) : renderMailActionsWithoutOffer(m)}
+  </div>`;
+}
+
+function renderSnsPost(p) {
+  const acc = profileAccount();
+  const self = (p.author || "") === "@our_band";
+  const author = self ? acc.snsUserName : (p.author || "@unknown");
+  const display = self ? acc.snsDisplayName : author.replace(/^@/, "");
+  const reactions = Math.max(0, Math.round((p.reactions || 0) + (p.turn || 1) % 7 + (p.mood === "reaction" ? 12 : 3)));
+  return `<article class="sns-post tweet-card ${escapeHtml(p.mood || "normal")}"><div class="sns-avatar">${escapeHtml(display.slice(0, 1).toUpperCase())}</div><div class="sns-body"><header><b>${escapeHtml(display)}</b><span>${escapeHtml(author)}</span><em>${p.turn || "?"}T</em></header><p>${escapeHtml(p.body || "")}</p><footer><span>#underground</span><span>↻ ${Math.floor(reactions / 3)}</span><span>♡ ${reactions}</span></footer></div></article>`;
+}
+
+function renderAccountSettingsScreen() {
+  const acc = profileAccount();
+  return `<div class="phone-screen grid account-screen">
+    <div class="card phone-card wide-card">
+      <div class="section-title"><h2>アカウント設定</h2><span class="badge">表示用</span></div>
+      <button class="phoneModeBtn ghost-btn" data-phone-mode="menu">← 携帯メニュー</button>
+      <div class="account-form">
+        <label>主人公名<input id="accountPlayerName" maxlength="24" value="${escapeHtml(state.player?.name || "")}" /></label>
+        <label>バンド名<input id="accountBandName" maxlength="28" value="${escapeHtml(state.band?.name || "")}" /></label>
+        <label>メールアドレス<input id="accountEmail" maxlength="40" value="${escapeHtml(acc.email)}" /></label>
+        <label>SNS表示名<input id="accountSnsDisplayName" maxlength="28" value="${escapeHtml(acc.snsDisplayName)}" /></label>
+        <label>SNSユーザー名<input id="accountSnsUserName" maxlength="24" value="${escapeHtml(acc.snsUserName)}" /></label>
+      </div>
+      <div class="modal-actions"><button id="saveAccountSettingsBtn" class="big-action">保存</button></div>
+      <small>ゲーム計算には影響しません。メール、SNS、ホーム表示に使います。</small>
+    </div>
+  </div>`;
+}
+
+const bindEvents_v041e_base = bindEvents;
+bindEvents = function bindEvents_v041e() {
+  bindEvents_v041e_base();
+  const saveAccountBtn = document.getElementById("saveAccountSettingsBtn");
+  if (saveAccountBtn) saveAccountBtn.addEventListener("click", () => {
+    const playerName = cleanProfileInput(document.getElementById("accountPlayerName")?.value, "", 24);
+    const bandName = cleanProfileInput(document.getElementById("accountBandName")?.value, "", 28);
+    const email = cleanProfileInput(document.getElementById("accountEmail")?.value, "", 40);
+    const snsDisplayName = cleanProfileInput(document.getElementById("accountSnsDisplayName")?.value, "", 28);
+    let snsUserName = cleanProfileInput(document.getElementById("accountSnsUserName")?.value, "", 24);
+    if (!playerName || !bandName || !email || !snsDisplayName || !snsUserName) { alert("空欄は保存できません。"); return; }
+    snsUserName = "@" + snsUserName.replace(/^@+/, "").replace(/[^\w_]/g, "").slice(0, 20);
+    if (snsUserName === "@") snsUserName = `@${safeProfileSlug(bandName)}`;
+    state.player.name = playerName;
+    state.band.name = bandName;
+    state.account = { email, snsDisplayName, snsUserName };
+    state.saveNotice = "アカウント設定を保存しました。";
+    log("アカウント設定を更新した。", "event");
+    render();
+  });
+};
+
+// v0.4.1e-profile-mobile-draft-fix1: targeted audit fixes.
+function displayAudiencePower(b=state.band || {}) {
+  const fans = Number(b.fans || 0);
+  const fame = Number(b.fame || 0);
+  const last = (state.liveResultHistory || [])[state.liveResultHistory.length - 1] || null;
+  const recentAudience = Number(last?.revenue?.attendees || last?.attendees || 0);
+  return Math.max(0, Math.round(fans * 0.35 + fame * 0.5 + recentAudience * 0.15));
+}
+
+function renderTopStats() {
+  const b = state.band || {};
+  const unread = unreadMailCount();
+  const next = state.nextLiveTurn ? `${currentLiveName()}まで${turnsUntilNextLive()}T` : nextMilestoneLabel();
+  const main = [
+    { k:"ターン", label:`T${state.turn || 1}/${state.maxTurn || 50}` },
+    { k:"資金", label:`¥${shortMoney(b.funds)}`, alert:b.funds < 0 },
+    { k:"ファン", label:`${Math.round(b.fans || 0)}人` },
+    { k:"疲労", label:`${Math.round(b.fatigue || 0)}%`, alert:b.fatigue > 80 }
+  ];
+  const sub = [
+    `次：${next}`,
+    `知名度 ${Math.round(b.fame || 0)}`,
+    `集客力 ${displayAudiencePower(b)}`,
+    `業界評価 ${Math.round(b.industry || 0)}`
+  ];
+  return `<div class="success-dashboard compact-dashboard l0-dashboard v041-status-board"><div class="v041-top-row"><div class="v041-profile-names"><b>${escapeHtml(b.name || "名無しの地下バンド")}</b><small>${escapeHtml(state.player?.name || "主人公")}</small></div><button class="globalPhoneBtn global-phone-btn home-phone-btn ${state.view === "phone" ? "active" : ""}" title="携帯を開く"><span class="global-phone-icon">📱</span>${unread ? `<em>${unread}</em>` : ""}</button></div><div class="compact-stat-strip slim-stats l0-stat-strip v041-status-main">${main.map(x=>`<div class="stat success-stat compact-stat ${x.alert ? "danger-stat" : ""}"><span>${x.k}</span><b>${x.label}</b></div>`).join("")}</div><div class="v041-status-sub">${sub.map(x=>`<span>${escapeHtml(x)}</span>`).join("")}</div></div>`;
+}
+
+function renderIntroScreen() {
+  const step = clamp(Number(state.openingStep || 0), 0, 7);
+  const heroName = state.pendingPlayerName || state.player?.name || "";
+  const bandName = state.pendingBandName || state.band?.name || "";
+  const lines = [
+    { speaker:"タカナシ", text:"「見慣れない顔だな。バンドに興味あるの？」" },
+    { speaker:"主人公", text:"「あ、はい！バンドがしたくて」" },
+    { speaker:"タカナシ", text:"「ふーん、ここのライブハウスはいいところなんだ。バンド始めるならここからスタートするのがいいと思うぜ。」" },
+    { speaker:"主人公", text:"「そうなんですか、ここから…」" }
+  ];
+  const visibleLines = step <= 3 ? lines.slice(0, step + 1) : lines;
+  const poster = step >= 4 ? `<div class="poster-card opening-poster">
+        <div class="poster-noise"></div>
+        <span class="poster-kicker">UNDER FES POSTER</span>
+        <h1>UNDER<br>FES</h1>
+        <p>地下から、名前を鳴らせ。</p>
+        <b>ENTRY WANTED</b>
+      </div>` : "";
+  const afterPoster = step >= 5 && step <= 5 ? `<p><b>タカナシ：</b>${escapeHtml("「ま、がんばれよ。えっと……」")}</p>` : "";
+  const input = step <= 5
+    ? `<button id="openingNextBtn" class="big-action">${step === 3 ? "ポスターを見る" : "次へ"}</button>`
+    : step === 6
+      ? `<div class="opening-input"><b>タカナシ（名前はなんていうんだ…？）</b><input id="openingPlayerNameInput" class="wide-input" maxlength="24" placeholder="主人公名" value="${escapeHtml(heroName)}" /><button id="openingPlayerNameBtn" class="big-action">決定</button></div>`
+      : `<div class="opening-input"><p><b>タカナシ：</b>${escapeHtml(`「${heroName || "○○"}か、バンド名は決めてんのか？」`)}</p><b>バンド名は？</b><input id="openingBandNameInput" class="wide-input" maxlength="28" placeholder="バンド名" value="${escapeHtml(bandName)}" /><button id="openingBandNameBtn" class="big-action">決定</button></div>`;
+  app.innerHTML = `
+    <div class="intro-screen opening-v041e opening-v041e-fix1">
+      ${poster}
+      <div class="intro-copy opening-dialogue">
+        ${visibleLines.map(l => `<p><b>${l.speaker}：</b>${escapeHtml(l.text)}</p>`).join("")}
+        ${afterPoster}
+        ${input}
+      </div>
+    </div>
+  `;
+  document.getElementById("openingNextBtn")?.addEventListener("click", () => { state.openingStep = Math.min(6, step + 1); render(); });
+  document.getElementById("openingPlayerNameBtn")?.addEventListener("click", () => {
+    const name = cleanProfileInput(document.getElementById("openingPlayerNameInput")?.value, "", 24);
+    if (!name) { alert("主人公名を入力してください。"); return; }
+    state.pendingPlayerName = name;
+    if (state.player) state.player.name = name;
+    state.openingStep = 7;
+    render();
+  });
+  document.getElementById("openingBandNameBtn")?.addEventListener("click", () => {
+    const name = cleanProfileInput(document.getElementById("openingBandNameInput")?.value, "", 28);
+    if (!name) { alert("バンド名を入力してください。"); return; }
+    state.pendingBandName = name;
+    if (state.band) state.band.name = name;
+    const acc = profileAccount();
+    acc.snsDisplayName = acc.snsDisplayName || name;
+    acc.snsUserName = acc.snsUserName || `@${safeProfileSlug(name)}`;
+    acc.email = acc.email || `${safeProfileSlug(name)}@under-mail.jp`;
+    state.introSeen = true;
+    state.openingStep = 8;
+    state.tutorialStage = "needSong";
+    state.activePopup = { title:"活動開始", body:`タカナシ：\n「${name}か、覚えとくよ。」`, type:"event", icon:"🎸" };
+    saveGame(false);
+    render();
+  });
 }
 
 render();
