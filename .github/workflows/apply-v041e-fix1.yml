@@ -18,41 +18,28 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Upload current branch snapshot
-        uses: actions/upload-artifact@v4
-        with:
-          name: v041d-current-snapshot
-          path: |
-            .nojekyll
-            GITHUB_PAGES_GUIDE.md
-            README.md
-            VERSION.txt
-            game.js
-            icon-192.png
-            icon-512.png
-            index.html
-            manifest.json
-            style.css
-            sw.js
-          if-no-files-found: error
-      - name: Apply payload when complete
+      - name: Apply audited patch when ready
         shell: bash
         run: |
           set -euo pipefail
-          PARTS_DIR="fix1_payload_parts"
-          READY="fix1_payload.ready"
+          PAYLOAD="fix1_patch.xz.b64"
+          READY="fix1_patch.ready"
           if [ ! -f "$READY" ]; then
-            echo "Payload is not complete yet; nothing to apply."
+            echo "Patch is not ready; nothing to apply."
             exit 0
           fi
-          test -d "$PARTS_DIR"
-          cat "$PARTS_DIR"/part-* > /tmp/fix1_payload.tar.xz.b64
-          base64 -d /tmp/fix1_payload.tar.xz.b64 > /tmp/fix1_payload.tar.xz
-          mkdir -p /tmp/fix1_payload
-          tar -xJf /tmp/fix1_payload.tar.xz -C /tmp/fix1_payload
-          cp -a /tmp/fix1_payload/. ./
-          rm -rf "$PARTS_DIR" "$READY"
-          rm -f .github/workflows/apply-v041e-fix1.yml
+          test -f "$PAYLOAD"
+          base64 -d "$PAYLOAD" > /tmp/v041e_fix1.patch.xz
+          echo "372111ab50c28068342a0c5ff469ff699a60b5464f133a56450c801f21fa44c5  /tmp/v041e_fix1.patch.xz" | sha256sum -c -
+          xz -dc /tmp/v041e_fix1.patch.xz > /tmp/v041e_fix1.patch
+          echo "485c1ea30a276e65992c06373f33be49746b9ca2aecc393655f6a065f356f9bf  /tmp/v041e_fix1.patch" | sha256sum -c -
+          git apply --check /tmp/v041e_fix1.patch
+          git apply /tmp/v041e_fix1.patch
+          node --check game.js
+          grep -Fx 'v0.4.1e-profile-mobile-draft-fix1' VERSION.txt
+          grep -F 'v0.4.1e-profile-mobile-draft-fix1' index.html
+          grep -F 'underground-v0-4-1e-profile-mobile-draft-fix1' sw.js
+          rm -f "$PAYLOAD" "$READY" .github/workflows/apply-v041e-fix1.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
