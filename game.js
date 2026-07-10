@@ -4,7 +4,7 @@
   - 旧「（仮）」候補ブロックとPaper Moon Kids系コードは、旧セーブ互換/退避用に残すが、有効候補はMEMBER_DATABASEで上書きする。
 */
 
-const VERSION = "v0.4.1e-profile-mobile-draft-fix1";
+const VERSION = "v0.4.2-home-mobile-rebuild-draft-fix1";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -1913,7 +1913,7 @@ function recordBandBattlesAfterLive(ev, r) {
     startStoryEvent("pachi_pachi_first_live", { silent: true, context: { rank: r.rank } });
   }
   if (newlyRegistered.length) {
-    showEventPopup("バンド図鑑 更新", `図鑑に登録：${newlyRegistered.join(" / ")}\n交流値も少し上がった。詳細はホームの「バンド図鑑」から。`, "event", "📖");
+    showEventPopup("バンド図鑑 更新", `図鑑に登録：${newlyRegistered.join(" / ")}\n交流値も少し上がった。詳細は携帯の「図鑑」から。`, "event", "📖");
   }
   checkCommonSkillAcquisition();
 }
@@ -2070,7 +2070,7 @@ function renderBandBookSummaryForLibrary() {
     <button class="jumpTabBtn" data-view="bandbook">バンド図鑑を開く</button>`;
 }
 
-// バンド画面「ほかのバンド情報」フラグON版：Lv・格・数値は出さない。
+// Band directory flag-on view: Lv/rank/raw values stay hidden.
 function renderBandDirectoryV060() {
   const metBands = BAND_ROSTER.filter(b => BAND_STATE_ORDER[bandEntry(b.id).state] >= BAND_STATE_ORDER.met);
   const discovered = BAND_ROSTER.filter(b => bandEntry(b.id).state === "discovered");
@@ -6528,7 +6528,7 @@ function renderDevScreen() {
   </div>`;
 }
 
-const SAVE_VERSION = "v0.4.1e-profile-mobile-draft-fix1";
+const SAVE_VERSION = "v0.4.2-home-mobile-rebuild-draft-fix1";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -6845,6 +6845,8 @@ function createInitialState() {
     phoneMails: [],
     activeMailId: null,
     phoneSubView: "menu",
+    phoneAccountEdit: null,
+    bandNameFinalized: false,
     account: { email: "bandname@under-mail.jp", snsDisplayName: "", snsUserName: "@bandname" },
     openingStep: 0,
     snsPosts: [],
@@ -7098,7 +7100,7 @@ function hasBlockingPopupBeforeTurnAdvance() {
 function maybeFinishPendingTurnAdvanceAfterPopups() {
   if (!state.pendingTurnAdvance || hasBlockingPopupBeforeTurnAdvance()) return false;
   const pending = state.pendingTurnAdvance;
-  if (pending.nextTurn === 5 && !state.band.name) {
+  if (pending.nextTurn === 5 && !v042BandNameReady()) {
     state.bandNamePrompt = true;
     render();
     return true;
@@ -7616,6 +7618,8 @@ function normalizeState() {
   if (!Array.isArray(state.snsPosts)) state.snsPosts = [];
   if (typeof state.activeMailId === "undefined") state.activeMailId = null;
   if (!state.phoneSubView) state.phoneSubView = "menu";
+  if (typeof state.phoneAccountEdit === "undefined") state.phoneAccountEdit = null;
+  if (typeof state.bandNameFinalized === "undefined") state.bandNameFinalized = !!(state.band?.name && String(state.band.name).trim());
   if (!state.account || typeof state.account !== "object" || Array.isArray(state.account)) state.account = {};
   if (!state.account.email) state.account.email = `${safeProfileSlug(state.band?.name || "bandname")}@under-mail.jp`;
   if (!state.account.snsDisplayName) state.account.snsDisplayName = state.band?.name || "";
@@ -7820,7 +7824,7 @@ function maybeTriggerStoryEvents() {
     state.activePopup = firstDraftTutorialPopup();
     return;
   }
-  if (state.turn >= 4 && !state.band.name && !isLiveTurn()) {
+  if (state.turn >= 4 && !v042BandNameReady() && !isLiveTurn()) {
     state.bandNamePrompt = true;
     return;
   }
@@ -8927,7 +8931,7 @@ function renderBandScreen() {
     <div class="grid band-grid">
       <div class="card">
         <div class="section-title"><h2>${escapeHtml(state.band.name || "自身のバンド")} 情報</h2><span class="badge good">自分たち</span></div>
-        <p><small>バンド編成・主人公スキル・バンド名変更をここで確認します。改名すると認知度がごく少し下がります。UI本格改修時は「自身のバンド情報」「ほかのバンド情報」に分岐予定。</small></p>
+        <p><small>バンド編成・主人公スキル・バンド名変更をここで確認します。改名すると認知度がごく少し下がります。</small></p>
         <div class="kv"><b>バンド名</b><span>${escapeHtml(state.band.name || "未定")}</span><b>ファン</b><span>${state.band.fans}</span><b>知名度</b><span>${state.band.fame}</span><b>業界評価</b><span>${state.band.industry}</span><b>維持費目安</b><span>¥${upkeep.toLocaleString()}</span></div>
         <button id="renameBandBtn" class="ghost-btn">バンド名を変更</button>
         <hr class="soft" />
@@ -8938,7 +8942,7 @@ function renderBandScreen() {
         ${renderPlayerSkillPanel()}
       </div>
       <div class="card">
-        <div class="section-title"><h2>ほかのバンド情報</h2><span class="badge">交流/予定</span></div>
+        <div class="section-title"><h2>外部バンド記録</h2><span class="badge">交流/予定</span></div>
         ${renderRivalBandDirectory()}
       </div>
       <div class="card">
@@ -10732,7 +10736,7 @@ function bindEvents() {
   if (songSortSelect) songSortSelect.addEventListener("change", () => { state.songSortMode = songSortSelect.value; render(); });
   const liveBtn = document.getElementById("performLiveBtn");
   if (liveBtn) liveBtn.addEventListener("click", performLive);
-  document.querySelectorAll(".prepStepBtn, .prepStepNextBtn, .prepStepPrevBtn, .prepStepJumpBtn").forEach(btn => btn.addEventListener("click", () => { state.livePrepStep = clamp(Math.floor(Number(btn.dataset.step || 1)), 1, 4); render(); }));
+  document.querySelectorAll(".prepStepBtn, .prepStepNextBtn, .prepStepPrevBtn, .prepStepJumpBtn").forEach(btn => btn.addEventListener("click", () => { state.livePrepStep = clamp(Math.floor(Number(btn.dataset.step || 1)), 1, 5); render(); }));
   document.querySelectorAll(".moveMemberBtn").forEach(btn => btn.addEventListener("click", () => moveMember(Number(btn.dataset.index), btn.dataset.dir)));
   document.querySelectorAll(".bringReserveBtn").forEach(btn => btn.addEventListener("click", () => bringReserveToBand(Number(btn.dataset.index))));
   document.querySelectorAll(".benchMemberBtn").forEach(btn => btn.addEventListener("click", () => benchMember(Number(btn.dataset.index))));
@@ -13008,7 +13012,7 @@ bindEvents = function bindEvents_v041e() {
   });
 };
 
-// v0.4.1e-profile-mobile-draft-fix1: targeted audit fixes.
+// Compatibility helpers carried forward from the previous fix release.
 function displayAudiencePower(b=state.band || {}) {
   const fans = Number(b.fans || 0);
   const fame = Number(b.fame || 0);
@@ -13038,7 +13042,8 @@ function renderTopStats() {
 
 function renderIntroScreen() {
   const step = clamp(Number(state.openingStep || 0), 0, 7);
-  const heroName = state.pendingPlayerName || state.player?.name || "";
+  const storedHeroName = state.player?.name || "";
+  const heroName = state.pendingPlayerName || (storedHeroName === "あなた" ? "" : storedHeroName);
   const bandName = state.pendingBandName || state.band?.name || "";
   const lines = [
     { speaker:"タカナシ", text:"「見慣れない顔だな。バンドに興味あるの？」" },
@@ -13096,5 +13101,447 @@ function renderIntroScreen() {
     render();
   });
 }
+
+// v0.4.2-home-mobile-rebuild-draft-fix1: home/phone/opening UI rebuild layer.
+function v042BandNameReady() {
+  const name = String(state?.band?.name || "").trim();
+  return !!(name && name !== "未定") || !!state.bandNameFinalized;
+}
+
+function v042NotificationCounts() {
+  const counts = phoneNotificationCounts ? phoneNotificationCounts() : { mail: unreadMailCount(), sns: snsUnreadCount ? snsUnreadCount() : 0, total: unreadMailCount() };
+  counts.shop = 0;
+  counts.bandbook = 0;
+  counts.option = 0;
+  counts.total = (counts.mail || 0) + (counts.sns || 0);
+  return counts;
+}
+
+function v042FormatMoney(n) {
+  const value = Number(n || 0);
+  const sign = value < 0 ? "-" : "";
+  return `${sign}¥${Math.abs(Math.round(value)).toLocaleString()}`;
+}
+
+function renderTopStats() {
+  return "";
+}
+
+function renderGlobalPhoneButton() {
+  return "";
+}
+
+function parentViewForNav(view) {
+  const v = view || "home";
+  if (["songs"].includes(v)) return "command";
+  if (["fes"].includes(v)) return "schedule";
+  if (["shop", "library", "dev", "playerSkills"].includes(v)) return "band";
+  if (["bandbook"].includes(v)) return "band";
+  if (["log"].includes(v)) return "home";
+  if (["phone"].includes(v)) return "home";
+  return v;
+}
+
+function renderNav(liveMode=false) {
+  const tabs = [
+    ["home", "ホーム", "🏠"],
+    ["command", "活動", "⚡"],
+    ["schedule", "予定", "📅"],
+    ["band", "バンド", "👥"]
+  ];
+  const activeParent = parentViewForNav(state.view);
+  return `<nav class="tabbar v042-tabbar ${liveMode ? "live-lock" : ""}" aria-label="下部メニュー">
+    ${tabs.map(([id,label,icon]) => `<button class="tabBtn v042-tab ${activeParent === id ? "active" : ""}" data-view="${id}" ${liveMode ? "disabled" : ""}><span>${icon}</span><b>${label}</b></button>`).join("")}
+  </nav>`;
+}
+
+function renderMainContent() {
+  if ((state.view || "home") === "phone") {
+    return `<main class="view-panel v042-view-panel phone-open" data-view="phone">${renderHomeScreen()}</main>${renderPhoneScreen()}`;
+  }
+  let html;
+  if (state.view === "command") html = renderCommandDesk();
+  else if (state.view === "band") html = renderBandScreen();
+  else if (state.view === "playerSkills") html = renderPlayerSkillListScreen();
+  else if (state.view === "songs") html = renderSongsScreen();
+  else if (state.view === "schedule") html = renderScheduleScreen();
+  else if (state.view === "fes") html = renderFesDetailScreen();
+  else if (state.view === "shop") html = renderShopScreen();
+  else if (state.view === "log") html = renderLogScreen();
+  else if (state.view === "library") html = renderLibraryScreen();
+  else if (state.view === "bandbook") html = renderBandBookScreen();
+  else if (state.view === "dev") html = renderDevScreen();
+  else html = renderHomeScreen();
+  const homeBack = (state.view || "home") !== "home" ? `<button class="jumpTabBtn page-home-btn v042-page-home" data-view="home">← ホームへ</button>` : "";
+  return `<main class="view-panel v042-view-panel" data-view="${state.view || "home"}">${homeBack}${html}</main>`;
+}
+
+function renderHomeScreen() {
+  return `<div class="v042-home" aria-label="ホーム">
+    ${renderHomeTopBarV042()}
+    ${renderTurnRailV042()}
+    <section class="v042-home-grid">
+      <aside class="v042-action-column" aria-label="行動">${renderHomeActionButtonsV042()}</aside>
+      <section class="v042-info-column" aria-label="主要情報">
+        <div class="v042-right-top">
+          ${renderSongcraftBlockV042()}
+          ${renderPlanBlockV042()}
+        </div>
+        ${renderHomeIllustrationV042()}
+        ${renderHomeStatusGridV042()}
+        <button class="jumpTabBtn v042-band-manage" data-view="band"><span>👥</span><b>バンド管理</b><small>主人公・メンバー・スキル</small></button>
+      </section>
+    </section>
+  </div>`;
+}
+
+function renderHomeTopBarV042() {
+  const b = state.band || {};
+  const counts = v042NotificationCounts();
+  const dev = devModeOn() ? `<button class="jumpTabBtn v042-admin-btn dev" data-view="dev">DEV</button>` : "";
+  return `<header class="v042-home-top">
+    <div class="v042-profile-block"><b>${escapeHtml(b.name || "未定のバンド")}</b><span>${escapeHtml(state.player?.name || "主人公")}</span></div>
+    <div class="v042-admin-actions">
+      <button id="saveBtn" class="v042-admin-btn">セーブ</button>
+      <button id="loadBtn" class="v042-admin-btn">ロード</button>
+      <button id="titleBtn" class="v042-admin-btn">タイトルへ</button>
+      <button id="refreshAppBtn" class="v042-admin-btn">最新版</button>
+      ${dev}
+    </div>
+    <button class="globalPhoneBtn v042-home-phone" title="携帯を開く"><span>📱</span>${counts.total ? `<em>${counts.total}</em>` : ""}</button>
+  </header>`;
+}
+
+function renderTurnRailV042() {
+  const max = Number(state.maxTurn || 50);
+  const now = Number(state.turn || 1);
+  const cells = Array.from({ length: max }, (_, i) => i + 1).map(turn => {
+    const ev = (state.liveEvents || []).find(e => !e.cancelled && Number(e.turn) === turn);
+    const isFes = turn === 30 || turn === 50;
+    const cls = `${turn < now ? "done" : ""} ${turn === now ? "now" : ""} ${ev ? "live" : ""} ${isFes ? "fes" : ""}`;
+    const note = ev ? (isFes ? (turn === 30 ? "UNDER" : "GRAND") : liveTypeMeta(ev).short) : (isFes ? (turn === 30 ? "UNDER" : "GRAND") : "準備");
+    return `<button class="jumpTabBtn turn-cell v042-turn ${cls}" data-view="schedule" data-turn="${turn}"><b>T${turn}</b><small>${escapeHtml(note)}</small></button>`;
+  }).join("");
+  return `<section class="v042-turn-board" aria-label="ターン表示">
+    <div class="v042-turn-head"><b>ターン</b><span>${now}ターン / ${max}ターン</span></div>
+    <div class="schedule-scroll v042-turn-scroll">${cells}</div>
+  </section>`;
+}
+
+function v042CommandDisabledReason(id) {
+  if (mustCompleteFirstDraftTutorial()) return "未完成曲を先に完成";
+  if (state.tutorialStage === "needSong") return "先に作詞・作曲";
+  const need = tutorialRequiredCommandForTurn();
+  if (need && need !== id) return `${commandLabel(need)}を試す流れ`;
+  if (state.hangoverTurn === state.turn && id !== "rest") return "二日酔い中は休憩のみ";
+  if ((state.band?.fatigue || 0) >= 100 && id !== "rest") return "疲労限界。休憩が必要";
+  return "";
+}
+
+function renderHomeActionButtonsV042() {
+  const items = [
+    ["practice", "練習", "演奏を上げる", "🥁"],
+    ["rest", "休憩", "疲労を下げる", "☕"],
+    ["parttime", "バイト", "資金を稼ぐ", "💴"],
+    ["recruit", "募集", "仲間候補", "📣"],
+    ["promo", "宣伝", "知名度を上げる", "📢"],
+    ["talk", "会話", "信頼と気づき", "💬"]
+  ];
+  return items.map(([id,label,note,icon]) => {
+    const reason = v042CommandDisabledReason(id);
+    return `<button class="command-card v042-action-btn ${reason ? "disabled" : ""}" data-command="${id}" ${reason ? "disabled" : ""} title="${escapeHtml(reason || note)}"><span>${icon}</span><b>${label}</b><small>${escapeHtml(reason || note)}</small></button>`;
+  }).join("");
+}
+
+function renderSongcraftBlockV042() {
+  const s = songcraftHomeStatus();
+  const locked = !mustCompleteFirstDraftTutorial() && (state.tutorialStage === "needCommand" || state.scheduleTutorialStage === "needSchedule");
+  const note = locked ? (state.scheduleTutorialStage === "needSchedule" ? "先に予定を確認" : "次は行動を選ぶ") : s.note;
+  return `<button class="openSongEditorBtn v042-songcraft ${locked ? "disabled" : ""}" ${locked ? "disabled" : ""}><span>🎼</span><b>作詞・作曲</b><small>${escapeHtml(note)}</small><em>${escapeHtml(s.badge)}</em></button>`;
+}
+
+function renderPlanBlockV042() {
+  const next = (state.liveEvents || []).filter(e => !e.cancelled && e.turn >= state.turn).sort((a,b)=>a.turn-b.turn)[0];
+  const remain = next ? Math.max(0, Number(next.turn) - Number(state.turn || 1)) : 0;
+  return `<button class="jumpTabBtn v042-plan" data-view="schedule"><span>📅</span><b>予定</b><small>${next ? `${next.turn}T / あと${remain}T` : "予定なし"}</small></button>`;
+}
+
+function renderHomeIllustrationV042() {
+  const recent = (state.members || [])[state.members.length - 1] || state.player;
+  const memberNames = activeMembers().map(m => m.name).filter(Boolean).slice(0, 4).join(" / ");
+  const bandbookCount = bandDiscoveredCount ? bandDiscoveredCount() : 0;
+  return `<button class="v042-illustration openMemberDetailBtn" data-member-id="${escapeHtml(recent?.id || "player")}" aria-label="挿絵">
+    <div class="v042-stage-visual"><span>${escapeHtml(initials(recent?.name || "主人公"))}</span><i></i></div>
+    <div><b>${escapeHtml(recent?.name || "主人公")}</b><small>${escapeHtml(recent?.part || "主人公")} / ${escapeHtml(memberNames || "ソロ")}</small><small>図鑑登録 ${bandbookCount} 組</small></div>
+  </button>`;
+}
+
+function renderHomeStatusGridV042() {
+  const b = state.band || {};
+  const rows = [
+    ["資金", v042FormatMoney(b.funds), Number(b.funds || 0) < 0 ? "bad" : Number(b.funds || 0) < 10000 ? "warn" : "good", "💴"],
+    ["ファン", `${Math.round(b.fans || 0)}人`, "good", "👥"],
+    ["疲労", `${Math.round(b.fatigue || 0)}%`, Number(b.fatigue || 0) >= 80 ? "bad" : Number(b.fatigue || 0) >= 60 ? "warn" : "good", "⚡"],
+    ["知名度", Math.round(b.fame || 0), "info", "📣"],
+    ["集客力", displayAudiencePower(b), "info", "🎫"],
+    ["業界評価", Math.round(b.industry || 0), "info", "🏢"]
+  ];
+  return `<section class="v042-status-card"><div class="v042-status-grid">${rows.map(([k,v,cls,icon]) => `<div class="v042-status ${cls}"><span>${icon} ${k}</span><b>${escapeHtml(String(v))}</b></div>`).join("")}</div></section>`;
+}
+
+function renderPhoneScreen() {
+  const mode = state.phoneSubView || "menu";
+  return `<div class="v042-phone-backdrop">
+    <section class="v042-phone-shell" role="dialog" aria-label="携帯">
+      <div class="v042-phone-speaker"></div>
+      <button class="phoneCloseBtn v042-phone-close" title="閉じる">×</button>
+      <div class="v042-phone-screen">
+        ${renderPhoneModeContentV042(mode)}
+      </div>
+    </section>
+  </div>`;
+}
+
+function renderPhoneModeContentV042(mode) {
+  if (mode === "shop") return renderPhoneAppFrameV042("ショップ", "🛒", renderShopScreen());
+  if (mode === "mail") return renderMailScreen();
+  if (mode === "sns") { state.snsLastSeenCount = (state.snsPosts || []).length; return renderSnsScreen(); }
+  if (mode === "bandbook") return renderPhoneBandBookScreen();
+  if (mode === "account") return renderAccountSettingsScreen();
+  return renderPhoneAppMenuV042();
+}
+
+function renderPhoneAppFrameV042(title, icon, body) {
+  return `<div class="v042-phone-app-view"><div class="v042-phone-app-top"><button class="phoneModeBtn ghost-btn" data-phone-mode="menu">←</button><b>${icon} ${escapeHtml(title)}</b></div><div class="v042-phone-app-body">${body}</div></div>`;
+}
+
+function renderPhoneAppMenuV042() {
+  const counts = v042NotificationCounts();
+  const badge = n => n ? `<em class="nav-badge">${n}</em>` : "";
+  const apps = [
+    ["shop", "🛒", "ショップ", counts.shop, "機材・回復"],
+    ["mail", "✉️", "メール", counts.mail, "受信トレイ"],
+    ["sns", "#", "SNS", counts.sns, "タイムライン"],
+    ["bandbook", "📖", "図鑑", counts.bandbook, "他バンド"],
+    ["account", "⚙", "オプション", counts.option, "名前と表示"]
+  ];
+  return `<div class="v042-phone-menu"><div class="v042-phone-title"><b>携帯</b><span>${counts.total ? `通知 ${counts.total}` : "通知なし"}</span></div><div class="v042-app-list">${apps.map(([mode,icon,label,noteCount,note]) => `<button class="phoneModeBtn v042-app-icon" data-phone-mode="${mode}"><span>${icon}</span><b>${label}</b>${badge(noteCount)}<small>${note}</small></button>`).join("")}</div></div>`;
+}
+
+function renderMailScreen() {
+  const acc = profileAccount();
+  const active = state.activeMailId ? (state.phoneMails || []).find(m => m.id === state.activeMailId) : null;
+  const edit = state.phoneAccountEdit === "mail";
+  const body = active ? `<button class="closeMailDetailBtn ghost-btn">← 受信トレイ</button>${renderMailDetail(active)}` : `<div class="v042-mail-list">${(state.phoneMails || []).map(renderMailRow).join("") || `<div class="empty-panel">メールはまだありません。</div>`}</div>`;
+  const form = edit ? `<div class="v042-inline-edit"><label>メールアドレス<input id="mailInlineEmail" maxlength="40" value="${escapeHtml(acc.email)}"></label><button id="saveMailAddressBtn" class="big-action">保存</button></div>` : "";
+  return `<div class="v042-mail-app"><div class="v042-phone-app-top"><button class="phoneModeBtn ghost-btn" data-phone-mode="menu">←</button><b>メール</b><button class="phoneInlineEditBtn ghost-btn" data-edit="mail">設定</button></div><div class="v042-mail-account"><span>${escapeHtml(acc.email)}</span></div>${form}${body}</div>`;
+}
+
+function renderSnsScreen() {
+  const acc = profileAccount();
+  const edit = state.phoneAccountEdit === "sns";
+  const form = edit ? `<div class="v042-inline-edit two"><label>表示名<input id="snsInlineDisplayName" maxlength="28" value="${escapeHtml(acc.snsDisplayName)}"></label><label>ユーザー名<input id="snsInlineUserName" maxlength="24" value="${escapeHtml(acc.snsUserName)}"></label><button id="saveSnsProfileBtn" class="big-action">保存</button></div>` : "";
+  return `<div class="v042-sns-app"><div class="v042-phone-app-top"><button class="phoneModeBtn ghost-btn" data-phone-mode="menu">←</button><b>SNS</b><button class="phoneInlineEditBtn ghost-btn" data-edit="sns">編集</button></div><header class="v042-sns-profile"><div class="sns-avatar">${escapeHtml((acc.snsDisplayName || state.band?.name || "B").slice(0,1).toUpperCase())}</div><div><b>${escapeHtml(acc.snsDisplayName || state.band?.name || "バンド")}</b><span>${escapeHtml(acc.snsUserName || "@bandname")}</span></div></header>${form}<div class="v042-sns-timeline">${(state.snsPosts || []).map(renderSnsPost).join("") || `<div class="empty-panel">まだ投稿はありません。</div>`}</div></div>`;
+}
+
+function renderPhoneBandBookScreen() {
+  const previousDetail = state.bandBookDetail;
+  const content = renderBandBookScreen();
+  state.bandBookDetail = previousDetail;
+  return renderPhoneAppFrameV042("図鑑", "📖", `<p class="v042-phone-note">他バンド情報はここに集約しています。</p>${content}`);
+}
+
+function renderAccountSettingsScreen() {
+  const acc = profileAccount();
+  return renderPhoneAppFrameV042("オプション", "⚙", `<div class="account-form v042-option-form">
+    <label>主人公名<input id="accountPlayerName" maxlength="24" value="${escapeHtml(state.player?.name || "")}" /></label>
+    <label>バンド名<input id="accountBandName" maxlength="28" value="${escapeHtml(state.band?.name || "")}" /></label>
+    <label>メールアドレス<input id="accountEmail" maxlength="40" value="${escapeHtml(acc.email)}" /></label>
+    <label>SNS表示名<input id="accountSnsDisplayName" maxlength="28" value="${escapeHtml(acc.snsDisplayName)}" /></label>
+    <label>SNSユーザー名<input id="accountSnsUserName" maxlength="24" value="${escapeHtml(acc.snsUserName)}" /></label>
+    <button id="saveAccountSettingsBtn" class="big-action">保存</button>
+  </div>`);
+}
+
+function renderBandScreen() {
+  const active = activeMembers();
+  const upkeep = memberUpkeepCost();
+  return `<div class="v042-band-page">
+    <section class="card v042-band-self"><div class="section-title"><h2>${escapeHtml(state.band.name || "自分たちのバンド")}</h2><span class="badge good">自バンド管理</span></div>
+      <div class="kv"><b>主人公</b><span>${escapeHtml(state.player?.name || "主人公")}</span><b>構成人数</b><span>${active.length}人</span><b>維持費目安</b><span>${v042FormatMoney(upkeep)}</span><b>ファン</b><span>${Math.round(state.band.fans || 0)}人</span></div>
+      <button id="renameBandBtn" class="ghost-btn">バンド名を変更</button>
+    </section>
+    <section class="card"><div class="section-title"><h2>所属メンバー</h2><span class="badge">${active.length}人</span></div><div class="band-stage v042-member-stage">${active.map(renderMemberStageSlot).join("")}</div>${currentApplicantList().length ? renderApplicantList() : ""}</section>
+    <section class="card"><div class="section-title"><h2>主人公スキル</h2><button class="jumpTabBtn ghost-btn" data-view="playerSkills">一覧表示</button></div>${renderPlayerSkillSummaryV042()}</section>
+  </div>`;
+}
+
+function renderPlayerSkillSummaryV042() {
+  const owned = (state.playerSkills || []).map(id => skillById(id)).filter(Boolean);
+  if (!owned.length) return `<div class="empty-panel">まだ獲得していません。</div>`;
+  return `<div class="v042-skill-chip-list">${owned.map(sk => `<span class="badge ${sk.rarity === "レア" ? "rare" : "good"}">${escapeHtml(sk.name)}</span>`).join("")}</div>`;
+}
+
+function renderPlayerSkillListScreen() {
+  const owned = new Set(state.playerSkills || []);
+  return `<div class="v042-skill-page"><section class="card"><div class="section-title"><h2>主人公スキル一覧</h2><button class="jumpTabBtn ghost-btn" data-view="band">バンド管理へ戻る</button></div><div class="v042-skill-list">${SKILL_DATA.map(sk => `<article class="v042-skill-row ${owned.has(sk.id) ? "owned" : "locked"}"><div><b>${owned.has(sk.id) ? "習得済" : "未習得"}：${escapeHtml(sk.name)}</b><span class="badge ${sk.rarity === "レア" ? "rare" : "good"}">${escapeHtml(sk.rarity)}</span></div><p>${escapeHtml(sk.desc || "")}</p>${sk.condition ? `<small>条件：${escapeHtml(sk.condition)}</small>` : ""}</article>`).join("")}</div></section></div>`;
+}
+
+function livePrepStepMeta() {
+  return [
+    { step:1, icon:"🎼", title:"セトリ", desc:"5曲と曲順" },
+    { step:2, icon:"🎤", title:"担当・サポート", desc:"担当の下に契約" },
+    { step:3, icon:"🎙", title:"コーラス", desc:"別枠で確認" },
+    { step:4, icon:"🧰", title:"物販", desc:"仕入れ" },
+    { step:5, icon:"✅", title:"最終確認", desc:"ライブ開始" }
+  ];
+}
+
+function currentLivePrepStep() {
+  const n = clamp(Math.floor(Number(state.livePrepStep || 1)), 1, 5);
+  state.livePrepStep = n;
+  return n;
+}
+
+function renderLivePrepStepControls(step) {
+  const prev = step > 1 ? `<button type="button" class="prepStepPrevBtn ghost-btn" data-step="${step - 1}">← 前へ</button>` : `<span></span>`;
+  const next = step < 5 ? `<button type="button" class="prepStepNextBtn big-action" data-step="${step + 1}">次へ →</button>` : "";
+  return `<div class="live-prep-step-controls">${prev}${next}</div>`;
+}
+
+function renderPositionOnlyControlsV042() {
+  const locked = state.liveCount === 0;
+  const rows = activeMembers().map(m => {
+    const savedInst = state.livePrepPositions?.[m.id];
+    const defaultInst = locked && m.id === "player" ? "vocal" : (savedInst || m.mainInstrument || "off");
+    const disabled = locked && m.id === "player" ? "disabled" : "";
+    return `<div class="position-row" data-member="${m.id}"><div class="avatar small">${initials(m.name)}</div><div><b>${escapeHtml(m.name)}</b><small>${escapeHtml(m.part || "")}</small>${renderPositionMiniStats(m, defaultInst)}</div><select class="positionSelect" data-member-id="${m.id}" ${disabled}>${positionOptions(defaultInst)}</select><button class="openMemberDetailBtn ghost-btn" data-member-id="${m.id}">詳細</button></div>`;
+  }).join("");
+  return `<div class="stage-card v042-position-card">${rows}</div>`;
+}
+
+function renderChorusOnlyControlsV042() {
+  const ids = normalizeLivePrepChorusIds();
+  const members = activeMembers().filter(m => m.instruments.chorus || m.instruments.vocal);
+  return `<div class="stage-card v042-chorus-card">${ids.map((selected, i) => {
+    const options = [`<option value="none" ${selected === "none" ? "selected" : ""}>コーラスなし</option>`, ...members.map(m => `<option value="${m.id}" ${selected === m.id ? "selected" : ""}>${escapeHtml(m.name)}</option>`)].join("");
+    return `<div class="position-row chorus-line"><div class="avatar small">Cho${i+1}</div><div><b>コーラス枠${i+1}</b><small>最大6人</small></div><select class="chorusSelect" data-slot="${i}">${options}</select></div>`;
+  }).join("")}</div>`;
+}
+
+function renderSupportOnlyControlsV042(selectedSupports) {
+  const supportList = DATA.supportOptions.slice().sort((a,b) => supportInstrumentPriorityScore(b) - supportInstrumentPriorityScore(a) || (a.cost || 0) - (b.cost || 0));
+  return `<div class="prep-subsection v042-support-section"><h3>サポート契約</h3><p><small>担当の不足をこの下で補います。</small></p><div class="checkbox-grid support-grid">${supportList.map(s => renderSupportOptionCard(s, selectedSupports)).join("")}</div></div>`;
+}
+
+function renderLivePrep() {
+  ensureLivePrepSetlist();
+  const step = currentLivePrepStep();
+  const selectedSupports = livePrepSelectedSupportSet();
+  const ev = currentLiveEvent();
+  const v = venueById(ev.venueId);
+  const liveMeta = liveTypeMeta(ev);
+  const audience = audienceProfileForVenue(v);
+  const selectedSongs = ensureLivePrepSetlist().map(id=>songById(id)).filter(Boolean);
+  return `<div class="card live-panel live-prep-steps-card v042-live-prep">
+    <div class="section-title"><h2>${currentLiveName()}：ライブ準備</h2><span class="badge warn">${escapeHtml(liveMeta.short)} / ${escapeHtml(v.name)}</span></div>
+    <div class="venue-info live-prep-venue-summary"><b>${escapeHtml(liveMeta.label)} / ${escapeHtml(v.name)}</b><span>キャパ${v.capacity} / ${escapeHtml(liveMeta.feeLabel)}${eventBaseCost(ev, v).toLocaleString()}円 / 要準備${v.prepNeed}</span><small>${escapeHtml(venueRequirementText(v))}</small></div>
+    ${renderLivePrepStepNav(step)}
+    <div class="live-prep-step-stack">
+      ${renderLivePrepStepPanel(step, 1, `<div class="prep-step-heading"><h3>① セトリ</h3><small>5曲と曲順。</small></div><div class="venue-info audience-info"><b>客層：${escapeHtml(audience.label)}</b><span>${escapeHtml(audience.detail)}</span></div><div class="setlist-hint-panel">${livePrepAutoHints(selectedSongs, v, audience).map(h=>`<span>${escapeHtml(h)}</span>`).join("")}</div><div class="prep-step-actions"><button id="autoSetlistBtn" class="big-action wide-cancel">セトリ自動セット</button><button id="resetSetlistBtn" class="ghost-btn wide-cancel">リセット</button></div>${renderLivePrepSetlist()}${renderLivePrepStepControls(step)}`)}
+      ${renderLivePrepStepPanel(step, 2, `<div class="prep-step-heading"><h3>② 担当・サポート</h3><small>担当を決め、その下で足りないパートをサポート契約。</small></div>${renderPositionOnlyControlsV042()}${renderSupportOnlyControlsV042(selectedSupports)}${renderLivePrepStepControls(step)}`)}
+      ${renderLivePrepStepPanel(step, 3, `<div class="prep-step-heading"><h3>③ コーラス</h3><small>担当とは別にコーラス枠を確認。</small></div>${renderChorusOnlyControlsV042()}${renderLivePrepStepControls(step)}`)}
+      ${renderLivePrepStepPanel(step, 4, `<div class="prep-step-heading"><h3>④ 物販</h3><small>担当・サポートとは分けて仕入れを調整。</small></div>${renderMerchPrepControls(v, audience)}${renderLivePrepStepControls(step)}`)}
+      ${renderLivePrepStepPanel(step, 5, `<div class="prep-step-heading"><h3>⑤ 最終確認・ライブ開始</h3><small>設定を確認して本番へ。</small></div>${renderLivePrepCheckPanel(v, { showStepLinks:true })}<div class="live-prep-final-actions"><button id="performLiveBtn" class="big-action">ライブ本番へ</button>${!currentLiveEvent().fixed ? `<button id="noShowLiveBtn" class="ghost-btn danger wide-cancel">ライブをドタキャンする</button>` : ""}</div>${currentApplicantList().length ? renderApplicantList() : ""}${renderLivePrepStepControls(step)}`)}
+    </div>
+  </div>`;
+}
+
+function renderIntroScreen() {
+  const step = clamp(Number(state.openingStep || 0), 0, 9);
+  const storedHeroName = state.player?.name || "";
+  const heroName = state.pendingPlayerName || (storedHeroName === "あなた" ? "" : storedHeroName);
+  const bandName = state.pendingBandName || state.band?.name || "";
+  const scene = [
+    { speaker:"タカナシ", text:"「見慣れない顔だな。バンドに興味あるの？」", note:"ライブハウス前に立つ主人公。後ろからタカナシが聞いてくる。" },
+    { speaker:"主人公", text:"「あ、はい！バンドがしたくて」" },
+    { speaker:"タカナシ", text:"「ふーん、ここのライブハウスはいいところなんだ。バンド始めるならここからスタートするのがいいと思うぜ。」" },
+    { speaker:"主人公", text:"「そうなんですか、ここから…」" },
+    { poster:true },
+    { speaker:"タカナシ", text:"「ま、がんばれよ。えっと……」" },
+    { thought:true },
+    { speaker:"タカナシ", text:`「${heroName || "○○"}か、バンド名は決めてんのか？」` },
+    { bandPrompt:true },
+    { speaker:"タカナシ", text:`「${bandName || "○○"}か、覚えとくよ。」`, final:true }
+  ][step];
+  const visual = scene.poster || step >= 4 ? `<div class="v042-novel-poster opening-poster"><span>UNDER FES POSTER</span><b>UNDER<br>FES</b><small>地下から、名前を鳴らせ。</small></div>` : `<div class="v042-livehouse-bg"><span>LIVE HOUSE</span><b>UNDER GARAGE</b></div>`;
+  const body = scene.poster
+    ? `<div class="v042-novel-box poster-scene"><b>フェスのポスターが壁に貼られている。</b><button id="openingNextBtn" class="big-action">次へ</button></div>`
+    : scene.thought
+      ? `<div class="v042-thought-pop opening-input"><b>タカナシ（名前はなんていうんだ…？）</b><input id="openingPlayerNameInput" class="wide-input" maxlength="24" placeholder="主人公名" value="${escapeHtml(heroName)}" /><button id="openingPlayerNameBtn" class="big-action">決定</button></div>`
+      : scene.bandPrompt
+        ? `<div class="v042-thought-pop opening-input"><b>バンド名は？</b><input id="openingBandNameInput" class="wide-input" maxlength="28" placeholder="バンド名" value="${escapeHtml(bandName)}" /><button id="openingBandNameBtn" class="big-action">決定</button></div>`
+        : `<div class="v042-novel-box"><span>${escapeHtml(scene.speaker || "")}</span>${scene.note ? `<small>${escapeHtml(scene.note)}</small>` : ""}<p>${escapeHtml(scene.text || "")}</p><button id="${scene.final ? "openingFinishBtn" : "openingNextBtn"}" class="big-action">${scene.final ? "ホームへ" : "次へ"}</button></div>`;
+  app.innerHTML = `<div class="v042-novel-opening">${visual}${body}</div>`;
+  document.getElementById("openingNextBtn")?.addEventListener("click", () => { state.openingStep = Math.min(9, step + 1); render(); });
+  document.getElementById("openingPlayerNameBtn")?.addEventListener("click", () => {
+    const name = cleanProfileInput(document.getElementById("openingPlayerNameInput")?.value, "", 24);
+    if (!name) { alert("主人公名を入力してください。"); return; }
+    state.pendingPlayerName = name;
+    if (state.player) state.player.name = name;
+    state.openingStep = 7;
+    render();
+  });
+  document.getElementById("openingBandNameBtn")?.addEventListener("click", () => {
+    const name = cleanProfileInput(document.getElementById("openingBandNameInput")?.value, "", 28);
+    if (!name) { alert("バンド名を入力してください。"); return; }
+    state.pendingBandName = name;
+    if (state.band) state.band.name = name;
+    state.bandNameFinalized = true;
+    const acc = profileAccount();
+    acc.snsDisplayName = acc.snsDisplayName || name;
+    acc.snsUserName = acc.snsUserName || `@${safeProfileSlug(name)}`;
+    acc.email = acc.email || `${safeProfileSlug(name)}@under-mail.jp`;
+    state.openingStep = 9;
+    render();
+  });
+  document.getElementById("openingFinishBtn")?.addEventListener("click", () => {
+    state.introSeen = true;
+    state.bandNameFinalized = true;
+    state.bandNamePrompt = false;
+    state.openingStep = 10;
+    state.tutorialStage = "needSong";
+    state.activePopup = { title:"活動開始", body:"まずは、曲でも作るか……\n作詞・作曲から新曲制作を始めよう。", type:"event", icon:"🎼" };
+    saveGame(false);
+    render();
+  });
+}
+
+const bindEvents_v042_base = bindEvents;
+bindEvents = function bindEvents_v042() {
+  bindEvents_v042_base();
+  document.querySelectorAll(".phoneCloseBtn").forEach(btn => btn.addEventListener("click", () => { state.view = "home"; state.phoneSubView = "menu"; state.phoneAccountEdit = null; state.activeMailId = null; render(); }));
+  document.querySelectorAll(".phoneInlineEditBtn").forEach(btn => btn.addEventListener("click", () => { state.phoneAccountEdit = btn.dataset.edit || null; render(); }));
+  document.getElementById("saveMailAddressBtn")?.addEventListener("click", () => {
+    const email = cleanProfileInput(document.getElementById("mailInlineEmail")?.value, "", 40);
+    if (!email) { alert("メールアドレスを入力してください。"); return; }
+    profileAccount().email = email;
+    state.phoneAccountEdit = null;
+    state.saveNotice = "メールアドレスを保存しました。";
+    render();
+  });
+  document.getElementById("saveSnsProfileBtn")?.addEventListener("click", () => {
+    const display = cleanProfileInput(document.getElementById("snsInlineDisplayName")?.value, "", 28);
+    let user = cleanProfileInput(document.getElementById("snsInlineUserName")?.value, "", 24);
+    if (!display || !user) { alert("SNS表示名とユーザー名を入力してください。"); return; }
+    user = "@" + user.replace(/^@+/, "").replace(/[^\w_]/g, "").slice(0, 20);
+    if (user === "@") user = `@${safeProfileSlug(display)}`;
+    state.account = { ...profileAccount(), snsDisplayName: display, snsUserName: user };
+    state.phoneAccountEdit = null;
+    state.saveNotice = "SNSプロフィールを保存しました。";
+    render();
+  });
+  document.querySelectorAll(".phoneModeBtn").forEach(btn => btn.addEventListener("click", () => { state.phoneAccountEdit = null; }));
+};
 
 render();
