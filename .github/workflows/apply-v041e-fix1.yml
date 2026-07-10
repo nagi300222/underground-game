@@ -1,0 +1,37 @@
+name: Apply v0.4.1e fix1 payload
+
+on:
+  push:
+    branches:
+      - codex/v0.4.1e-profile-mobile-draft-fix1
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply payload when present
+        shell: bash
+        run: |
+          set -euo pipefail
+          PAYLOAD="fix1_payload.tar.xz.b64"
+          if [ ! -f "$PAYLOAD" ]; then
+            echo "Payload not present; nothing to apply."
+            exit 0
+          fi
+          base64 -d "$PAYLOAD" > /tmp/fix1_payload.tar.xz
+          mkdir -p /tmp/fix1_payload
+          tar -xJf /tmp/fix1_payload.tar.xz -C /tmp/fix1_payload
+          cp -a /tmp/fix1_payload/. ./
+          rm -f "$PAYLOAD"
+          rm -f .github/workflows/apply-v041e-fix1.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Implement v0.4.1e profile mobile fix1"
+          git push origin HEAD
