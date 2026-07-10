@@ -1,31 +1,46 @@
-name: v0.4.2 fix1 transfer
+name: Apply v0.4.2 fix1 patch
 
 on:
   push:
     branches:
       - codex/v0.4.2-home-mobile-rebuild-draft-fix1
-  pull_request:
-    branches:
-      - main
 
 permissions:
   contents: write
 
 jobs:
-  snapshot:
+  apply:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/upload-artifact@v4
-        with:
-          name: v041e-main-snapshot
-          path: |
-            README.md
-            VERSION.txt
-            game.js
-            index.html
-            style.css
-            sw.js
-          if-no-files-found: error
+      - name: Apply audited patch when ready
+        shell: bash
+        run: |
+          set -euo pipefail
+          PAYLOAD="v042_fix1_publish.patch.xz.b64"
+          READY="v042_fix1_publish.ready"
+          if [ ! -f "$READY" ]; then
+            echo "Patch is not ready; nothing to apply."
+            exit 0
+          fi
+          test -f "$PAYLOAD"
+          base64 -d "$PAYLOAD" > /tmp/v042_fix1_publish.patch.xz
+          echo "a8d4bd377c9b71cad11b02832fd3f13b3944e82a524cf91c6d92b75694c3ed23  /tmp/v042_fix1_publish.patch.xz" | sha256sum -c -
+          xz -dc /tmp/v042_fix1_publish.patch.xz > /tmp/v042_fix1_publish.patch
+          echo "83eb5fceabb3892219f4a2884326f7d552368ec3334cdaede7660ca5bf187720  /tmp/v042_fix1_publish.patch" | sha256sum -c -
+          git apply --check /tmp/v042_fix1_publish.patch
+          git apply /tmp/v042_fix1_publish.patch
+          node --check game.js
+          grep -Fx 'v0.4.2-home-mobile-rebuild-draft-fix1' VERSION.txt
+          grep -F 'v0.4.2-home-mobile-rebuild-draft-fix1' index.html
+          grep -F 'underground-v0-4-2-home-mobile-rebuild-draft-fix1' sw.js
+          grep -F '詳細は携帯の「図鑑」から。' game.js
+          ! grep -F '詳細はホームの「バンド図鑑」から。' game.js
+          rm -f "$PAYLOAD" "$READY" .github/workflows/v042-fix1-transfer.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Implement v0.4.2 home mobile rebuild fix1"
+          git push origin HEAD
