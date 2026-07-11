@@ -1,4 +1,4 @@
-const CACHE_NAME = "underground-v0-4-2-home-mobile-rebuild-draft-fix2";
+const CACHE_NAME = "underground-v0-4-3a-ux-foundation-draft";
 const ASSETS = [
   "./",
   "./index.html",

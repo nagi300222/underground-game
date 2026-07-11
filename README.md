@@ -4,7 +4,7 @@
 
 ## 現行版
 
-`v0.4.2-home-mobile-rebuild-draft-fix2`
+`v0.4.3a-ux-foundation-draft`
 
 ## GitHub Pages 公開に必要なルートファイル
 
