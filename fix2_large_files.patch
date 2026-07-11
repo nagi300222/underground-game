@@ -1,0 +1,273 @@
+--- a/game.js
++++ b/game.js
+@@ -4,7 +4,7 @@
+   - 旧「（仮）」候補ブロックとPaper Moon Kids系コードは、旧セーブ互換/退避用に残すが、有効候補はMEMBER_DATABASEで上書きする。
+ */
+ 
+-const VERSION = "v0.4.2-home-mobile-rebuild-draft-fix1";
++const VERSION = "v0.4.2-home-mobile-rebuild-draft-fix2";
+ 
+ const MAIN_GENRE_DATA = [
+   { name: "ロック", stage: "early", unlockTurn: 1 },
+@@ -6248,6 +6248,37 @@
+   active.rewardsApplied = true;
+   if (ev.afterLog) log(ev.afterLog, "event");
+ }
++let progressionButtonGateGeneration = 0;
++let progressionButtonGateTimer = null;
++function armProgressionButtonGate(selector) {
++  const buttons = Array.from(document.querySelectorAll(selector || "") || []);
++  if (!buttons.length) return;
++  const generation = ++progressionButtonGateGeneration;
++  if (progressionButtonGateTimer) clearTimeout(progressionButtonGateTimer);
++  buttons.forEach(btn => {
++    btn.disabled = true;
++    btn.dataset.progressGateGeneration = String(generation);
++    btn.classList.add("progress-gate-pending");
++    btn.classList.remove("progress-gate-ready", "progress-gate-consumed");
++    btn.setAttribute("aria-disabled", "true");
++  });
++  progressionButtonGateTimer = setTimeout(() => {
++    buttons.forEach(btn => {
++      if (btn.isConnected === false) return;
++      if (btn.dataset.progressGateGeneration !== String(generation)) return;
++      btn.disabled = false;
++      btn.classList.remove("progress-gate-pending");
++      btn.classList.add("progress-gate-ready");
++      btn.removeAttribute("aria-disabled");
++    });
++  }, 300);
++}
++function runProgressionButtonAction(btn, action) {
++  if (!btn || btn.disabled || btn.classList.contains("progress-gate-pending")) return;
++  btn.disabled = true;
++  btn.classList.add("progress-gate-consumed");
++  action();
++}
+ function advanceStoryEvent() {
+   const active = state.activeStoryEvent;
+   const ev = currentStoryEventDef();
+@@ -6528,7 +6559,7 @@
+   </div>`;
+ }
+ 
+-const SAVE_VERSION = "v0.4.2-home-mobile-rebuild-draft-fix1";
++const SAVE_VERSION = "v0.4.2-home-mobile-rebuild-draft-fix2";
+ let uiMode = "title";
+ let selectedSaveSlot = readCurrentSaveSlot();
+ 
+@@ -7072,11 +7103,13 @@
+   if (!state.popupQueue.length) return null;
+   const batch = state.popupQueue.splice(0, 3).filter(Boolean);
+   if (batch.length === 1) return batch[0];
++  const scrollSafe = batch.some(p => p && (p.layout === "scroll-safe" || p.scrollSafe));
+   return {
+     title: "まとめて確認",
+     body: batch.map(p => `【${p.title || "通知"}】\n${p.body || ""}`).join("\n\n"),
+     type: batch.some(p => p.type === "warn" || p.type === "bad") ? "warn" : (batch.some(p => p.type === "rare") ? "rare" : "event"),
+-    icon: "📌"
++    icon: "📌",
++    ...(scrollSafe ? { layout:"scroll-safe", modalClass:"afterparty-result-safe-modal", scrollSafe:true } : {})
+   };
+ }
+ function showEventPopup(title, body, type="info", icon="🎸", payload={}) {
+@@ -8260,6 +8293,13 @@
+   const payload = m.payload || {};
+   const applicantId = payload.applicantId || "";
+   const known = applicantId ? currentApplicantList().find(a => a.id === applicantId) : null;
++  if (payload.status === "met") {
++    if (payload.metFound === false) {
++      return `<div class="mail-member-actions replied"><b>メンバー候補の連絡</b><small>今回は条件に合う候補が見つかりませんでした。返信処理は完了しています。</small><div class="modal-actions"><span class="badge good">返信済み</span></div></div>`;
++    }
++    const name = payload.metName || payload.applicantName || known?.name || "メンバー候補";
++    return `<div class="mail-member-actions replied"><b>メンバー候補の連絡</b><small>${escapeHtml(name)}と会いました。バンド管理の加入候補から確認できます。</small><div class="modal-actions"><span class="badge good">返信済み</span><button class="openBandFromMailBtn ghost-btn">バンド管理で確認</button></div></div>`;
++  }
+   const label = known ? `${known.name}と会う` : "返信して会う";
+   return `<div class="mail-member-actions"><b>メンバー候補の連絡</b><small>返信すると候補者と会い、加入候補として確認できます。</small><div class="modal-actions"><button class="meetApplicantMailBtn big-action" data-mail-id="${escapeHtml(m.id)}">${escapeHtml(label)}</button><button class="openBandFromMailBtn ghost-btn">候補一覧を見る</button></div></div>`;
+ }
+@@ -8839,9 +8879,13 @@
+     const mail = (state.phoneMails || []).find(m => m.id === a.mailId);
+     let applicant = a.applicantId ? currentApplicantList().find(x => x.id === a.applicantId) : null;
+     if (!applicant) applicant = addApplicantFromCandidates("メール返信");
+-    if (mail) { mail.read = true; mail.payload = mail.payload || {}; mail.payload.status = "met"; }
+-    state.view = "band";
+-    state.phoneSubView = "menu";
++    if (mail) {
++      mail.read = true;
++      mail.payload = mail.payload || {};
++      mail.payload.status = "met";
++      mail.payload.metFound = !!applicant;
++      mail.payload.metName = applicant?.name || "";
++    }
+     if (applicant) {
+       showEventPopup("メンバー候補と会った", `${applicant.name}と会った。\nバンド情報の加入候補から、加入させるか選べます。`, "event", "🤝");
+     } else {
+@@ -8885,9 +8929,6 @@
+   setLiveOfferStatus(offer, "accepted");
+   log(`${offer.turn}Tの「${meta.label} / ${v.name}」に参加することにした。${meta.feeLabel}${eventBaseCost(ev, v).toLocaleString()}円。`, "event");
+   addSnsPost("@our_band", `${offer.turn}T ${v.name}、出演決定。${meta.short}で一本やります。`, "self");
+-  state.activeMailId = null;
+-  state.phoneSubView = "menu";
+-  state.view = "schedule";
+   render();
+ }
+ function declineLiveOffer(offerId) {
+@@ -10400,8 +10441,10 @@
+ 
+ function renderActivePopupOverlay() {
+   const p = state.activePopup;
+-  return `<div class="modal-backdrop">
+-    <div class="event-modal ${p.type || "info"}">
++  const scrollSafe = p && (p.layout === "scroll-safe" || p.scrollSafe);
++  const modalClass = p?.modalClass ? String(p.modalClass).replace(/[^\w -]/g, "").trim() : "";
++  return `<div class="modal-backdrop ${scrollSafe ? "active-popup-scroll-safe-backdrop" : ""}">
++    <div class="event-modal ${p.type || "info"} ${scrollSafe ? "active-popup-scroll-safe-modal" : ""} ${escapeHtml(modalClass)}">
+       <div class="modal-icon">${p.icon || "🎸"}</div>
+       <div class="modal-copy"><h2>${escapeHtml(p.title)}</h2><p>${escapeHtml(p.body).replace(/\n/g,"<br>")}</p>${renderPopupBars(p.bars)}</div>
+       <button class="popupCloseBtn big-action">OK</button>
+@@ -10736,7 +10779,7 @@
+   if (songSortSelect) songSortSelect.addEventListener("change", () => { state.songSortMode = songSortSelect.value; render(); });
+   const liveBtn = document.getElementById("performLiveBtn");
+   if (liveBtn) liveBtn.addEventListener("click", performLive);
+-  document.querySelectorAll(".prepStepBtn, .prepStepNextBtn, .prepStepPrevBtn, .prepStepJumpBtn").forEach(btn => btn.addEventListener("click", () => { state.livePrepStep = clamp(Math.floor(Number(btn.dataset.step || 1)), 1, 5); render(); }));
++  bindLivePrepStepControls();
+   document.querySelectorAll(".moveMemberBtn").forEach(btn => btn.addEventListener("click", () => moveMember(Number(btn.dataset.index), btn.dataset.dir)));
+   document.querySelectorAll(".bringReserveBtn").forEach(btn => btn.addEventListener("click", () => bringReserveToBand(Number(btn.dataset.index))));
+   document.querySelectorAll(".benchMemberBtn").forEach(btn => btn.addEventListener("click", () => benchMember(Number(btn.dataset.index))));
+@@ -10760,7 +10803,8 @@
+   const flowRecoveryBtn = document.getElementById("flowRecoveryBtn");
+   if (flowRecoveryBtn) flowRecoveryBtn.addEventListener("click", () => { if (!maybeFinishPendingTurnAdvanceAfterPopups()) { finishPendingTurnAdvance(); } });
+   document.querySelectorAll(".popupCloseBtn").forEach(btn => btn.addEventListener("click", closeActivePopup));
+-  document.querySelectorAll("#storyNextBtn").forEach(btn => btn.addEventListener("click", advanceStoryEvent));
++  document.querySelectorAll("#storyNextBtn").forEach(btn => btn.addEventListener("click", () => runProgressionButtonAction(btn, advanceStoryEvent)));
++  armProgressionButtonGate("#storyNextBtn");
+   document.querySelectorAll("#storySkipBtn").forEach(btn => btn.addEventListener("click", skipStoryEvent));
+   document.querySelectorAll(".actionResultCloseBtn").forEach(btn => btn.addEventListener("click", closeActionResultModal));
+   document.querySelectorAll(".liveProgressNextBtn").forEach(btn => btn.addEventListener("click", showLiveResultAfterProgress));
+@@ -11111,7 +11155,7 @@
+   if (songBoost) extraLines.push(`曲強化：「${songBoost.title}」演奏+${songBoost.gain}`);
+   const resultBody = `${relText}\n選択：${choice.label}\nイベント：${payload.baseEvent?.title || scene.title} - ${payload.baseEvent?.text || "短い反省会をした。"}${statLines.length ? "\n" + statLines.join("\n") : ""}${extraLines.length ? "\n" + extraLines.join(" / ") : ""}${introText}\n疲労+${Math.round(state.band.fatigue-before)}%。二日酔い判定${Math.round(chance*100)}%${hungover ? " → 発生" : " → なし"}。`;
+   state.popupQueue = state.popupQueue || [];
+-  state.popupQueue.push({ title:"打ち上げ結果", body:resultBody, type:hungover ? "warn" : "event", icon:"🍻" });
++  state.popupQueue.push({ title:"打ち上げ結果", body:resultBody, type:hungover ? "warn" : "event", icon:"🍻", layout:"scroll-safe", modalClass:"afterparty-result-safe-modal", scrollSafe:true });
+   log(`打ち上げイベント：${payload.baseEvent?.title || scene.title} / ${choice.label}。${relText}${extraLines.length ? " / " + extraLines.join(" / ") : ""}${introText ? " / " + introText.trim() : ""} 疲労+${Math.round(state.band.fatigue-before)}%。`, hungover ? "warn" : "event");
+   if (bandSystemOn()) {
+     processBandStoryEvents("afterParty");
+@@ -13102,7 +13146,7 @@
+   });
+ }
+ 
+-// v0.4.2-home-mobile-rebuild-draft-fix1: home/phone/opening UI rebuild layer.
++// v0.4.2-home-mobile-rebuild-draft-fix2: home/phone/opening UI rebuild layer.
+ function v042BandNameReady() {
+   const name = String(state?.band?.name || "").trim();
+   return !!(name && name !== "未定") || !!state.bandNameFinalized;
+@@ -13409,6 +13453,19 @@
+   return `<div class="live-prep-step-controls">${prev}${next}</div>`;
+ }
+ 
++function setLivePrepStepFromControl(step) {
++  state.livePrepStep = clamp(Math.floor(Number(step || 1)), 1, 5);
++  render();
++}
++
++function bindLivePrepStepControls() {
++  document.querySelectorAll(".prepStepBtn, .prepStepNextBtn, .prepStepPrevBtn, .prepStepJumpBtn").forEach(btn => {
++    if (btn.dataset.livePrepStepBound === "1") return;
++    btn.dataset.livePrepStepBound = "1";
++    btn.addEventListener("click", () => setLivePrepStepFromControl(btn.dataset.step));
++  });
++}
++
+ function renderPositionOnlyControlsV042() {
+   const locked = state.liveCount === 0;
+   const rows = activeMembers().map(m => {
+@@ -13483,7 +13540,7 @@
+         ? `<div class="v042-thought-pop opening-input"><b>バンド名は？</b><input id="openingBandNameInput" class="wide-input" maxlength="28" placeholder="バンド名" value="${escapeHtml(bandName)}" /><button id="openingBandNameBtn" class="big-action">決定</button></div>`
+         : `<div class="v042-novel-box"><span>${escapeHtml(scene.speaker || "")}</span>${scene.note ? `<small>${escapeHtml(scene.note)}</small>` : ""}<p>${escapeHtml(scene.text || "")}</p><button id="${scene.final ? "openingFinishBtn" : "openingNextBtn"}" class="big-action">${scene.final ? "ホームへ" : "次へ"}</button></div>`;
+   app.innerHTML = `<div class="v042-novel-opening">${visual}${body}</div>`;
+-  document.getElementById("openingNextBtn")?.addEventListener("click", () => { state.openingStep = Math.min(9, step + 1); render(); });
++  document.getElementById("openingNextBtn")?.addEventListener("click", (ev) => runProgressionButtonAction(ev.currentTarget, () => { state.openingStep = Math.min(9, step + 1); render(); }));
+   document.getElementById("openingPlayerNameBtn")?.addEventListener("click", () => {
+     const name = cleanProfileInput(document.getElementById("openingPlayerNameInput")?.value, "", 24);
+     if (!name) { alert("主人公名を入力してください。"); return; }
+@@ -13505,7 +13562,7 @@
+     state.openingStep = 9;
+     render();
+   });
+-  document.getElementById("openingFinishBtn")?.addEventListener("click", () => {
++  document.getElementById("openingFinishBtn")?.addEventListener("click", (ev) => runProgressionButtonAction(ev.currentTarget, () => {
+     state.introSeen = true;
+     state.bandNameFinalized = true;
+     state.bandNamePrompt = false;
+@@ -13514,12 +13571,14 @@
+     state.activePopup = { title:"活動開始", body:"まずは、曲でも作るか……\n作詞・作曲から新曲制作を始めよう。", type:"event", icon:"🎼" };
+     saveGame(false);
+     render();
+-  });
++  }));
++  armProgressionButtonGate("#openingNextBtn, #openingFinishBtn");
+ }
+ 
+ const bindEvents_v042_base = bindEvents;
+ bindEvents = function bindEvents_v042() {
+   bindEvents_v042_base();
++  bindLivePrepStepControls();
+   document.querySelectorAll(".phoneCloseBtn").forEach(btn => btn.addEventListener("click", () => { state.view = "home"; state.phoneSubView = "menu"; state.phoneAccountEdit = null; state.activeMailId = null; render(); }));
+   document.querySelectorAll(".phoneInlineEditBtn").forEach(btn => btn.addEventListener("click", () => { state.phoneAccountEdit = btn.dataset.edit || null; render(); }));
+   document.getElementById("saveMailAddressBtn")?.addEventListener("click", () => {
+--- a/style.css
++++ b/style.css
+@@ -3833,7 +3833,7 @@
+   }
+ }
+ 
+-/* v0.4.2-home-mobile-rebuild-draft */
++/* v0.4.2-home-mobile-rebuild-draft-fix2 */
+ .v042-view-panel{
+   width:100%;
+   max-width:980px;
+@@ -4340,6 +4340,43 @@
+   overflow:hidden !important;
+   transform:none !important;
+ }
++.app-shell > .modal-backdrop{
++  z-index:200 !important;
++}
++.progress-gate-pending{
++  opacity:.58 !important;
++  filter:saturate(.78);
++  cursor:wait !important;
++}
++.progress-gate-ready{
++  filter:none;
++}
++.progress-gate-consumed{
++  opacity:.72 !important;
++  pointer-events:none !important;
++}
++.active-popup-scroll-safe-backdrop{
++  align-items:center !important;
++  justify-content:center !important;
++  padding:max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom)) !important;
++  overflow:hidden !important;
++}
++.event-modal.active-popup-scroll-safe-modal{
++  max-height:calc(100dvh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
++  overflow:hidden !important;
++  align-items:start !important;
++}
++.event-modal.active-popup-scroll-safe-modal .modal-copy{
++  min-height:0;
++  max-height:calc(100dvh - 156px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
++  overflow-y:auto;
++  overscroll-behavior:contain;
++  -webkit-overflow-scrolling:touch;
++  padding-right:4px;
++}
++.event-modal.active-popup-scroll-safe-modal .popupCloseBtn{
++  align-self:end;
++}
+ .v042-phone-shell{
+   width:min(calc(100vw - 20px),370px) !important;
+   height:min(calc(100dvh - 20px),760px) !important;
