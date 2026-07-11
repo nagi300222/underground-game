@@ -1,0 +1,329 @@
+diff --git a/game.js b/game.js
+index e90f34d..f020bdc 100644
+--- a/game.js
++++ b/game.js
+@@ -4,7 +4,7 @@
+   - 旧「（仮）」候補ブロックとPaper Moon Kids系コードは、旧セーブ互換/退避用に残すが、有効候補はMEMBER_DATABASEで上書きする。
+ */
+ 
+-const VERSION = "v0.4.2-home-mobile-rebuild-draft-fix2";
++const VERSION = "v0.4.3a-ux-foundation-draft";
+ 
+ const MAIN_GENRE_DATA = [
+   { name: "ロック", stage: "early", unlockTurn: 1 },
+@@ -6559,7 +6559,7 @@ function renderDevScreen() {
+   </div>`;
+ }
+ 
+-const SAVE_VERSION = "v0.4.2-home-mobile-rebuild-draft-fix2";
++const SAVE_VERSION = "v0.4.3a-ux-foundation-draft";
+ let uiMode = "title";
+ let selectedSaveSlot = readCurrentSaveSlot();
+ 
+@@ -6625,6 +6625,7 @@ function stripEphemeralState(src) {
+   return copy;
+ }
+ function clearEphemeralStateAfterLoad() {
++  v043aClearAllSelections();
+   if (!state) return;
+   state.pendingTurnAdvance = null;
+   state.pendingNoSongcraftCommand = null;
+@@ -6759,6 +6760,7 @@ function startNewGameInSlot(slot) {
+   slot = clamp(Number(slot || 1), 1, SAVE_SLOT_COUNT);
+   const exists = !!savePayloadForSlot(slot);
+   if (exists && !window.confirm(`スロット${slot}にはセーブがあります。新しく始めると、このスロットは次のオートセーブで上書きされます。続けますか？`)) return;
++  v043aClearAllSelections();
+   setCurrentSaveSlot(slot);
+   state = createInitialState();
+   state.activeSaveSlot = slot;
+@@ -7954,6 +7956,7 @@ function showTutorialBlocked(kind) {
+ }
+ 
+ function render() {
++  v043aClearUiRoots();
+   if (uiMode === "title") return renderTitleScreen();
+   if (uiMode === "slot-new") return renderTitleSlotScreen("new");
+   if (uiMode === "slot-load") return renderTitleSlotScreen("load");
+@@ -7967,13 +7970,13 @@ function render() {
+   app.innerHTML = `
+     <div class="app-shell app-shell-v041a">
+       ${renderTopStats()}
+-      ${liveMode && !phoneDuringLive ? renderLivePrep() : renderMainContent()}
++      ${v043aRenderBaseContent(liveMode, phoneDuringLive)}
+       ${renderNav(liveMode)}
+       ${renderGlobalPhoneButton(liveMode)}
+       ${renderFloatingHomeButton(liveMode)}
+-      ${renderOverlays()}
+     </div>
+   `;
++  v043aRenderDetachedRoots();
+   bindEvents();
+   alignScheduleScrollToCurrentTurn();
+   scheduleLiveProgressTimer();
+@@ -7981,6 +7984,129 @@ function render() {
+   autoSaveGame();
+ }
+ 
++let v043aUiRuntime = createV043aUiRuntimeState();
++
++function v043aGetUiRoots() {
++  return {
++    app: document.getElementById("app"),
++    phoneRoot: document.getElementById("phoneRoot"),
++    toastRoot: document.getElementById("toastRoot"),
++    overlayRoot: document.getElementById("overlayRoot")
++  };
++}
++
++function v043aClearUiRoots() {
++  const roots = v043aGetUiRoots();
++  [roots.phoneRoot, roots.toastRoot, roots.overlayRoot].forEach(root => {
++    if (root) root.innerHTML = "";
++  });
++  if (uiMode !== "game" || !state?.introSeen || state?.ended) {
++    v043aClearAllSelections();
++  }
++}
++
++function v043aRenderBaseContent(liveMode=false, phoneDuringLive=false) {
++  if ((state.view || "home") === "phone") {
++    return `<main class="view-panel v042-view-panel phone-open" data-view="phone">${renderHomeScreen()}</main>`;
++  }
++  return liveMode && !phoneDuringLive ? renderLivePrep() : renderMainContent();
++}
++
++function v043aHasPriorityOverlay() {
++  return !!(
++    state.bandNamePrompt ||
++    state.renameBandNamePrompt ||
++    state.liveProgressModal ||
++    state.liveResultModal ||
++    state.pendingAfterparty ||
++    state.pendingAfterpartyEvent ||
++    state.activeStoryEvent ||
++    state.actionResultModal ||
++    state.detailModal ||
++    state.livePrepPickerSlot ||
++    state.pendingMailAction ||
++    state.pendingBooking ||
++    state.pendingBoostSong ||
++    state.pendingCancelLive ||
++    state.pendingPurchase ||
++    state.saveSlotModal ||
++    state.pendingNoSongcraftCommand ||
++    state.activePopup ||
++    (state.pendingTurnAdvance && !hasFlowModalOpen())
++  );
++}
++
++function v043aRenderDetachedRoots() {
++  const roots = v043aGetUiRoots();
++  const priorityOverlay = v043aHasPriorityOverlay();
++  if (roots.phoneRoot) roots.phoneRoot.innerHTML = (state.view || "home") === "phone" ? renderPhoneScreen() : "";
++  if (roots.overlayRoot) roots.overlayRoot.innerHTML = priorityOverlay ? renderOverlays() : "";
++  if (roots.toastRoot) roots.toastRoot.innerHTML = !priorityOverlay && state.turnNotice ? renderTurnNoticeOverlay() : "";
++}
++
++function createV043aUiRuntimeState() {
++  return { selections: Object.create(null) };
++}
++
++function v043aSelectionKey(group) {
++  return String(group || "");
++}
++
++function v043aSelectionValue(value) {
++  if (value == null) return "";
++  if (["string", "number", "boolean"].includes(typeof value)) return String(value);
++  return "";
++}
++
++function v043aGetSelection(group) {
++  const key = v043aSelectionKey(group);
++  return key ? v043aUiRuntime.selections[key] ?? null : null;
++}
++
++function v043aSetSelection(group, value) {
++  const key = v043aSelectionKey(group);
++  if (!key) return null;
++  const next = v043aSelectionValue(value);
++  v043aUiRuntime.selections[key] = next;
++  return next;
++}
++
++function v043aSelectOrConfirm(group, value) {
++  const key = v043aSelectionKey(group);
++  const next = v043aSelectionValue(value);
++  if (!key) return { confirmed: false, changed: false };
++  const current = v043aGetSelection(key);
++  if (current === next) return { confirmed: true, changed: false };
++  v043aSetSelection(key, next);
++  return { confirmed: false, changed: true };
++}
++
++function v043aClearSelection(group) {
++  const key = v043aSelectionKey(group);
++  if (key) delete v043aUiRuntime.selections[key];
++}
++
++function v043aClearAllSelections() {
++  v043aUiRuntime = createV043aUiRuntimeState();
++}
++
++function v043aRenderConfirmationSheet(config={}) {
++  const tone = config.tone || "event";
++  const modalClass = ["confirmation-sheet", config.extraClass || ""].filter(Boolean).join(" ");
++  const actionsClass = ["modal-actions", config.actionsClass || ""].filter(Boolean).join(" ");
++  const confirmClass = config.confirmClass || "big-action";
++  const cancelClass = config.cancelClass || "ghost-btn";
++  const confirmAttrs = config.confirmAttrs ? ` ${config.confirmAttrs}` : "";
++  const cancelAttrs = config.cancelAttrs ? ` ${config.cancelAttrs}` : "";
++  return `<div class="modal-backdrop">
++    <div class="event-modal ${escapeHtml(tone)} ${escapeHtml(modalClass)}">
++      <div class="modal-icon">${config.icon || "?"}</div>
++      <div class="modal-copy"><h2>${escapeHtml(config.title || "確認")}</h2>${config.bodyHtml || ""}</div>
++      <div class="${escapeHtml(actionsClass)}"><button id="${escapeHtml(config.confirmId || "confirmSheetBtn")}" class="${escapeHtml(confirmClass)}"${confirmAttrs}>${escapeHtml(config.confirmLabel || "決定")}</button><button id="${escapeHtml(config.cancelId || "cancelSheetBtn")}" class="${escapeHtml(cancelClass)}"${cancelAttrs}>${escapeHtml(config.cancelLabel || "戻る")}</button></div>
++    </div>
++  </div>`;
++}
++
+ function renderGlobalPhoneButton(liveMode=false) {
+   const unread = unreadMailCount();
+   const active = state.view === "phone";
+@@ -8904,12 +9030,12 @@ function renderMailActionConfirmOverlay() {
+     if (!offer) { state.pendingMailAction = null; return ""; }
+     const v = venueById(offer.venueId);
+     const meta = liveTypeMeta(offer);
+-    return `<div class="modal-backdrop"><div class="event-modal event mail-action-modal"><div class="modal-icon">📩</div><div class="modal-copy"><h2>ライブ参加の返信を送る？</h2><p>${offer.turn}T ${escapeHtml(meta.label)} / ${escapeHtml(v.name)}に参加します。\n予定表に追加しますか？</p><p>${escapeHtml(meta.feeLabel)}${eventBaseCost(offer, v).toLocaleString()}円</p></div><div class="modal-actions confirm-wide"><button id="confirmMailActionBtn" class="big-action">返信して予定に追加</button><button id="cancelMailActionBtn" class="ghost-btn">戻る</button></div></div></div>`;
++    return v043aRenderConfirmationSheet({ icon:"📩", tone:"event", extraClass:"mail-action-modal", title:"ライブ参加の返信を送る？", bodyHtml:`<p>${offer.turn}T ${escapeHtml(meta.label)} / ${escapeHtml(v.name)}に参加します。\n予定表に追加しますか？</p><p>${escapeHtml(meta.feeLabel)}${eventBaseCost(offer, v).toLocaleString()}円</p>`, actionsClass:"confirm-wide", confirmId:"confirmMailActionBtn", confirmLabel:"返信して予定に追加", cancelId:"cancelMailActionBtn", cancelLabel:"戻る" });
+   }
+   if (a.type === "member") {
+     const mail = (state.phoneMails || []).find(m => m.id === a.mailId);
+     const who = mail?.payload?.applicantName || mail?.sender || "メンバー候補";
+-    return `<div class="modal-backdrop"><div class="event-modal event mail-action-modal"><div class="modal-icon">🤝</div><div class="modal-copy"><h2>メンバー候補に返信する？</h2><p>メールを送ってきた${escapeHtml(who)}と会いますか？\n会うと加入候補として表示されます。</p></div><div class="modal-actions confirm-wide"><button id="confirmMailActionBtn" class="big-action">返信して会う</button><button id="cancelMailActionBtn" class="ghost-btn">戻る</button></div></div></div>`;
++    return v043aRenderConfirmationSheet({ icon:"🤝", tone:"event", extraClass:"mail-action-modal", title:"メンバー候補に返信する？", bodyHtml:`<p>メールを送ってきた${escapeHtml(who)}と会いますか？\n会うと加入候補として表示されます。</p>`, actionsClass:"confirm-wide", confirmId:"confirmMailActionBtn", confirmLabel:"返信して会う", cancelId:"cancelMailActionBtn", cancelLabel:"戻る" });
+   }
+   state.pendingMailAction = null;
+   return "";
+@@ -10453,13 +10579,7 @@ function renderActivePopupOverlay() {
+ }
+ 
+ function renderNoSongcraftConfirmOverlay() {
+-  return `<div class="modal-backdrop">
+-    <div class="event-modal warn">
+-      <div class="modal-icon">🎼</div>
+-      <div class="modal-copy"><h2>作詞作曲せずに進める？</h2><p>このターンは曲を作らずに終わります。よければ行動を実行します。</p></div>
+-      <div class="modal-actions confirm-wide"><button id="confirmNoSongcraftBtn" class="big-action">このまま行動する</button><button id="cancelNoSongcraftBtn" class="ghost-btn">曲作りへ戻る</button></div>
+-    </div>
+-  </div>`;
++  return v043aRenderConfirmationSheet({ icon:"🎼", tone:"warn", title:"作詞作曲せずに進める？", bodyHtml:"<p>このターンは曲を作らずに終わります。よければ行動を実行します。</p>", actionsClass:"confirm-wide", confirmId:"confirmNoSongcraftBtn", confirmLabel:"このまま行動する", cancelId:"cancelNoSongcraftBtn", cancelLabel:"曲作りへ戻る" });
+ }
+ 
+ function renderPopupBars(bars=[]) {
+@@ -10481,13 +10601,7 @@ function renderCancelLiveConfirmOverlay() {
+   const base = ev && v ? eventBaseCost(ev, v) : 0;
+   const penalty = noShow ? base + Math.round(base * 0.5) : 0;
+   const feeLabel = ev ? liveTypeMeta(ev).feeLabel : "費用";
+-  return `<div class="modal-backdrop"><div class="event-modal warn">
+-    <div class="modal-icon">${noShow ? "⚠️" : "📅"}</div>
+-    <div class="modal-copy"><h2>${noShow ? "ライブをドタキャンする？" : "ライブをキャンセルする？"}</h2>
+-      <p>${ev && v ? `${ev.turn}ターン目「${escapeHtml(v.name)}」を${noShow ? "ドタキャン" : "キャンセル"}します。` : "対象のライブをキャンセルします。"}<br>${noShow ? `${escapeHtml(feeLabel)}＋損料 ${penalty.toLocaleString()}円が発生し、信頼度と知名度が大きく下がります。` : "メリットはなく、信頼度と知名度が少し下がります。"}</p>
+-    </div>
+-    <div class="modal-actions confirm-wide"><button id="confirmCancelLiveBtn" class="big-action danger">${noShow ? "ドタキャンする" : "キャンセルする"}</button><button id="cancelCancelLiveBtn" class="ghost-btn">戻る</button></div>
+-  </div></div>`;
++  return v043aRenderConfirmationSheet({ icon:noShow ? "⚠️" : "📅", tone:"warn", title:noShow ? "ライブをドタキャンする？" : "ライブをキャンセルする？", bodyHtml:`<p>${ev && v ? `${ev.turn}ターン目「${escapeHtml(v.name)}」を${noShow ? "ドタキャン" : "キャンセル"}します。` : "対象のライブをキャンセルします。"}<br>${noShow ? `${escapeHtml(feeLabel)}＋損料 ${penalty.toLocaleString()}円が発生し、信頼度と知名度が大きく下がります。` : "メリットはなく、信頼度と知名度が少し下がります。"}</p>`, actionsClass:"confirm-wide", confirmId:"confirmCancelLiveBtn", confirmLabel:noShow ? "ドタキャンする" : "キャンセルする", confirmClass:"big-action danger", cancelId:"cancelCancelLiveBtn", cancelLabel:"戻る" });
+ }
+ 
+ function renderPurchaseConfirmOverlay() {
+@@ -10500,13 +10614,7 @@ function renderPurchaseConfirmOverlay() {
+   const price = isGear ? equipmentUpgradeCost(gearId) : (prices[item] || 0);
+   const title = isGear ? `${gear?.name || "機材"}を強化する？` : `${names[item] || "アイテム"}を購入する？`;
+   const desc = isGear ? `現在Lv${equipmentLevel(gearId)} → Lv${Math.min(5, equipmentLevel(gearId)+1)}。${gear?.desc || ""}` : "誤タップ防止のため、購入前に確認しています。";
+-  return `<div class="modal-backdrop">
+-    <div class="event-modal event">
+-      <div class="modal-icon">🛒</div>
+-      <div class="modal-copy"><h2>${escapeHtml(title)}</h2><p>価格：${price.toLocaleString()}円</p><p>${escapeHtml(desc)}</p></div>
+-      <div class="modal-actions"><button id="confirmPurchaseBtn" class="big-action">${isGear ? "強化する" : "購入する"}</button><button id="cancelPurchaseBtn" class="ghost-btn">戻る</button></div>
+-    </div>
+-  </div>`;
++  return v043aRenderConfirmationSheet({ icon:"🛒", tone:"event", title, bodyHtml:`<p>価格：${price.toLocaleString()}円</p><p>${escapeHtml(desc)}</p>`, confirmId:"confirmPurchaseBtn", confirmLabel:isGear ? "強化する" : "購入する", cancelId:"cancelPurchaseBtn", cancelLabel:"戻る" });
+ }
+ function renderSaveSlotOverlay() {
+   const mode = state.saveSlotModal;
+@@ -10538,13 +10646,7 @@ function renderBookingConfirmOverlay() {
+   const prep = estimatePrepScore();
+   const shortage = Math.max(0, v.prepNeed - prep);
+   const riskProfile = liveRiskProfile(v);
+-  return `<div class="modal-backdrop">
+-    <div class="event-modal event booking-modal">
+-      <div class="modal-icon">📅</div>
+-      <div class="modal-copy"><h2>${b.turn}ターン目の${escapeHtml(meta.short)}を入れる？</h2><p>${escapeHtml(v.name)} / キャパ${v.capacity} / ${escapeHtml(meta.feeLabel)}${eventBaseCost(ev, v).toLocaleString()}円</p><p>準備要求：${v.prepNeed} / 現在準備：${val(prep)}${shortage ? ` / 不足${val(shortage)}` : " / 準備OK"}</p><div class="quiet-guide-chips">${renderRiskBadges(riskProfile)}</div>${bands.length ? `<p>呼ぶ/共演候補：${bands.map(x=>escapeHtml(x.name)).join(" / ")}</p>` : ""}<p>${escapeHtml(meta.desc)}</p><p>予約後、残り2ターン以内は通常キャンセル不可。当日ドタキャンは各ライブ種別の表示費用＋損料が必要。</p></div>
+-      <div class="modal-actions"><button id="confirmBookingBtn" class="big-action">決定する</button><button id="cancelBookingBtn" class="ghost-btn">戻る</button></div>
+-    </div>
+-  </div>`;
++  return v043aRenderConfirmationSheet({ icon:"📅", tone:"event", extraClass:"booking-modal", title:`${b.turn}ターン目の${meta.short}を入れる？`, bodyHtml:`<p>${escapeHtml(v.name)} / キャパ${v.capacity} / ${escapeHtml(meta.feeLabel)}${eventBaseCost(ev, v).toLocaleString()}円</p><p>準備要求：${v.prepNeed} / 現在準備：${val(prep)}${shortage ? ` / 不足${val(shortage)}` : " / 準備OK"}</p><div class="quiet-guide-chips">${renderRiskBadges(riskProfile)}</div>${bands.length ? `<p>呼ぶ/共演候補：${bands.map(x=>escapeHtml(x.name)).join(" / ")}</p>` : ""}<p>${escapeHtml(meta.desc)}</p><p>予約後、残り2ターン以内は通常キャンセル不可。当日ドタキャンは各ライブ種別の表示費用＋損料が必要。</p>`, confirmId:"confirmBookingBtn", confirmLabel:"決定する", cancelId:"cancelBookingBtn", cancelLabel:"戻る" });
+ }
+ function renderBoostSongConfirmOverlay() {
+   const songId = state.pendingBoostSong;
+@@ -10552,11 +10654,7 @@ function renderBoostSongConfirmOverlay() {
+   if (!song) { state.pendingBoostSong = null; return ""; }
+   const cost = plannedSongcraftFatigueCost("music", 10);
+   const over = (state.band.fatigue || 0) + cost > 100;
+-  return `<div class="modal-backdrop"><div class="event-modal event">
+-    <div class="modal-icon">📈</div>
+-    <div class="modal-copy"><h2>この曲を強化する？</h2><p>「${escapeHtml(song.title)}」 / ${escapeHtml(genreDisplay(song))}<br>現在：強化Lv${song.boostLevel || 0}<br>疲労+${cost}%</p><p>疲労を消費して、曲の強化Lvと演奏力を少し上げます。</p>${over ? `<p class="bad-text">疲労が100％を超えるため、今は強化できません。</p>` : ""}</div>
+-    <div class="modal-actions"><button id="confirmBoostSongBtn" class="big-action" ${over ? "disabled" : ""}>強化する</button><button id="cancelBoostSongBtn" class="ghost-btn">戻る</button></div>
+-  </div></div>`;
++  return v043aRenderConfirmationSheet({ icon:"📈", tone:"event", title:"この曲を強化する？", bodyHtml:`<p>「${escapeHtml(song.title)}」 / ${escapeHtml(genreDisplay(song))}<br>現在：強化Lv${song.boostLevel || 0}<br>疲労+${cost}%</p><p>疲労を消費して、曲の強化Lvと演奏力を少し上げます。</p>${over ? `<p class="bad-text">疲労が100％を超えるため、今は強化できません。</p>` : ""}`, confirmId:"confirmBoostSongBtn", confirmLabel:"強化する", confirmAttrs:over ? "disabled" : "", cancelId:"cancelBoostSongBtn", cancelLabel:"戻る" });
+ }
+ 
+ function renderAfterpartyOverlay() {
+@@ -13146,7 +13244,7 @@ function renderIntroScreen() {
+   });
+ }
+ 
+-// v0.4.2-home-mobile-rebuild-draft-fix2: home/phone/opening UI rebuild layer.
++// v0.4.3a-ux-foundation-draft: root separation and UX foundation layer.
+ function v042BandNameReady() {
+   const name = String(state?.band?.name || "").trim();
+   return !!(name && name !== "未定") || !!state.bandNameFinalized;
+diff --git a/style.css b/style.css
+index 57b0df3..751cce4 100644
+--- a/style.css
++++ b/style.css
+@@ -3833,7 +3833,7 @@ small,.badge,.tabbar .tabBtn small,.menu-tile small{font-size:12px;line-height:1
+   }
+ }
+ 
+-/* v0.4.2-home-mobile-rebuild-draft-fix2 */
++/* v0.4.3a-ux-foundation-draft */
+ .v042-view-panel{
+   width:100%;
+   max-width:980px;
+@@ -4343,6 +4343,26 @@ small,.badge,.tabbar .tabBtn small,.menu-tile small{font-size:12px;line-height:1
+ .app-shell > .modal-backdrop{
+   z-index:200 !important;
+ }
++.ui-root{
++  position:fixed;
++  inset:0;
++  pointer-events:none;
++}
++.ui-root > *{
++  pointer-events:auto;
++}
++.ui-toast-root .turn-toast{
++  pointer-events:none !important;
++}
++.ui-phone-root{
++  z-index:100;
++}
++.ui-toast-root{
++  z-index:150;
++}
++.ui-overlay-root{
++  z-index:200;
++}
+ .progress-gate-pending{
+   opacity:.58 !important;
+   filter:saturate(.78);
