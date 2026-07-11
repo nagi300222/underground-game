@@ -1,0 +1,38 @@
+name: Apply audited v0.4.3a patch
+
+on:
+  push:
+    branches:
+      - release/v0.4.3a-ux-foundation
+    paths:
+      - .github/workflows/apply-v043a.yml
+      - .v043a_apply.patch
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release branch
+        uses: actions/checkout@v4
+        with:
+          ref: release/v0.4.3a-ux-foundation
+          fetch-depth: 0
+
+      - name: Apply audited patch
+        shell: bash
+        run: |
+          if [ ! -f .v043a_apply.patch ]; then
+            echo "Patch already applied."
+            exit 0
+          fi
+          git apply --check .v043a_apply.patch
+          git apply .v043a_apply.patch
+          rm .v043a_apply.patch
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game.js style.css .v043a_apply.patch
+          git commit -m "Implement v0.4.3a UX foundation"
+          git push origin HEAD:release/v0.4.3a-ux-foundation
