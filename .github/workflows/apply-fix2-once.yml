@@ -1,0 +1,42 @@
+name: Apply v0.4.2 fix2 once
+
+on:
+  push:
+    branches:
+      - release/v0.4.2-home-mobile-rebuild-fix2
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix2:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+        with:
+          ref: release/v0.4.2-home-mobile-rebuild-fix2
+          fetch-depth: 0
+
+      - name: Apply audited patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f fix2_large_files.patch
+          git apply --check fix2_large_files.patch
+          git apply fix2_large_files.patch
+          node --check game.js
+          echo "e455dc9b7fb1e8908a0546229299041dd317d3cc2959a808173c586527c502f1  game.js" | sha256sum -c -
+          echo "0e9c11335d9a44119a8a248d680f02ca834bc6327a96f8db77dcc66e950142f3  style.css" | sha256sum -c -
+
+      - name: Commit final fix2 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm fix2_large_files.patch
+          rm .github/workflows/apply-fix2-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game.js style.css fix2_large_files.patch .github/workflows/apply-fix2-once.yml
+          git commit -m "Implement v0.4.2 home mobile rebuild fix2"
+          git push origin HEAD:release/v0.4.2-home-mobile-rebuild-fix2
