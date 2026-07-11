@@ -3833,7 +3833,7 @@ small,.badge,.tabbar .tabBtn small,.menu-tile small{font-size:12px;line-height:1
   }
 }
 
-/* v0.4.2-home-mobile-rebuild-draft */
+/* v0.4.2-home-mobile-rebuild-draft-fix2 */
 .v042-view-panel{
   width:100%;
   max-width:980px;
@@ -4339,6 +4339,43 @@ small,.badge,.tabbar .tabBtn small,.menu-tile small{font-size:12px;line-height:1
   place-items:center !important;
   overflow:hidden !important;
   transform:none !important;
+}
+.app-shell > .modal-backdrop{
+  z-index:200 !important;
+}
+.progress-gate-pending{
+  opacity:.58 !important;
+  filter:saturate(.78);
+  cursor:wait !important;
+}
+.progress-gate-ready{
+  filter:none;
+}
+.progress-gate-consumed{
+  opacity:.72 !important;
+  pointer-events:none !important;
+}
+.active-popup-scroll-safe-backdrop{
+  align-items:center !important;
+  justify-content:center !important;
+  padding:max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom)) !important;
+  overflow:hidden !important;
+}
+.event-modal.active-popup-scroll-safe-modal{
+  max-height:calc(100dvh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  overflow:hidden !important;
+  align-items:start !important;
+}
+.event-modal.active-popup-scroll-safe-modal .modal-copy{
+  min-height:0;
+  max-height:calc(100dvh - 156px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  padding-right:4px;
+}
+.event-modal.active-popup-scroll-safe-modal .popupCloseBtn{
+  align-self:end;
 }
 .v042-phone-shell{
   width:min(calc(100vw - 20px),370px) !important;
