@@ -4,7 +4,7 @@
   - 旧「（仮）」候補ブロックとPaper Moon Kids系コードは、旧セーブ互換/退避用に残すが、有効候補はMEMBER_DATABASEで上書きする。
 */
 
-const VERSION = "v0.4.3a-ux-foundation-draft";
+const VERSION = "v0.4.3b-home-navigation-draft";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -6559,7 +6559,7 @@ function renderDevScreen() {
   </div>`;
 }
 
-const SAVE_VERSION = "v0.4.3a-ux-foundation-draft";
+const SAVE_VERSION = "v0.4.3b-home-navigation-draft";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 
@@ -7961,14 +7961,17 @@ function render() {
   if (uiMode === "slot-new") return renderTitleSlotScreen("new");
   if (uiMode === "slot-load") return renderTitleSlotScreen("load");
   normalizeState();
+  v043bNormalizeNavigationState();
   if (!state.introSeen) return renderIntroScreen();
   maybeTriggerStoryEvents();
   surfaceQueuedPopupIfIdle();
   if (state.ended) return renderEnding();
   const liveMode = isLiveTurn();
   const phoneDuringLive = liveMode && state.view === "phone";
+  v043bSyncHomeCommandSelection(liveMode, phoneDuringLive);
+  const shellClass = v043bShellClass(liveMode, phoneDuringLive);
   app.innerHTML = `
-    <div class="app-shell app-shell-v041a">
+    <div class="${shellClass}">
       ${renderTopStats()}
       ${v043aRenderBaseContent(liveMode, phoneDuringLive)}
       ${renderNav(liveMode)}
@@ -13273,9 +13276,98 @@ function renderGlobalPhoneButton() {
   return "";
 }
 
+function v043bHomeCommandItems() {
+  return [
+    ["practice", "練習", "演奏を上げる", "🥁"],
+    ["rest", "休憩", "疲労を下げる", "☕"],
+    ["parttime", "バイト", "資金を稼ぐ", "💴"],
+    ["recruit", "募集", "仲間候補", "📣"],
+    ["promo", "宣伝", "知名度を上げる", "📢"],
+    ["talk", "会話", "信頼と気づき", "💬"]
+  ];
+}
+
+function v043bHomeParentViews() {
+  return ["home", "songs", "log", "command"];
+}
+
+function v043bNormalizeNavigationState() {
+  if (!state) return;
+  if (state.view === "command") state.view = "home";
+}
+
+function v043bShellClass(liveMode=false, phoneDuringLive=false) {
+  const parent = parentViewForNav(state?.view || "home");
+  const parts = ["app-shell", "app-shell-v041a", "v043b-shell", `v043b-shell-${parent}`];
+  if ((state?.view || "home") === "home" && !liveMode) parts.push("v043b-shell-compact-home");
+  if (liveMode) parts.push("v043b-shell-live");
+  if (phoneDuringLive || state?.view === "phone") parts.push("v043b-shell-phone");
+  return parts.join(" ");
+}
+
+function v043bClearHomeCommandSelection() {
+  v043aClearSelection("home-command");
+}
+
+function v043bSyncHomeCommandSelection(liveMode=false, phoneDuringLive=false) {
+  if (!state) return;
+  const view = state.view || "home";
+  const keep = uiMode === "game" && view === "home" && !liveMode && !phoneDuringLive && !v043aHasPriorityOverlay();
+  if (!keep) v043bClearHomeCommandSelection();
+}
+
+function v043bSelectedHomeCommand() {
+  return v043aGetSelection("home-command");
+}
+
+function v043bCommandPreview(command) {
+  const label = commandLabel(command);
+  const previews = {
+    practice: "演奏力が伸びる。疲労は少し増える",
+    rest: "疲労を回復する。ターンは進む",
+    parttime: "資金を稼ぐ。疲労は少し増える",
+    recruit: "加入候補を探す。費用がかかる",
+    promo: "知名度と反応を伸ばす",
+    talk: "信頼と気づきを得る"
+  };
+  return `${label}: ${previews[command] || "この行動を実行"}。もう一度タップで実行`;
+}
+
+function v043bNextEventSummary() {
+  const next = (state.liveEvents || []).filter(e => !e.cancelled && e.turn >= state.turn).sort((a,b)=>a.turn-b.turn)[0];
+  if (!next) return { title:"次のライブなし", note:"予定でライブを探す", badge:"予定なし", turn:null, event:null };
+  const remain = Math.max(0, Number(next.turn) - Number(state.turn || 1));
+  const meta = liveTypeMeta(next);
+  const eventName = String(next.label || next.name || meta.label || meta.short || "ライブ").trim();
+  return { title:`T${next.turn} ${eventName}`, note:remain <= 0 ? "今日のライブ" : `あと${remain}ターン`, badge:remain <= 1 ? "直前" : `${remain}T`, turn:next.turn, event:next };
+}
+
+function v043bHomeContextMessage() {
+  const selected = v043bSelectedHomeCommand();
+  if (selected) return v043bCommandPreview(selected);
+  const tutorial = !state.tutorialSkipHints && (state.liveCount || 0) === 0 ? tutorialPhaseInfo() : null;
+  if (tutorial) return `T${state.turn || 1} チュートリアル: ${tutorial.body}`;
+  if (typeof hasPendingSongFinalize === "function" && hasPendingSongFinalize()) return "未完成の曲がある。作詞・作曲から仕上げよう";
+  if (isLiveTurn()) return "今日はライブ本番。予定から準備を確認しよう";
+  const next = v043bNextEventSummary();
+  if (next.turn) return `${next.title}まで ${next.badge}`;
+  return "行動を選ぶと詳細を確認。同じ行動をもう一度タップで実行";
+}
+
+function v043bHandleHomeCommandTap(command) {
+  if (!command || v042CommandDisabledReason(command)) return;
+  const result = v043aSelectOrConfirm("home-command", command);
+  if (result.confirmed) {
+    v043bClearHomeCommandSelection();
+    handleCommandClick(command);
+    return;
+  }
+  render();
+}
+
 function parentViewForNav(view) {
   const v = view || "home";
-  if (["songs"].includes(v)) return "command";
+  if (v043bHomeParentViews().includes(v)) return "home";
   if (["fes"].includes(v)) return "schedule";
   if (["shop", "library", "dev", "playerSkills"].includes(v)) return "band";
   if (["bandbook"].includes(v)) return "band";
@@ -13285,9 +13377,9 @@ function parentViewForNav(view) {
 }
 
 function renderNav(liveMode=false) {
+  if (!liveMode && ["home", "phone"].includes(state.view || "home")) return "";
   const tabs = [
     ["home", "ホーム", "🏠"],
-    ["command", "活動", "⚡"],
     ["schedule", "予定", "📅"],
     ["band", "バンド", "👥"]
   ];
@@ -13301,9 +13393,9 @@ function renderMainContent() {
   if ((state.view || "home") === "phone") {
     return `<main class="view-panel v042-view-panel phone-open" data-view="phone">${renderHomeScreen()}</main>${renderPhoneScreen()}`;
   }
+  if (state.view === "command") state.view = "home";
   let html;
-  if (state.view === "command") html = renderCommandDesk();
-  else if (state.view === "band") html = renderBandScreen();
+  if (state.view === "band") html = renderBandScreen();
   else if (state.view === "playerSkills") html = renderPlayerSkillListScreen();
   else if (state.view === "songs") html = renderSongsScreen();
   else if (state.view === "schedule") html = renderScheduleScreen();
@@ -13319,16 +13411,14 @@ function renderMainContent() {
 }
 
 function renderHomeScreen() {
-  return `<div class="v042-home" aria-label="ホーム">
+  return `<div class="v042-home v043b-home" aria-label="ホーム">
     ${renderHomeTopBarV042()}
     ${renderTurnRailV042()}
+    ${renderHomeContextBarV043b()}
     <section class="v042-home-grid">
       <aside class="v042-action-column" aria-label="行動">${renderHomeActionButtonsV042()}</aside>
       <section class="v042-info-column" aria-label="主要情報">
-        <div class="v042-right-top">
-          ${renderSongcraftBlockV042()}
-          ${renderPlanBlockV042()}
-        </div>
+        ${renderSongcraftBlockV042()}
         ${renderHomeIllustrationV042()}
         ${renderHomeStatusGridV042()}
         <button class="jumpTabBtn v042-band-manage" data-view="band"><span>👥</span><b>バンド管理</b><small>主人公・メンバー・スキル</small></button>
@@ -13343,15 +13433,21 @@ function renderHomeTopBarV042() {
   const dev = devModeOn() ? `<button class="jumpTabBtn v042-admin-btn dev" data-view="dev">DEV</button>` : "";
   return `<header class="v042-home-top">
     <div class="v042-profile-block"><b>${escapeHtml(b.name || "未定のバンド")}</b><span>${escapeHtml(state.player?.name || "主人公")}</span></div>
-    <div class="v042-admin-actions">
+    <details class="v043b-utility-menu"><summary aria-label="ユーティリティ">…</summary><div class="v043b-utility-popover">
       <button id="saveBtn" class="v042-admin-btn">セーブ</button>
       <button id="loadBtn" class="v042-admin-btn">ロード</button>
-      <button id="titleBtn" class="v042-admin-btn">タイトルへ</button>
       <button id="refreshAppBtn" class="v042-admin-btn">最新版</button>
+      <button id="titleBtn" class="v042-admin-btn">タイトルへ</button>
       ${dev}
-    </div>
+    </div></details>
     <button class="globalPhoneBtn v042-home-phone" title="携帯を開く"><span>📱</span>${counts.total ? `<em>${counts.total}</em>` : ""}</button>
   </header>`;
+}
+
+function renderHomeContextBarV043b() {
+  const selected = v043bSelectedHomeCommand();
+  const cls = selected ? "selected" : "idle";
+  return `<section class="v043b-context-bar ${cls}" aria-live="polite"><span>${selected ? "選択中" : "ガイド"}</span><b>${escapeHtml(v043bHomeContextMessage())}</b></section>`;
 }
 
 function renderTurnRailV042() {
@@ -13381,17 +13477,12 @@ function v042CommandDisabledReason(id) {
 }
 
 function renderHomeActionButtonsV042() {
-  const items = [
-    ["practice", "練習", "演奏を上げる", "🥁"],
-    ["rest", "休憩", "疲労を下げる", "☕"],
-    ["parttime", "バイト", "資金を稼ぐ", "💴"],
-    ["recruit", "募集", "仲間候補", "📣"],
-    ["promo", "宣伝", "知名度を上げる", "📢"],
-    ["talk", "会話", "信頼と気づき", "💬"]
-  ];
-  return items.map(([id,label,note,icon]) => {
+  const selected = v043bSelectedHomeCommand();
+  return v043bHomeCommandItems().map(([id,label,note,icon]) => {
     const reason = v042CommandDisabledReason(id);
-    return `<button class="command-card v042-action-btn ${reason ? "disabled" : ""}" data-command="${id}" ${reason ? "disabled" : ""} title="${escapeHtml(reason || note)}"><span>${icon}</span><b>${label}</b><small>${escapeHtml(reason || note)}</small></button>`;
+    const active = selected === id;
+    const hint = reason || (active ? "もう一度タップで実行" : note);
+    return `<button class="v043b-action-btn v042-action-btn ${active ? "selected" : ""} ${reason ? "disabled" : ""}" data-command="${id}" aria-pressed="${active ? "true" : "false"}" ${reason ? "disabled" : ""} title="${escapeHtml(hint)}"><span>${icon}</span><b>${label}</b><small>${escapeHtml(hint)}</small>${active ? "<em>✓</em>" : ""}</button>`;
   }).join("");
 }
 
@@ -13412,10 +13503,16 @@ function renderHomeIllustrationV042() {
   const recent = (state.members || [])[state.members.length - 1] || state.player;
   const memberNames = activeMembers().map(m => m.name).filter(Boolean).slice(0, 4).join(" / ");
   const bandbookCount = bandDiscoveredCount ? bandDiscoveredCount() : 0;
-  return `<button class="v042-illustration openMemberDetailBtn" data-member-id="${escapeHtml(recent?.id || "player")}" aria-label="挿絵">
-    <div class="v042-stage-visual"><span>${escapeHtml(initials(recent?.name || "主人公"))}</span><i></i></div>
-    <div><b>${escapeHtml(recent?.name || "主人公")}</b><small>${escapeHtml(recent?.part || "主人公")} / ${escapeHtml(memberNames || "ソロ")}</small><small>図鑑登録 ${bandbookCount} 組</small></div>
-  </button>`;
+  const next = v043bNextEventSummary();
+  return `<article class="v042-illustration v043b-visual-card" aria-label="挿絵と次予定">
+    <button class="v043b-visual-member openMemberDetailBtn" data-member-id="${escapeHtml(recent?.id || "player")}">
+      <div class="v042-stage-visual"><span>${escapeHtml(initials(recent?.name || "主人公"))}</span><i></i></div>
+      <div><b>${escapeHtml(recent?.name || "主人公")}</b><small>${escapeHtml(recent?.part || "主人公")} / ${escapeHtml(memberNames || "ソロ")}</small><small>図鑑登録 ${bandbookCount} 組</small></div>
+    </button>
+    <button class="jumpTabBtn v043b-next-chip" data-view="schedule" ${next.turn ? `data-turn="${next.turn}"` : ""}>
+      <span>${escapeHtml(next.badge)}</span><b>${escapeHtml(next.title)}</b><small>${escapeHtml(next.note)}</small>
+    </button>
+  </article>`;
 }
 
 function renderHomeStatusGridV042() {
@@ -13677,6 +13774,11 @@ const bindEvents_v042_base = bindEvents;
 bindEvents = function bindEvents_v042() {
   bindEvents_v042_base();
   bindLivePrepStepControls();
+  document.querySelectorAll(".v043b-action-btn:not(:disabled)").forEach(btn => {
+    if (btn.dataset.v043bBound === "1") return;
+    btn.dataset.v043bBound = "1";
+    btn.addEventListener("click", () => v043bHandleHomeCommandTap(btn.dataset.command));
+  });
   document.querySelectorAll(".phoneCloseBtn").forEach(btn => btn.addEventListener("click", () => { state.view = "home"; state.phoneSubView = "menu"; state.phoneAccountEdit = null; state.activeMailId = null; render(); }));
   document.querySelectorAll(".phoneInlineEditBtn").forEach(btn => btn.addEventListener("click", () => { state.phoneAccountEdit = btn.dataset.edit || null; render(); }));
   document.getElementById("saveMailAddressBtn")?.addEventListener("click", () => {
