@@ -1,0 +1,58 @@
+name: Apply audited v0.4.3c patch
+
+on:
+  push:
+    branches:
+      - release/v0.4.3c-phone-mail-schedule
+    paths:
+      - .github/workflows/apply-v043c-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/v0.4.3c-phone-mail-schedule
+          fetch-depth: 0
+      - name: Rebuild and apply audited candidate patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat \
+            .github/v043c_patch_chunk_aa \
+            .github/v043c_patch_chunk_ab \
+            .github/v043c_patch_chunk_ac \
+            .github/v043c_patch_chunk_ad \
+            > /tmp/v043c_candidate1_release.patch
+          echo "785e5aa7af191e17055b8a47d01327f358a378c0f80544192ada2a932f9a896c  /tmp/v043c_candidate1_release.patch" | sha256sum -c -
+          git apply --check /tmp/v043c_candidate1_release.patch
+          git apply /tmp/v043c_candidate1_release.patch
+          node --check game.js
+          cat > /tmp/expected.sha256 <<'EOF'
+          ad2605a66dee4ab1b963aec965358b13043dbe16a22c1a8c722f989b61d205ea  README.md
+          c4a478c2310a6fc83aeee0ffc995da9039aba009d356f037ed6a4b10ce27fe9f  VERSION.txt
+          556713f75bec9a7300364beb935c7b000ae8cfc9a20ead386407eafec418c5b0  game.js
+          527670d559b63df660ee1e2ebebaf0a766eeb15aa840fab1bf961b96a03dfbf3  index.html
+          a25acee1a26efe1ba1dc7ddd86230ab76101ff7d5b828c54f3017f1bf17c2d31  style.css
+          bff31c2d33027d0804384e4a060931d2ea3e8233f647614906d35fa0b407843e  sw.js
+          EOF
+          sha256sum -c /tmp/expected.sha256
+      - name: Commit release files only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm \
+            .github/v043c_patch_chunk_aa \
+            .github/v043c_patch_chunk_ab \
+            .github/v043c_patch_chunk_ac \
+            .github/v043c_patch_chunk_ad \
+            .github/workflows/apply-v043c-once.yml
+          git add README.md VERSION.txt game.js index.html style.css sw.js
+          git commit -m "Implement v0.4.3c phone mail schedule"
+          git push origin HEAD:release/v0.4.3c-phone-mail-schedule
