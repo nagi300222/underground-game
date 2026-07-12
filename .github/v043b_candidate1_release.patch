@@ -1,0 +1,667 @@
+--- a/README.md
++++ b/README.md
+@@ -4,7 +4,7 @@
+ 
+ ## 現行版
+ 
+-`v0.4.3a-ux-foundation-draft`
++`v0.4.3b-home-navigation-draft`
+ 
+ ## GitHub Pages 公開に必要なルートファイル
+ 
+--- a/VERSION.txt
++++ b/VERSION.txt
+@@ -1 +1 @@
+-v0.4.3a-ux-foundation-draft
++v0.4.3b-home-navigation-draft
+--- a/game.js
++++ b/game.js
+@@ -4,7 +4,7 @@
+   - 旧「（仮）」候補ブロックとPaper Moon Kids系コードは、旧セーブ互換/退避用に残すが、有効候補はMEMBER_DATABASEで上書きする。
+ */
+ 
+-const VERSION = "v0.4.3a-ux-foundation-draft";
++const VERSION = "v0.4.3b-home-navigation-draft";
+ 
+ const MAIN_GENRE_DATA = [
+   { name: "ロック", stage: "early", unlockTurn: 1 },
+@@ -6559,7 +6559,7 @@
+   </div>`;
+ }
+ 
+-const SAVE_VERSION = "v0.4.3a-ux-foundation-draft";
++const SAVE_VERSION = "v0.4.3b-home-navigation-draft";
+ let uiMode = "title";
+ let selectedSaveSlot = readCurrentSaveSlot();
+ 
+@@ -7961,14 +7961,17 @@
+   if (uiMode === "slot-new") return renderTitleSlotScreen("new");
+   if (uiMode === "slot-load") return renderTitleSlotScreen("load");
+   normalizeState();
++  v043bNormalizeNavigationState();
+   const liveMode = isLivePhase() || !!state.liveResult || !!state.pendingAfterparty || !!state.pendingAfterpartyEvent;
+   const phoneDuringLive = liveMode && state.view === "phone" && !state.liveResult && !state.pendingAfterparty && !state.pendingAfterpartyEvent;
++  v043bSyncHomeCommandSelection(liveMode, phoneDuringLive);
+   app.innerHTML = `
+-    <div class="app-shell app-shell-v041a">
++    <div class="app-shell app-shell-v041a ${state.view === "home" ? "v043b-home-shell" : "v043b-subpage-shell"}">
+       ${renderTopStats()}
+       ${v043aRenderBaseContent(liveMode, phoneDuringLive)}
+       ${renderNav(liveMode)}
+-      ${renderGlobalPhoneButton(liveMode)}
+       ${renderFloatingHomeButton(liveMode)}
+     </div>
+   `;
+@@ -8110,6 +8113,7 @@
+   if (selected) {
+     const groups = ["home-command", "story-choice", "afterparty-choice"];
+     groups.forEach(group => v043aClearSelection(group));
++    v043aClearSelection("home-command");
+   }
+ }
+ 
+@@ -8139,7 +8143,7 @@
+ }
+ 
+ function parentViewForNav(view=state?.view || "home") {
+-  if (["home", "command", "songs", "log"].includes(view)) return "command";
++  if (["home", "command", "songs", "log"].includes(view)) return "home";
+   if (["schedule", "fes"].includes(view)) return "schedule";
+   if (["band", "playerSkills", "shop", "library", "bandbook", "dev"].includes(view)) return "band";
+   return "home";
+@@ -8147,16 +8151,44 @@
+ 
+ function renderNav(liveMode=false) {
+   const active = parentViewForNav();
++  if (state.view === "home" || state.view === "phone") return "";
+   const nav = [
+-    ["command", "活動", "⚡"],
+-    ["schedule", "予定", "📅"],
+-    ["band", "バンド", "🎸"],
+-    ["phone", "携帯", "📱"]
++    ["home", "ホーム", "⌂"],
++    ["schedule", "予定", "□"],
++    ["band", "バンド", "♟"]
+   ];
+   return `<nav class="tabbar ${liveMode ? "tabbar-locked" : ""}">
+     ${nav.map(([view, label, icon]) => `<button class="tab-btn ${active === view ? "active" : ""}" data-view="${view}" ${liveMode ? "disabled" : ""}><span>${icon}</span>${label}</button>`).join("")}
+-    <button id="globalPhoneBtn" class="tab-btn phone-global ${state.view === "phone" ? "active" : ""}" ${liveMode ? "disabled" : ""}><span>📱</span>携帯</button>
+   </nav>`;
+ }
++
++function v043bNormalizeNavigationState() {
++  if ((state.view || "home") === "command") state.view = "home";
++}
++
++function v043bHomeCommandGroup() {
++  return "home-command";
++}
++
++function v043bSyncHomeCommandSelection(liveMode=false, phoneDuringLive=false) {
++  const onHome = (state.view || "home") === "home" && !liveMode && !phoneDuringLive && !v043aHasPriorityOverlay();
++  if (!onHome) v043aClearSelection(v043bHomeCommandGroup());
++}
++
++function v043bHandleHomeCommandTap(command) {
++  const disabledReason = v042CommandDisabledReason(command);
++  if (disabledReason) return;
++  const decision = v043aSelectOrConfirm(v043bHomeCommandGroup(), command);
++  if (!decision.confirmed) {
++    render();
++    return;
++  }
++  v043aClearSelection(v043bHomeCommandGroup());
++  handleCommandClick(command);
++}
+ 
+ function renderFloatingHomeButton(liveMode=false) {
+   if (liveMode || state.view === "home") return "";
+@@ -8170,19 +8202,20 @@
+ }
+ 
+ function renderMainContent() {
+-  const view = state.view || "home";
++  const view = state.view === "command" ? "home" : (state.view || "home");
+   if (view === "home") return `<main class="view-panel" data-view="home">${renderHomeScreen()}</main>`;
+-  if (view === "command") return `<main class="view-panel" data-view="command">${renderCommandDesk()}</main>`;
+   if (view === "songs") return `<main class="view-panel" data-view="songs">${renderSongDesk()}</main>`;
+   if (view === "schedule") return `<main class="view-panel" data-view="schedule">${renderScheduleScreen()}</main>`;
+   if (view === "fes") return `<main class="view-panel" data-view="fes">${renderFesScreen()}</main>`;
+@@ -12925,30 +12958,29 @@
+ }
+ 
+ function renderHomeScreen() {
+-  const planHtml = renderPlanBlockV042();
+-  const visualHtml = renderHomeIllustrationV042();
+   return `<section class="v042-home v043b-home">
+-    ${renderHomeTopBarV042()}
++    ${renderHomeTopBarV043b()}
+     ${renderTurnRailV042()}
+-    <div class="v042-home-layout">
+-      <div class="v042-home-left">
+-        ${renderHomeActionButtonsV042()}
++    <div class="v043b-context-bar" id="v043bContextBar">${escapeHtml(v043bHomeContextText())}</div>
++    <div class="v043b-home-layout">
++      <div class="v043b-home-left">
++        ${renderHomeActionButtonsV043b()}
+       </div>
+-      <div class="v042-home-right">
++      <div class="v043b-home-right">
+         ${renderSongcraftBlockV042()}
+-        ${planHtml}
+-        ${visualHtml}
++        ${renderHomeIllustrationV043b()}
+         ${renderHomeStatusGridV042()}
+-        <div class="v042-home-band-link"><button id="homeBandBtn" class="ghost-btn compact-btn">バンド詳細へ</button></div>
++        <div class="v043b-home-band-link"><button id="homeBandBtn" class="ghost-btn compact-btn">バンド管理</button></div>
+       </div>
+     </div>
+   </section>`;
+ }
+ 
+-function renderHomeTopBarV042() {
++function renderHomeTopBarV043b() {
+   const unread = unreadMailCount();
+   const profile = normalizePlayerProfile(state.playerProfile || createInitialPlayerProfile());
+   const bandName = state.bandName || "未定のバンド";
+   const ownerName = profile.name || "あなた";
+   return `<header class="v042-home-top v043b-home-top">
+     <div class="v042-home-profile">
+@@ -12958,19 +12990,21 @@
+         <small>${escapeHtml(ownerName)}</small>
+       </button>
+     </div>
+-    <div class="v042-home-top-actions">
++    <div class="v043b-home-top-actions">
++      <details class="v043b-utility-menu">
++        <summary aria-label="ユーティリティメニュー">…</summary>
++        <div class="v043b-utility-popover">
++          <button id="saveBtn" class="v042-admin-btn">セーブ</button>
++          <button id="loadBtn" class="v042-admin-btn">ロード</button>
++          <button id="refreshAppBtn" class="v042-admin-btn">最新版</button>
++          <button id="titleBtn" class="v042-admin-btn warn">タイトルへ</button>
++          <button id="devBtn" class="v042-admin-btn dev-only" style="display:${state.devMode ? "block" : "none"}">DEV</button>
++        </div>
++      </details>
+       <button id="openPhoneBtn" class="v042-home-phone" aria-label="携帯を開く"><span>📱</span>${unread ? `<b>${unread}</b>` : ""}</button>
+     </div>
+-    <div class="v042-home-admin-actions">
+-      <button id="saveBtn" class="v042-admin-btn">セーブ</button>
+-      <button id="loadBtn" class="v042-admin-btn">ロード</button>
+-      <button id="refreshAppBtn" class="v042-admin-btn">最新版</button>
+-      <button id="titleBtn" class="v042-admin-btn warn">タイトルへ</button>
+-      <button id="devBtn" class="v042-admin-btn dev-only" style="display:${state.devMode ? "block" : "none"}">DEV</button>
+-    </div>
+   </header>`;
+ }
+ 
+@@ -13017,6 +13051,70 @@
+   </section>`;
+ }
+ 
++function v043bCommandMeta(command) {
++  const map = {
++    practice:{ title:"練習", icon:"🎤", subtitle:"演奏を上げる", context:"練習：演奏能力上昇／疲労+／もう一度タップで実行" },
++    rest:{ title:"休憩", icon:"🛏", subtitle:"疲労を下げる", context:"休憩：疲労回復／もう一度タップで実行" },
++    work:{ title:"バイト", icon:"💴", subtitle:"資金を稼ぐ", context:"バイト：資金獲得／疲労+／もう一度タップで実行" },
++    recruit:{ title:"募集", icon:"📣", subtitle:"仲間候補", context:"募集：加入候補を探す／費用あり／もう一度タップで実行" },
++    promo:{ title:"宣伝", icon:"📢", subtitle:"知名度", context:"宣伝：知名度・集客力上昇／もう一度タップで実行" },
++    talk:{ title:"会話", icon:"💬", subtitle:"信頼", context:"会話：メンバーとの信頼度上昇／もう一度タップで実行" }
++  };
++  return map[command] || { title:command, icon:"•", subtitle:"", context:`${command}：もう一度タップで実行` };
++}
++
++function v043bHomeContextText() {
++  if (!state.tutorial?.finished) {
++    const required = requiredTutorialCommand();
++    if (required) {
++      const selected = v043aGetSelection(v043bHomeCommandGroup());
++      if (selected === required) return v043bCommandMeta(required).context;
++      return tutorialStepMessage();
++    }
++  }
++  const selected = v043aGetSelection(v043bHomeCommandGroup());
++  if (selected) return v043bCommandMeta(selected).context;
++  const next = v043bNextEventSummary();
++  if (next) return `${next.title}まで ${next.badge}`;
++  return "今週の活動を選んでください";
++}
++
++function renderHomeActionButtonsV043b() {
++  return HOME_ACTIONS_V042.map(command => {
++    const meta = v043bCommandMeta(command);
++    const reason = v042CommandDisabledReason(command);
++    const selected = v043aGetSelection(v043bHomeCommandGroup()) === command;
++    return `<button class="v043b-action-btn ${selected ? "selected" : ""} ${reason ? "disabled" : ""}" data-command="${command}" aria-pressed="${selected ? "true" : "false"}" ${reason ? "disabled" : ""} title="${escapeHtml(reason || meta.subtitle)}">
++      <span class="v043b-action-icon">${meta.icon}</span>
++      <span class="v043b-action-copy"><b>${escapeHtml(meta.title)}</b><small>${escapeHtml(meta.subtitle)}</small></span>
++      <span class="v043b-action-check">${selected ? "✓" : ""}</span>
++    </button>`;
++  }).join("");
++}
++
++function v043bNextEventSummary() {
++  const next = nextScheduledEvent();
++  if (!next) return null;
++  const meta = liveTypeMeta(next);
++  const eventName = String(next.label || next.name || meta.label || meta.short || "ライブ").trim();
++  const remain = Math.max(0, Number(next.turn || 0) - Number(state.turn || 0));
++  return {
++    title:`T${next.turn} ${eventName}`,
++    note:remain === 0 ? "今日のライブ" : `あと${remain}ターン`,
++    badge:remain <= 1 ? "直前" : `${remain}T`,
++    turn:next.turn,
++    event:next
++  };
++}
++
+ function renderHomeActionButtonsV042() {
+   return HOME_ACTIONS_V042.map(command => {
+     const reason = v042CommandDisabledReason(command);
+@@ -13102,6 +13200,24 @@
+   </section>`;
+ }
+ 
++function renderHomeIllustrationV043b() {
++  const summary = v043bNextEventSummary();
++  return `<section class="v043b-visual-card">
++    <button id="homeMemberDetailBtn" class="v043b-visual-main" aria-label="メンバー詳細を開く">
++      ${renderHomeIllustrationV042()}
++    </button>
++    <button id="homeNextEventBtn" class="v043b-next-chip" ${summary ? "" : "disabled"}>
++      ${summary ? `<span><b>${escapeHtml(summary.title)}</b><small>${escapeHtml(summary.note)}</small></span><em>${escapeHtml(summary.badge)}</em>` : `<span><b>次のライブはありません</b><small>出演先を探しましょう</small></span>`}
++    </button>
++  </section>`;
++}
++
+ function renderHomeIllustrationV042() {
+   const members = (state.members || []).slice(0, 4);
+   const lead = members[0];
+@@ -13320,6 +13436,36 @@
+ 
+   baseBindEvents();
+ 
++  document.querySelectorAll(".v043b-action-btn").forEach(btn => {
++    btn.onclick = () => v043bHandleHomeCommandTap(btn.dataset.command);
++  });
++
++  const clearHomeCommandSelection = () => v043aClearSelection(v043bHomeCommandGroup());
++
++  document.getElementById("openPhoneBtn")?.addEventListener("click", clearHomeCommandSelection);
++  document.getElementById("homeSongcraftBtn")?.addEventListener("click", clearHomeCommandSelection);
++  document.getElementById("homeBandBtn")?.addEventListener("click", clearHomeCommandSelection);
++  document.getElementById("homeMemberDetailBtn")?.addEventListener("click", clearHomeCommandSelection);
++  document.getElementById("homeNextEventBtn")?.addEventListener("click", clearHomeCommandSelection);
++  document.getElementById("saveBtn")?.addEventListener("click", clearHomeCommandSelection);
++  document.getElementById("loadBtn")?.addEventListener("click", clearHomeCommandSelection);
++  document.getElementById("titleBtn")?.addEventListener("click", clearHomeCommandSelection);
++
++  document.getElementById("homeNextEventBtn")?.addEventListener("click", () => {
++    state.view = "schedule";
++    render();
++  });
++
++  document.getElementById("homeMemberDetailBtn")?.addEventListener("click", () => {
++    const lead = (state.members || [])[0];
++    if (lead) openDetailModal(renderMemberDetailHtml(lead, { fromHome:true }));
++  });
++
+   if (state.livePrepStep) bindLivePrepStepControls();
+   if (state.view === "home") bindHomeV042Events();
+   return;
+--- a/index.html
++++ b/index.html
+@@ -4,7 +4,7 @@
+ <head>
+   <meta charset="utf-8" />
+   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+-  <title>アンダーグラウンド（仮） v0.4.3a-ux-foundation-draft</title>
++  <title>アンダーグラウンド（仮） v0.4.3b-home-navigation-draft</title>
+   <meta name="theme-color" content="#111827" />
+   <meta name="apple-mobile-web-app-capable" content="yes" />
+   <meta name="apple-mobile-web-app-title" content="アングラ" />
+--- a/style.css
++++ b/style.css
+@@ -4585,6 +4585,299 @@
+ .progress-gate-ready{
+   filter:none;
+ }
++
++/* v0.4.3b home/navigation */
++.app-shell.v043b-home-shell{
++  height:100dvh;
++  max-height:100dvh;
++  overflow:hidden;
++}
++.v043b-home-shell .top-stats{
++  display:none;
++}
++.v043b-home-shell .view-panel{
++  padding:0 !important;
++  height:100dvh;
++  min-height:0;
++  overflow:hidden !important;
++}
++.v043b-home{
++  height:100%;
++  display:grid;
++  grid-template-rows:auto auto 30px minmax(0,1fr);
++  overflow:hidden;
++}
++.v043b-home-top{
++  min-height:54px;
++  padding:5px 6px;
++  grid-template-columns:minmax(0,1fr) auto;
++}
++.v043b-home-top-actions{
++  display:flex;
++  gap:5px;
++  align-items:center;
++  justify-content:flex-end;
++}
++.v043b-home-top .v042-home-profile button{
++  min-height:44px;
++  padding:4px 7px;
++}
++.v043b-home-top .v042-home-profile b{
++  font-size:12px;
++}
++.v043b-home-top .v042-home-profile small{
++  font-size:10px;
++}
++.v043b-home-top .v042-home-phone{
++  width:44px;
++  min-width:44px;
++  height:44px;
++}
++.v043b-utility-menu{
++  position:relative;
++  width:44px;
++  height:44px;
++}
++.v043b-utility-menu summary{
++  list-style:none;
++  width:44px;
++  height:44px;
++  display:grid;
++  place-items:center;
++  border:1px solid var(--line);
++  border-radius:10px;
++  background:var(--panel);
++  color:var(--text);
++  font-size:22px;
++  font-weight:900;
++  cursor:pointer;
++}
++.v043b-utility-menu summary::-webkit-details-marker{
++  display:none;
++}
++.v043b-utility-popover{
++  position:absolute;
++  z-index:80;
++  top:48px;
++  right:0;
++  width:156px;
++  padding:7px;
++  display:grid;
++  gap:5px;
++  border:1px solid var(--line);
++  border-radius:10px;
++  background:var(--panel-strong);
++  box-shadow:0 12px 30px rgba(0,0,0,.45);
++}
++.v043b-utility-popover .v042-admin-btn{
++  width:100%;
++  min-height:44px;
++  text-align:left;
++}
++.v043b-context-bar{
++  height:30px;
++  min-height:30px;
++  padding:6px 8px;
++  border-top:1px solid var(--line);
++  border-bottom:1px solid var(--line);
++  background:color-mix(in srgb, var(--accent) 16%, var(--panel));
++  color:var(--text);
++  font-size:10px;
++  font-weight:800;
++  white-space:nowrap;
++  overflow:hidden;
++  text-overflow:ellipsis;
++}
++.v043b-home-layout{
++  min-height:0;
++  padding:6px;
++  display:grid;
++  grid-template-columns:minmax(124px,42%) minmax(0,1fr);
++  gap:6px;
++  overflow:hidden;
++}
++.v043b-home-left,
++.v043b-home-right{
++  min-height:0;
++  min-width:0;
++}
++.v043b-home-left{
++  display:grid;
++  grid-template-rows:repeat(6,minmax(44px,1fr));
++  gap:4px;
++}
++.v043b-action-btn{
++  width:100%;
++  min-height:44px;
++  padding:3px 5px;
++  display:grid;
++  grid-template-columns:24px minmax(0,1fr) 15px;
++  gap:4px;
++  align-items:center;
++  border:1px solid var(--line);
++  border-radius:8px;
++  background:var(--panel);
++  color:var(--text);
++  text-align:left;
++  overflow:hidden;
++}
++.v043b-action-btn.selected{
++  border:2px solid var(--accent);
++  background:color-mix(in srgb, var(--accent) 18%, var(--panel));
++}
++.v043b-action-btn.disabled{
++  opacity:.32;
++}
++.v043b-action-icon{
++  font-size:16px;
++  text-align:center;
++}
++.v043b-action-copy{
++  min-width:0;
++}
++.v043b-action-copy b,
++.v043b-action-copy small{
++  display:block;
++  white-space:nowrap;
++  overflow:hidden;
++  text-overflow:ellipsis;
++}
++.v043b-action-copy b{
++  font-size:11px;
++}
++.v043b-action-copy small{
++  font-size:10px;
++  color:var(--muted);
++}
++.v043b-action-check{
++  color:var(--accent);
++  font-weight:900;
++  text-align:center;
++}
++.v043b-home-right{
++  display:grid;
++  grid-template-rows:44px minmax(96px,1fr) 90px 32px;
++  gap:5px;
++}
++.v043b-home-right .v042-songcraft-block{
++  min-height:44px;
++  padding:4px;
++  overflow:hidden;
++}
++.v043b-home-right .v042-songcraft-block h3{
++  margin:0;
++  font-size:11px;
++}
++.v043b-home-right .v042-songcraft-block p,
++.v043b-home-right .v042-songcraft-block small{
++  display:none;
++}
++.v043b-home-right #homeSongcraftBtn{
++  min-height:34px;
++  padding:5px;
++}
++.v043b-visual-card{
++  position:relative;
++  min-height:0;
++  border:1px solid var(--line);
++  border-radius:8px;
++  overflow:hidden;
++  background:var(--panel);
++}
++.v043b-visual-main{
++  width:100%;
++  height:100%;
++  min-height:0;
++  padding:0;
++  border:0;
++  background:transparent;
++  color:inherit;
++  overflow:hidden;
++}
++.v043b-visual-main .v042-home-illustration{
++  min-height:100%;
++  height:100%;
++  border:0;
++  border-radius:0;
++  padding:4px;
++}
++.v043b-visual-main .v042-home-illustration-head,
++.v043b-visual-main .v042-home-illustration small{
++  display:none;
++}
++.v043b-next-chip{
++  position:absolute;
++  left:5px;
++  right:5px;
++  bottom:5px;
++  min-height:38px;
++  padding:5px 6px;
++  display:flex;
++  align-items:center;
++  justify-content:space-between;
++  gap:5px;
++  border:1px solid color-mix(in srgb, var(--accent) 70%, var(--line));
++  border-radius:7px;
++  background:rgba(15,23,42,.91);
++  color:#fff;
++  text-align:left;
++}
++.v043b-next-chip span{
++  min-width:0;
++}
++.v043b-next-chip b,
++.v043b-next-chip small{
++  display:block;
++  white-space:nowrap;
++  overflow:hidden;
++  text-overflow:ellipsis;
++}
++.v043b-next-chip b{
++  font-size:10px;
++}
++.v043b-next-chip small{
++  font-size:10px;
++  color:#d1d5db;
++}
++.v043b-next-chip em{
++  flex:0 0 auto;
++  font-size:10px;
++  font-style:normal;
++  font-weight:900;
++  color:var(--accent);
++}
++.v043b-home-right .v042-home-status-grid{
++  margin:0;
++  grid-template-columns:repeat(2,minmax(0,1fr));
++  gap:3px;
++}
++.v043b-home-right .v042-home-status-card{
++  min-width:0;
++  min-height:0;
++  padding:3px 5px;
++}
++.v043b-home-right .v042-home-status-card span{
++  font-size:10px;
++}
++.v043b-home-right .v042-home-status-card b{
++  font-size:11px;
++}
++.v043b-home-band-link,
++.v043b-home-band-link button{
++  width:100%;
++  min-height:32px;
++  height:32px;
++}
++.v043b-subpage-shell .tabbar{
++  grid-template-columns:repeat(3,minmax(0,1fr));
++}
++.v043b-subpage-shell .view-panel{
++  padding-bottom:calc(74px + env(safe-area-inset-bottom));
++}
++@media (max-width:340px), (max-height:600px){
++  .v043b-home{
++    grid-template-rows:auto auto 28px minmax(0,1fr);
++  }
++  .v043b-home-top{
++    min-height:54px;
++  }
++  .v043b-home-layout{
++    grid-template-columns:minmax(124px,43%) minmax(0,1fr);
++    padding:4px;
++    gap:4px;
++  }
++  .v043b-home-left{
++    gap:3px;
++  }
++  .v043b-action-copy small{
++    display:none;
++  }
++  .v043b-action-copy b{
++    font-size:10px;
++  }
++  .v043b-home-right{
++    grid-template-rows:42px minmax(86px,1fr) 84px 30px;
++    gap:4px;
++  }
++  .v043b-home-right .v042-songcraft-block{
++    min-height:42px;
++  }
++  .v043b-home-band-link,
++  .v043b-home-band-link button{
++    min-height:30px;
++    height:30px;
++  }
++  .v043b-utility-popover{
++    width:150px;
++  }
++  .v043b-context-bar{
++    height:28px;
++    min-height:28px;
++    padding:5px 6px;
++  }
++}
+--- a/sw.js
++++ b/sw.js
+@@ -1,4 +1,4 @@
+-const CACHE_NAME = "underground-v0-4-3a-ux-foundation-draft";
++const CACHE_NAME = "underground-v0-4-3b-home-navigation-draft";
+ const ASSETS = [
+   "./",
+   "./index.html",
