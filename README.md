@@ -4,7 +4,7 @@
 
 ## 現行版
 
-`v0.4.3b-home-navigation-draft`
+`v0.4.3c-phone-mail-schedule-draft`
 
 ## GitHub Pages 公開に必要なルートファイル
 

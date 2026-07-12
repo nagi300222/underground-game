@@ -3833,6 +3833,148 @@ small,.badge,.tabbar .tabBtn small,.menu-tile small{font-size:12px;line-height:1
   }
 }
 
+/* v0.4.3c light patch: phone safety, first-live reply, schedule tabs */
+body:has(.v042-phone-backdrop){overflow-x:hidden}
+.v042-phone-backdrop{
+  padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));
+  overflow:hidden;
+}
+.v042-phone-shell{
+  width:min(356px,calc(100vw - 24px));
+  max-width:356px;
+  height:min(760px,calc(100dvh - 24px));
+  max-height:calc(100dvh - 24px);
+  box-sizing:border-box;
+}
+.v042-phone-close{
+  top:-12px;
+  right:-10px;
+  width:44px;
+  height:44px;
+  min-width:44px;
+  min-height:44px;
+  display:grid;
+  place-items:center;
+  z-index:2;
+}
+.v042-phone-screen{
+  overflow:hidden;
+}
+.v042-phone-menu,
+.v042-phone-app-view,
+.v042-mail-app,
+.v042-sns-app,
+.v042-phone-app-body{
+  max-height:100%;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+}
+.v043c-important-mail{
+  width:100%;
+  min-height:52px;
+  margin:0 0 10px;
+  border:1px solid #b45309;
+  border-radius:8px;
+  background:#fff7ed;
+  color:#16121b;
+  text-align:left;
+  display:grid;
+  gap:3px;
+  padding:10px 12px;
+}
+.v043c-important-mail b,
+.v043c-important-mail small{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.v043c-first-live-actions .modal-actions{
+  align-items:stretch;
+}
+.v043c-schedule-tabs-screen{
+  display:block;
+}
+.v043c-schedule-tabs{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+  margin-bottom:10px;
+}
+.v043c-schedule-tabs button{
+  min-height:44px;
+  border-radius:8px;
+  border:1px solid var(--v41-border);
+  background:var(--v41-panel-2);
+  color:var(--v41-text);
+  font-weight:900;
+}
+.v043c-schedule-tabs button.active{
+  border-color:rgba(255,230,109,.7);
+  background:#2f2714;
+  color:#fff8ec;
+}
+.v043c-schedule-pane{
+  max-width:100%;
+}
+.v043c-past-live-details{
+  border:1px solid var(--v41-border);
+  border-radius:8px;
+  padding:8px;
+  background:var(--v41-panel-2);
+}
+.v043c-past-live-details summary{
+  min-height:44px;
+  display:flex;
+  align-items:center;
+  cursor:pointer;
+  font-weight:900;
+}
+.v043b-context-bar{
+  grid-template-columns:auto minmax(0,1fr) auto;
+}
+.v043cOpenFirstLiveMailBtn{
+  min-height:28px;
+  border-radius:7px;
+  border:1px solid rgba(255,230,109,.6);
+  background:#fff8ec;
+  color:#16121b;
+  font-size:11px;
+  font-weight:900;
+  white-space:nowrap;
+  padding:4px 8px;
+}
+@media(max-width:430px){
+  .v042-phone-shell{
+    width:min(356px,calc(100vw - 24px));
+  }
+  .v042-phone-app-top{
+    gap:6px;
+  }
+  .v042-phone-app-top .ghost-btn,
+  .v042-phone-app-top .phoneInlineEditBtn,
+  .v042-phone-app-top .closeMailDetailBtn{
+    min-height:44px;
+  }
+}
+@media(max-width:360px){
+  .v042-phone-shell{
+    width:calc(100vw - 24px);
+    border-width:4px;
+    padding:26px 10px 14px;
+  }
+  .v043b-context-bar{
+    grid-template-columns:auto minmax(0,1fr);
+    max-height:none;
+  }
+  .v043cOpenFirstLiveMailBtn{
+    grid-column:2;
+    justify-self:start;
+    min-height:32px;
+  }
+}
+
 /* v0.4.3a-ux-foundation-draft */
 .v042-view-panel{
   width:100%;
@@ -5104,4 +5246,72 @@ body:has(.v043b-shell-compact-home){
   .v043b-home .v042-status b{
     font-size:11px;
   }
+}
+
+/* v0.4.3c ChatGPT integration corrections: preserve detached roots and enforce phone geometry. */
+#phoneRoot.ui-root{
+  position:fixed !important;
+  inset:0 !important;
+  z-index:100 !important;
+}
+#toastRoot.ui-root{
+  position:fixed !important;
+  inset:0 !important;
+  z-index:150 !important;
+}
+#overlayRoot.ui-root{
+  position:fixed !important;
+  inset:0 !important;
+  z-index:200 !important;
+}
+body:has(.v042-phone-backdrop){
+  overflow:hidden !important;
+}
+.v042-phone-backdrop{
+  padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left)) !important;
+}
+.v042-phone-shell{
+  width:min(356px,calc(100vw - 24px)) !important;
+  max-width:356px !important;
+  height:min(760px,calc(100dvh - max(12px,env(safe-area-inset-top)) - max(12px,env(safe-area-inset-bottom)))) !important;
+  max-height:calc(100dvh - max(12px,env(safe-area-inset-top)) - max(12px,env(safe-area-inset-bottom))) !important;
+}
+.v042-phone-close{
+  top:-12px !important;
+  right:-10px !important;
+  width:44px !important;
+  height:44px !important;
+  min-width:44px !important;
+  min-height:44px !important;
+}
+.v043b-context-bar.important{
+  position:relative !important;
+  min-height:45px !important;
+  max-height:45px !important;
+  grid-template-columns:auto minmax(0,1fr) auto !important;
+  border-color:rgba(255,230,109,.82) !important;
+  background:#3a3016 !important;
+}
+.v043c-context-action-label{
+  color:#ffe66d;
+  font-size:10px;
+  font-style:normal;
+  font-weight:900;
+  white-space:nowrap;
+}
+.v043c-context-hit{
+  position:absolute !important;
+  inset:0 !important;
+  width:100% !important;
+  height:100% !important;
+  min-width:100% !important;
+  min-height:45px !important;
+  margin:0 !important;
+  padding:0 !important;
+  border:0 !important;
+  opacity:0;
+  cursor:pointer;
+}
+.v043cOpenFirstLiveMailBtn:not(.v043c-context-hit){
+  min-height:44px !important;
 }
