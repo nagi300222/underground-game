@@ -1,0 +1,170 @@
+     if (!offer) { state.pendingMailAction = null; return ""; }
+@@ -10962,11 +11101,14 @@ function bindEvents() {
+   document.querySelectorAll(".tutorialSkipHintsBtn").forEach(btn => btn.addEventListener("click", () => { state.tutorialSkipHints = true; log("チュートリアルの案内表示を少なめにした。", "event"); render(); }));
+   document.querySelectorAll(".mailOpenBtn").forEach(btn => btn.addEventListener("click", () => openMail(btn.dataset.mailId)));
+   document.querySelectorAll(".closeMailDetailBtn").forEach(btn => btn.addEventListener("click", closeMailDetail));
++  document.querySelectorAll(".v043cFirstLiveReplyBtn").forEach(btn => btn.addEventListener("click", () => v043cRequestFirstLiveReply(btn.dataset.mailId)));
++  document.querySelectorAll(".v043cOpenFirstLiveMailBtn").forEach(btn => btn.addEventListener("click", () => v043cOpenMailDirect(btn.dataset.mailId)));
++  document.querySelectorAll(".v043cScheduleTabBtn").forEach(btn => btn.addEventListener("click", () => v043cSetScheduleTab(btn.dataset.scheduleTab)));
+   document.querySelectorAll(".snsPostBtn").forEach(btn => btn.addEventListener("click", () => snsPost(btn.dataset.snsPost || "chat")));
+   document.querySelectorAll(".declineOfferBtn").forEach(btn => btn.addEventListener("click", () => declineLiveOffer(btn.dataset.offerId)));
+   document.querySelectorAll(".meetApplicantMailBtn").forEach(btn => btn.addEventListener("click", () => requestMeetApplicantFromMail(btn.dataset.mailId)));
+   document.querySelectorAll(".openBandFromMailBtn").forEach(btn => btn.addEventListener("click", () => { state.activeMailId = null; state.view = "band"; state.phoneSubView = "menu"; render(); }));
+-  document.querySelectorAll(".openScheduleFromMailBtn").forEach(btn => btn.addEventListener("click", () => { state.activeMailId = null; state.view = "schedule"; state.phoneSubView = "menu"; render(); }));
++  document.querySelectorAll(".openScheduleFromMailBtn").forEach(btn => btn.addEventListener("click", () => { v043cUiRuntime.scheduleTab = "planned"; state.activeMailId = null; state.view = "schedule"; state.phoneSubView = "menu"; render(); }));
+   const confirmMailActionBtn = document.getElementById("confirmMailActionBtn");
+   if (confirmMailActionBtn) confirmMailActionBtn.addEventListener("click", confirmMailAction);
+   const cancelMailActionBtn = document.getElementById("cancelMailActionBtn");
+@@ -13339,10 +13481,16 @@ function v043bNextEventSummary() {
+   const remain = Math.max(0, Number(next.turn) - Number(state.turn || 1));
+   const meta = liveTypeMeta(next);
+   const eventName = String(next.label || next.name || meta.label || meta.short || "ライブ").trim();
+-  return { title:`T${next.turn} ${eventName}`, note:remain <= 0 ? "今日のライブ" : `あと${remain}ターン`, badge:remain <= 1 ? "直前" : `${remain}T`, turn:next.turn, event:next };
++  const replyNote = v043cIsFirstLiveEvent(next) ? ` / ${v043cFirstLiveReplyStatus().homeText}` : "";
++  return { title:`T${next.turn} ${eventName}`, note:`${remain <= 0 ? "今日のライブ" : `あと${remain}ターン`}${replyNote}`, badge:remain <= 1 ? "直前" : `${remain}T`, turn:next.turn, event:next };
+ }
+ 
+ function v043bHomeContextMessage() {
++  const importantMail = v043cImportantMailTarget();
++  if (importantMail) {
++    if (v043cT4FirstLiveReplyGate()) return "初ライブへの返事がまだです。メールを確認してください。";
++    return "初ライブへの出演依頼が届いています。メールを確認してください。";
++  }
+   const selected = v043bSelectedHomeCommand();
+   if (selected) return v043bCommandPreview(selected);
+   const tutorial = !state.tutorialSkipHints && (state.liveCount || 0) === 0 ? tutorialPhaseInfo() : null;
+@@ -13350,7 +13498,7 @@ function v043bHomeContextMessage() {
+   if (typeof hasPendingSongFinalize === "function" && hasPendingSongFinalize()) return "未完成の曲がある。作詞・作曲から仕上げよう";
+   if (isLiveTurn()) return "今日はライブ本番。予定から準備を確認しよう";
+   const next = v043bNextEventSummary();
+-  if (next.turn) return `${next.title}まで ${next.badge}`;
++  if (next.turn) return `${next.title}まで ${next.badge}${v043cIsFirstLiveEvent(next.event) ? ` / ${v043cFirstLiveReplyStatus().homeText}` : ""}`;
+   return "行動を選ぶと詳細を確認。同じ行動をもう一度タップで実行";
+ }
+ 
+@@ -13445,9 +13593,12 @@ function renderHomeTopBarV042() {
+ }
+ 
+ function renderHomeContextBarV043b() {
++  const target = v043cImportantMailTarget();
++  if (v043cT4FirstLiveReplyGate()) v043bClearHomeCommandSelection();
+   const selected = v043bSelectedHomeCommand();
+-  const cls = selected ? "selected" : "idle";
+-  return `<section class="v043b-context-bar ${cls}" aria-live="polite"><span>${selected ? "選択中" : "ガイド"}</span><b>${escapeHtml(v043bHomeContextMessage())}</b></section>`;
++  const cls = target ? "important" : (selected ? "selected" : "idle");
++  const mailAction = target ? `<em class="v043c-context-action-label">メールを開く</em><button class="v043cOpenFirstLiveMailBtn v043c-context-hit" data-mail-id="${escapeHtml(target.id)}" aria-label="メールを開く"></button>` : "";
++  return `<section class="v043b-context-bar ${cls}" aria-live="polite"><span>${target ? "要返信" : (selected ? "選択中" : "ガイド")}</span><b>${escapeHtml(v043bHomeContextMessage())}</b>${mailAction}</section>`;
+ }
+ 
+ function renderTurnRailV042() {
+@@ -13467,6 +13618,7 @@ function renderTurnRailV042() {
+ }
+ 
+ function v042CommandDisabledReason(id) {
++  if (v043cT4FirstLiveReplyGate()) return "初ライブへの返事がまだ";
+   if (mustCompleteFirstDraftTutorial()) return "未完成曲を先に完成";
+   if (state.tutorialStage === "needSong") return "先に作詞・作曲";
+   const need = tutorialRequiredCommandForTurn();
+@@ -13557,6 +13709,8 @@ function renderPhoneAppFrameV042(title, icon, body) {
+ function renderPhoneAppMenuV042() {
+   const counts = v042NotificationCounts();
+   const badge = n => n ? `<em class="nav-badge">${n}</em>` : "";
++  const important = v043cImportantMailTarget();
++  const importantBlock = important ? `<button class="v043cOpenFirstLiveMailBtn v043c-important-mail" data-mail-id="${escapeHtml(important.id)}"><b>要返信：ライブイベントのお誘い</b><small>メール詳細を開いて返事する</small></button>` : "";
+   const apps = [
+     ["shop", "🛒", "ショップ", counts.shop, "機材・回復"],
+     ["mail", "✉️", "メール", counts.mail, "受信トレイ"],
+@@ -13564,7 +13718,7 @@ function renderPhoneAppMenuV042() {
+     ["bandbook", "📖", "図鑑", counts.bandbook, "他バンド"],
+     ["account", "⚙", "オプション", counts.option, "名前と表示"]
+   ];
+-  return `<div class="v042-phone-menu"><div class="v042-phone-title"><b>携帯</b><span>${counts.total ? `通知 ${counts.total}` : "通知なし"}</span></div><div class="v042-app-list">${apps.map(([mode,icon,label,noteCount,note]) => `<button class="phoneModeBtn v042-app-icon" data-phone-mode="${mode}"><span>${icon}</span><b>${label}</b>${badge(noteCount)}<small>${note}</small></button>`).join("")}</div></div>`;
++  return `<div class="v042-phone-menu"><div class="v042-phone-title"><b>携帯</b><span>${counts.total ? `通知 ${counts.total}` : "通知なし"}</span></div>${importantBlock}<div class="v042-app-list">${apps.map(([mode,icon,label,noteCount,note]) => `<button class="phoneModeBtn v042-app-icon" data-phone-mode="${mode}"><span>${icon}</span><b>${label}</b>${badge(noteCount)}<small>${note}</small></button>`).join("")}</div></div>`;
+ }
+ 
+ function renderMailScreen() {
+diff --git a/index.html b/index.html
+index 9a0d7a5..fac0434 100644
+--- a/index.html
++++ b/index.html
+@@ -3,7 +3,7 @@
+ <head>
+   <meta charset="utf-8" />
+   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+-  <title>アンダーグラウンド（仮） v0.4.3b-home-navigation-draft</title>
++  <title>アンダーグラウンド（仮） v0.4.3c-phone-mail-schedule-draft</title>
+   <meta name="theme-color" content="#111827" />
+   <meta name="apple-mobile-web-app-capable" content="yes" />
+   <meta name="apple-mobile-web-app-title" content="アングラ" />
+diff --git a/style.css b/style.css
+index a8a4fed..e35eae4 100644
+--- a/style.css
++++ b/style.css
+@@ -3833,6 +3833,148 @@ small,.badge,.tabbar .tabBtn small,.menu-tile small{font-size:12px;line-height:1
+   }
+ }
+ 
++/* v0.4.3c light patch: phone safety, first-live reply, schedule tabs */
++body:has(.v042-phone-backdrop){overflow-x:hidden}
++.v042-phone-backdrop{
++  padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));
++  overflow:hidden;
++}
++.v042-phone-shell{
++  width:min(356px,calc(100vw - 24px));
++  max-width:356px;
++  height:min(760px,calc(100dvh - 24px));
++  max-height:calc(100dvh - 24px);
++  box-sizing:border-box;
++}
++.v042-phone-close{
++  top:-12px;
++  right:-10px;
++  width:44px;
++  height:44px;
++  min-width:44px;
++  min-height:44px;
++  display:grid;
++  place-items:center;
++  z-index:2;
++}
++.v042-phone-screen{
++  overflow:hidden;
++}
++.v042-phone-menu,
++.v042-phone-app-view,
++.v042-mail-app,
++.v042-sns-app,
++.v042-phone-app-body{
++  max-height:100%;
++  min-height:0;
++  overflow-y:auto;
++  overflow-x:hidden;
++  -webkit-overflow-scrolling:touch;
++}
++.v043c-important-mail{
++  width:100%;
++  min-height:52px;
++  margin:0 0 10px;
++  border:1px solid #b45309;
++  border-radius:8px;
++  background:#fff7ed;
++  color:#16121b;
++  text-align:left;
++  display:grid;
++  gap:3px;
++  padding:10px 12px;
++}
++.v043c-important-mail b,
++.v043c-important-mail small{
++  min-width:0;
++  overflow:hidden;
++  text-overflow:ellipsis;
++}
++.v043c-first-live-actions .modal-actions{
++  align-items:stretch;
++}
++.v043c-schedule-tabs-screen{
++  display:block;
++}
++.v043c-schedule-tabs{
