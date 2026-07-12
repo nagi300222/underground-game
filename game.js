@@ -4,7 +4,7 @@
   - 旧「（仮）」候補ブロックとPaper Moon Kids系コードは、旧セーブ互換/退避用に残すが、有効候補はMEMBER_DATABASEで上書きする。
 */
 
-const VERSION = "v0.4.3b-home-navigation-draft";
+const VERSION = "v0.4.3c-phone-mail-schedule-draft";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -6559,9 +6559,10 @@ function renderDevScreen() {
   </div>`;
 }
 
-const SAVE_VERSION = "v0.4.3b-home-navigation-draft";
+const SAVE_VERSION = "v0.4.3c-phone-mail-schedule-draft";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
+let v043cUiRuntime = { scheduleTab: "planned", stateRef: null };
 
 function loadDiscoveredSubGenres() {
   try { return JSON.parse(localStorage.getItem(DISCOVERY_KEY) || "{}"); } catch (e) { return {}; }
@@ -6828,6 +6829,7 @@ function createInitialState() {
     liveSchedule: liveEvents.map(e => e.turn).sort((a,b)=>a-b),
     nextLiveTurn: 5,
     liveCount: 0,
+    firstLiveReplied: false,
     ended: false,
     player,
     members: [],
@@ -7258,8 +7260,125 @@ function addInitialFlowMail(key, subject, body, sender="携帯通知") {
   state.storyFlags[key] = true;
   const isLive = key.includes("under");
   const payload = { sender };
+  if (key === "underInviteMail") {
+    payload.firstLiveInvite = true;
+    payload.status = state.firstLiveReplied ? "accepted" : "pending";
+    payload.targetTurn = 5;
+    payload.venueId = "garage";
+  }
   if (!isLive) payload.mailAction = "meet_applicant";
   addMail(subject, body, isLive ? "live_offer" : "member", payload);
+}
+function v043cIsFirstLiveEvent(ev) {
+  if (!ev) return false;
+  const label = String(ev.label || ev.name || "");
+  return !!ev.initialLive || (Number(ev.turn || 0) === 5 && (ev.fixed || label.includes("初ライブ")));
+}
+function v043cFirstLiveEvent() {
+  return (state.liveEvents || []).find(v043cIsFirstLiveEvent) || null;
+}
+function v043cIsFirstLiveInviteMail(m) {
+  if (!m) return false;
+  const payload = m.payload || {};
+  const subject = String(m.subject || "");
+  const sender = String(m.sender || payload.sender || "");
+  return !!payload.firstLiveInvite || (subject === "ライブイベントのお誘い" && ((m.kind || "") === "live_offer") && (sender.includes("UNDER") || !payload.offerId));
+}
+function v043cFirstLiveInviteMail() {
+  return (state.phoneMails || []).find(v043cIsFirstLiveInviteMail) || null;
+}
+function v043cHasInitialLiveHistory() {
+  return (state.liveResultHistory || []).some(r => {
+    const text = String(r.title || r.liveTypeLabel || r.name || "");
+    return Number(r.turn || 0) === 5 || text.includes("初ライブ");
+  });
+}
+function v043cNormalizeFirstLiveState() {
+  const mail = v043cFirstLiveInviteMail();
+  const acceptedByMail = mail?.payload?.status === "accepted";
+  if (typeof state.firstLiveReplied !== "boolean") {
+    state.firstLiveReplied = !!(Number(state.turn || 1) >= 5 || Number(state.liveCount || 0) > 0 || v043cHasInitialLiveHistory() || acceptedByMail);
+  }
+  if (acceptedByMail) state.firstLiveReplied = true;
+  if (mail) {
+    mail.payload = mail.payload || {};
+    mail.payload.firstLiveInvite = true;
+    mail.payload.targetTurn = 5;
+    mail.payload.venueId = mail.payload.venueId || v043cFirstLiveEvent()?.venueId || "garage";
+    mail.payload.status = state.firstLiveReplied ? "accepted" : (mail.payload.status || "pending");
+  }
+}
+function v043cFirstLiveReplyStatus() {
+  const mail = v043cFirstLiveInviteMail();
+  const accepted = !!state.firstLiveReplied || mail?.payload?.status === "accepted";
+  return {
+    accepted,
+    mail,
+    mailText: accepted ? "✓ 返事済み：出演" : "仮押さえ・返事待ち",
+    scheduleText: accepted ? "出演確定" : "仮押さえ・返事待ち",
+    homeText: accepted ? "出演確定" : "仮押さえ・返事待ち",
+    cls: accepted ? "good" : "warn"
+  };
+}
+function v043cT4FirstLiveReplyGate() {
+  const mail = v043cFirstLiveInviteMail();
+  return Number(state.turn || 1) === 4 && !!mail && !v043cFirstLiveReplyStatus().accepted;
+}
+function v043cImportantMailTarget() {
+  const firstLive = v043cFirstLiveInviteMail();
+  if (firstLive && !v043cFirstLiveReplyStatus().accepted) return firstLive;
+  return null;
+}
+function v043cOpenMailDirect(mailId) {
+  const targetId = mailId || v043cImportantMailTarget()?.id;
+  const mail = (state.phoneMails || []).find(m => m.id === targetId);
+  if (!mail) return;
+  if (typeof v043bClearHomeCommandSelection === "function") v043bClearHomeCommandSelection();
+  mail.read = true;
+  state.view = "phone";
+  state.phoneSubView = "mail";
+  state.phoneAccountEdit = null;
+  state.activeMailId = mail.id;
+  render();
+}
+function v043cRequestFirstLiveReply(mailId) {
+  const mail = (state.phoneMails || []).find(m => m.id === mailId) || v043cFirstLiveInviteMail();
+  if (!mail) return;
+  if (v043cFirstLiveReplyStatus().accepted) { v043cOpenMailDirect(mail.id); return; }
+  mail.read = true;
+  state.view = "phone";
+  state.phoneSubView = "mail";
+  state.activeMailId = mail.id;
+  state.pendingMailAction = { type:"first_live_reply", mailId:mail.id, turn:5 };
+  render();
+}
+function v043cConfirmFirstLiveReply(mailId) {
+  const mail = (state.phoneMails || []).find(m => m.id === mailId) || v043cFirstLiveInviteMail();
+  state.firstLiveReplied = true;
+  if (mail) {
+    mail.read = true;
+    mail.payload = mail.payload || {};
+    mail.payload.firstLiveInvite = true;
+    mail.payload.status = "accepted";
+    mail.payload.targetTurn = 5;
+    mail.payload.venueId = mail.payload.venueId || v043cFirstLiveEvent()?.venueId || "garage";
+    state.activeMailId = mail.id;
+  }
+  state.view = "phone";
+  state.phoneSubView = "mail";
+  render();
+}
+function v043cScheduleTab() {
+  if (!v043cUiRuntime || v043cUiRuntime.stateRef !== state) {
+    v043cUiRuntime = { scheduleTab: "planned", stateRef: state };
+  }
+  if (!["planned", "discover"].includes(v043cUiRuntime.scheduleTab)) v043cUiRuntime.scheduleTab = "planned";
+  return v043cUiRuntime.scheduleTab;
+}
+function v043cSetScheduleTab(tab) {
+  v043cScheduleTab();
+  v043cUiRuntime.scheduleTab = tab === "discover" ? "discover" : "planned";
+  render();
 }
 function applyInitialFlowTurnEvents() {
   if ((state.liveCount || 0) > 0 && state.turn === 6 && !bandSystemOn()) { addStoryLiveOfferPaperMoon(); }
@@ -7659,6 +7778,7 @@ function normalizeState() {
   if (!state.account.email) state.account.email = `${safeProfileSlug(state.band?.name || "bandname")}@under-mail.jp`;
   if (!state.account.snsDisplayName) state.account.snsDisplayName = state.band?.name || "";
   if (!state.account.snsUserName) state.account.snsUserName = `@${safeProfileSlug(state.band?.name || "bandname")}`;
+  v043cNormalizeFirstLiveState();
   if (typeof state.openingStep === "undefined") state.openingStep = state.introSeen ? 7 : 0;
   if (typeof state.snsLastSeenCount === "undefined") state.snsLastSeenCount = 0;
   if (!state.snsWorldSeen || typeof state.snsWorldSeen !== "object" || Array.isArray(state.snsWorldSeen)) state.snsWorldSeen = {};
@@ -8271,6 +8391,7 @@ function maybeAddTutorialSnsSeed(command) {
 function unreadMailCount() { return (state.phoneMails || []).filter(m => !m.read).length; }
 function isActionableMail(m) {
   if (!m) return false;
+  if (v043cIsFirstLiveInviteMail(m)) return !v043cFirstLiveReplyStatus().accepted;
   if ((m.kind || "") === "member") {
     const applicantId = m.payload?.applicantId || "";
     const alreadyMet = m.payload?.status === "met";
@@ -8412,6 +8533,13 @@ function renderMailDetail(m) {
   </div>`;
 }
 function renderMailActionsWithoutOffer(m) {
+  if (v043cIsFirstLiveInviteMail(m)) {
+    const status = v043cFirstLiveReplyStatus();
+    const action = status.accepted
+      ? `<span class="badge good">${escapeHtml(status.mailText)}</span>`
+      : `<button class="v043cFirstLiveReplyBtn big-action" data-mail-id="${escapeHtml(m.id)}">「出る」と返事する</button>`;
+    return `<div class="mail-offer-actions v043c-first-live-actions"><b>初ライブへの返事</b><small>5ターン目のライブハウスUNDER出演依頼です。返事をすると予定表・ホームの状態が出演確定になります。</small><div class="modal-actions">${action}<button class="openScheduleFromMailBtn ghost-btn">予定表を確認する</button></div></div>`;
+  }
   if ((m.kind || "") === "live_offer") {
     return `<div class="mail-offer-actions"><b>ライブ予定の案内</b><small>このライブは固定予定または案内メールです。予定表で開催ターンと準備状況を確認できます。</small><div class="modal-actions"><button class="openScheduleFromMailBtn big-action">予定表を確認する</button></div></div>`;
   }
@@ -8709,45 +8837,48 @@ function renderSchedulePanel() {
     .filter(o => !o.accepted && !o.expired && o.status !== "declined" && (o.storyInvite || canBookLiveTurn(o.turn)) && o.turn > state.turn && !liveEventForTurn(o.turn))
     .slice(0, 4);
   const next = upcoming[0];
-  return `<div class="schedule-screen-split extended-schedule ui-prep-schedule">
-    <section class="schedule-panel schedule-booked-panel">
-      <div class="section-title"><h3>次のライブ</h3><span class="badge good">最優先</span></div>
-      ${next ? renderNextLiveDetail(next) : `<div class="empty-panel">今後のライブ予定なし。ライブハウスイベントか自主企画を入れよう。</div>`}
-      <hr class="soft" />
-      <div class="section-title"><h3>今後の予定</h3><span class="badge">自主/固定/参加</span></div>
-      <div class="schedule-vertical-list booked-list">
-        ${planned.map(e => renderScheduleEvent(e)).join("") || `<div class="schedule-event empty-panel">今後の予定なし</div>`}
-      </div>
-      <hr class="soft" />
-      ${renderScheduleFesSummary()}
-      <hr class="soft" />
-      <h3>過去のライブ結果ログ</h3>
-      ${renderLiveHistoryList(6)}
-    </section>
-    <section class="live-candidates-panel">
-      <div class="section-title"><h3>出演通知メール</h3><span class="badge ${offers.length ? "good" : "warn"}">${offers.length ? `${offers.length}件` : "未着"}</span></div>
-      <div class="live-candidate-list offer-mini-list">
-        ${offers.map(renderLiveOfferMini).join("") || `<div class="empty-panel">出演通知はまだありません。宣伝・交流で届きやすくなります。</div>`}
-      </div>
-      <small>メールから参加可能。ブッキングは会場費ではなく参加費なので、序盤〜中盤の現実的な経験ルートです。</small>
-      <hr class="soft" />
-      <div class="section-title"><h3>フェス候補</h3><span class="badge warn">高難度</span></div>
-      <div class="live-candidate-list">
-        ${festivalCandidates.map(renderLiveCandidate).join("") || `<div class="empty-panel">今ターン申込できる追加フェスはありません。20/25/35/40T付近に出現します。</div>`}
-      </div>
-      <hr class="soft" />
-      <div class="section-title"><h3>ライブハウスイベント</h3><span class="badge ${canBook ? "good" : "warn"}">${canBook ? "自分から参加可能" : "初ライブ後に解放"}</span></div>
-      <div class="live-candidate-list">
-        ${canBook ? houseCandidates.map(renderLiveCandidate).join("") || `<div class="empty-panel">今ターン参加申込できるライブハウスイベントはありません。メール通知も確認してみよう。</div>` : `<div class="empty-panel">初ライブ後から、ライブハウスイベントに自分から参加できます。</div>`}
-      </div>
-      <hr class="soft" />
-      <div class="section-title"><h3>自主企画の会場候補</h3><span class="badge ${canBook ? "good" : "warn"}">${canBook ? "ワンマン/対バン" : "初ライブ後に解放"}</span></div>
-      <div class="live-candidate-list">
-        ${canBook ? candidates.map(renderLiveCandidate).join("") || `<div class="empty-panel">予約可能な自主企画候補がありません。</div>` : `<div class="empty-panel">初ライブ後から、スケジュール帳で自主企画ライブを決定できます。</div>`}
-      </div>
-      <small>ワンマンは高難度。対バンは交流と集客の助けがある代わりに報酬は分配寄りです。</small>
-    </section>
+  const tab = v043cScheduleTab();
+  const tabs = `<div class="v043c-schedule-tabs" role="tablist" aria-label="予定タブ">
+    <button class="v043cScheduleTabBtn ${tab === "planned" ? "active" : ""}" data-schedule-tab="planned" role="tab" aria-selected="${tab === "planned" ? "true" : "false"}">予定</button>
+    <button class="v043cScheduleTabBtn ${tab === "discover" ? "active" : ""}" data-schedule-tab="discover" role="tab" aria-selected="${tab === "discover" ? "true" : "false"}">出演先を探す</button>
   </div>`;
+  const plannedPane = `<section class="schedule-panel schedule-booked-panel v043c-schedule-pane">
+    <div class="section-title"><h3>次のライブ</h3><span class="badge good">最優先</span></div>
+    ${next ? renderNextLiveDetail(next) : `<div class="empty-panel">今後のライブ予定なし。出演先を探すタブからライブを入れよう。</div>`}
+    <hr class="soft" />
+    <div class="section-title"><h3>今後の予定</h3><span class="badge">自主/固定/参加</span></div>
+    <div class="schedule-vertical-list booked-list">
+      ${planned.map(e => renderScheduleEvent(e)).join("") || `<div class="schedule-event empty-panel">今後の予定なし</div>`}
+    </div>
+    <hr class="soft" />
+    ${renderScheduleFesSummary()}
+    <hr class="soft" />
+    <details class="v043c-past-live-details"><summary>過去のライブ結果ログ</summary>${renderLiveHistoryList(6)}</details>
+  </section>`;
+  const discoverPane = `<section class="live-candidates-panel v043c-schedule-pane">
+    <div class="section-title"><h3>出演通知メール</h3><span class="badge ${offers.length ? "good" : "warn"}">${offers.length ? `${offers.length}件` : "未着"}</span></div>
+    <div class="live-candidate-list offer-mini-list">
+      ${offers.map(renderLiveOfferMini).join("") || `<div class="empty-panel">出演通知はまだありません。宣伝・交流で届きやすくなります。</div>`}
+    </div>
+    <small>メールから参加可能。ブッキングは会場費ではなく参加費なので、序盤〜中盤の現実的な経験ルートです。</small>
+    <hr class="soft" />
+    <div class="section-title"><h3>フェス候補</h3><span class="badge warn">高難度</span></div>
+    <div class="live-candidate-list">
+      ${festivalCandidates.map(renderLiveCandidate).join("") || `<div class="empty-panel">今ターン申込できる追加フェスはありません。20/25/35/40T付近に出現します。</div>`}
+    </div>
+    <hr class="soft" />
+    <div class="section-title"><h3>ライブハウスイベント</h3><span class="badge ${canBook ? "good" : "warn"}">${canBook ? "自分から参加可能" : "初ライブ後に解放"}</span></div>
+    <div class="live-candidate-list">
+      ${canBook ? houseCandidates.map(renderLiveCandidate).join("") || `<div class="empty-panel">今ターン参加申込できるライブハウスイベントはありません。メール通知も確認してみよう。</div>` : `<div class="empty-panel">初ライブ後から、ライブハウスイベントに自分から参加できます。</div>`}
+    </div>
+    <hr class="soft" />
+    <div class="section-title"><h3>自主企画の会場候補</h3><span class="badge ${canBook ? "good" : "warn"}">${canBook ? "ワンマン/対バン" : "初ライブ後に解放"}</span></div>
+    <div class="live-candidate-list">
+      ${canBook ? candidates.map(renderLiveCandidate).join("") || `<div class="empty-panel">予約可能な自主企画候補がありません。</div>` : `<div class="empty-panel">初ライブ後から、スケジュール帳で自主企画ライブを決定できます。</div>`}
+    </div>
+    <small>ワンマンは高難度。対バンは交流と集客の助けがある代わりに報酬は分配寄りです。</small>
+  </section>`;
+  return `<div class="schedule-screen-split extended-schedule ui-prep-schedule v043c-schedule-tabs-screen">${tabs}${tab === "discover" ? discoverPane : plannedPane}</div>`;
 }
 function renderNextLiveDetail(ev) {
   const v = venueById(ev.venueId);
@@ -8755,10 +8886,12 @@ function renderNextLiveDetail(ev) {
   const prep = estimatePrepScore();
   const bands = invitedBandsForEvent(ev);
   const remaining = Math.max(0, ev.turn - state.turn);
+  const firstLiveStatus = v043cIsFirstLiveEvent(ev) ? v043cFirstLiveReplyStatus() : null;
   return `<div class="next-live-detail schedule-event ${prep >= v.prepNeed ? "good" : "risk"}">
     <strong>NEXT LIVE：${ev.turn}T / あと${remaining}T</strong>
     <b>${escapeHtml(meta.label)} / ${escapeHtml(v.name)}</b>
     <span>${escapeHtml(meta.short)}・キャパ${v.capacity}・${escapeHtml(meta.feeLabel)}${eventBaseCost(ev, v).toLocaleString()}円</span>
+    ${firstLiveStatus ? `<span class="badge ${firstLiveStatus.cls}">${escapeHtml(firstLiveStatus.scheduleText)}</span>` : ""}
     <small>準備 ${val(prep)} / 必要 ${v.prepNeed}${prep < v.prepNeed ? `（不足${val(v.prepNeed - prep)}）` : ""}</small>
     ${bands.length ? `<small>共演：${bands.map(b => escapeHtml(b.name)).join(" / ")}</small>` : `<small>単独/固定イベント。自分たちの集客力が重要。</small>`}
   </div>`;
@@ -8900,10 +9033,12 @@ function renderScheduleEvent(e) {
   const meta = liveTypeMeta(e);
   const cost = eventBaseCost(e, v);
   const bands = invitedBandsForEvent(e);
+  const firstLiveStatus = v043cIsFirstLiveEvent(e) ? v043cFirstLiveReplyStatus() : null;
   const cancelBtn = canCancel ? `<button class="cancelLiveBtn ghost-btn" data-turn="${e.turn}">キャンセル</button>` : (!e.fixed ? `<small class="deadline-note">残り2ターン以内：変更不可</small>` : "");
   return `<div class="schedule-event ${cls}">
     <b>${e.turn}T ${escapeHtml(e.label || e.name || meta.short)}</b>
     <span><span class="badge good">${escapeHtml(meta.short)}</span> ${escapeHtml(meta.label)} / ${escapeHtml(v.name)}</span>
+    ${firstLiveStatus ? `<span class="badge ${firstLiveStatus.cls}">${escapeHtml(firstLiveStatus.scheduleText)}</span>` : ""}
     <small>キャパ${v.capacity} / ${escapeHtml(meta.feeLabel)}${cost.toLocaleString()}円 / 要準備${v.prepNeed}</small>
     ${bands.length ? `<small>共演：${bands.map(b=>escapeHtml(b.name)).join(" / ")}</small>` : ""}
     <em>${status}：現在準備${val(prep)}</em>
@@ -9003,6 +9138,7 @@ function requestMeetApplicantFromMail(mailId) {
 function confirmMailAction() {
   const a = state.pendingMailAction || {};
   state.pendingMailAction = null;
+  if (a.type === "first_live_reply") { v043cConfirmFirstLiveReply(a.mailId); return; }
   if (a.type === "live_offer") { acceptLiveOffer(a.offerId); return; }
   if (a.type === "member") {
     const mail = (state.phoneMails || []).find(m => m.id === a.mailId);
@@ -9028,6 +9164,9 @@ function confirmMailAction() {
 function cancelMailAction() { state.pendingMailAction = null; render(); }
 function renderMailActionConfirmOverlay() {
   const a = state.pendingMailAction || {};
+  if (a.type === "first_live_reply") {
+    return v043aRenderConfirmationSheet({ icon:"📩", tone:"event", extraClass:"mail-action-modal", title:"T5 初ライブへの返事", bodyHtml:"<p>ライブハウスUNDERへ、初ライブに出演すると返事します。</p>", actionsClass:"confirm-wide", confirmId:"confirmMailActionBtn", confirmLabel:"出演すると返事する", cancelId:"cancelMailActionBtn", cancelLabel:"まだ返事しない" });
+  }
   if (a.type === "live_offer") {
     const offer = (state.liveOffers || []).find(o => o.id === a.offerId);
     if (!offer) { state.pendingMailAction = null; return ""; }
@@ -10962,11 +11101,14 @@ function bindEvents() {
   document.querySelectorAll(".tutorialSkipHintsBtn").forEach(btn => btn.addEventListener("click", () => { state.tutorialSkipHints = true; log("チュートリアルの案内表示を少なめにした。", "event"); render(); }));
   document.querySelectorAll(".mailOpenBtn").forEach(btn => btn.addEventListener("click", () => openMail(btn.dataset.mailId)));
   document.querySelectorAll(".closeMailDetailBtn").forEach(btn => btn.addEventListener("click", closeMailDetail));
+  document.querySelectorAll(".v043cFirstLiveReplyBtn").forEach(btn => btn.addEventListener("click", () => v043cRequestFirstLiveReply(btn.dataset.mailId)));
+  document.querySelectorAll(".v043cOpenFirstLiveMailBtn").forEach(btn => btn.addEventListener("click", () => v043cOpenMailDirect(btn.dataset.mailId)));
+  document.querySelectorAll(".v043cScheduleTabBtn").forEach(btn => btn.addEventListener("click", () => v043cSetScheduleTab(btn.dataset.scheduleTab)));
   document.querySelectorAll(".snsPostBtn").forEach(btn => btn.addEventListener("click", () => snsPost(btn.dataset.snsPost || "chat")));
   document.querySelectorAll(".declineOfferBtn").forEach(btn => btn.addEventListener("click", () => declineLiveOffer(btn.dataset.offerId)));
   document.querySelectorAll(".meetApplicantMailBtn").forEach(btn => btn.addEventListener("click", () => requestMeetApplicantFromMail(btn.dataset.mailId)));
   document.querySelectorAll(".openBandFromMailBtn").forEach(btn => btn.addEventListener("click", () => { state.activeMailId = null; state.view = "band"; state.phoneSubView = "menu"; render(); }));
-  document.querySelectorAll(".openScheduleFromMailBtn").forEach(btn => btn.addEventListener("click", () => { state.activeMailId = null; state.view = "schedule"; state.phoneSubView = "menu"; render(); }));
+  document.querySelectorAll(".openScheduleFromMailBtn").forEach(btn => btn.addEventListener("click", () => { v043cUiRuntime.scheduleTab = "planned"; state.activeMailId = null; state.view = "schedule"; state.phoneSubView = "menu"; render(); }));
   const confirmMailActionBtn = document.getElementById("confirmMailActionBtn");
   if (confirmMailActionBtn) confirmMailActionBtn.addEventListener("click", confirmMailAction);
   const cancelMailActionBtn = document.getElementById("cancelMailActionBtn");
@@ -13339,10 +13481,16 @@ function v043bNextEventSummary() {
   const remain = Math.max(0, Number(next.turn) - Number(state.turn || 1));
   const meta = liveTypeMeta(next);
   const eventName = String(next.label || next.name || meta.label || meta.short || "ライブ").trim();
-  return { title:`T${next.turn} ${eventName}`, note:remain <= 0 ? "今日のライブ" : `あと${remain}ターン`, badge:remain <= 1 ? "直前" : `${remain}T`, turn:next.turn, event:next };
+  const replyNote = v043cIsFirstLiveEvent(next) ? ` / ${v043cFirstLiveReplyStatus().homeText}` : "";
+  return { title:`T${next.turn} ${eventName}`, note:`${remain <= 0 ? "今日のライブ" : `あと${remain}ターン`}${replyNote}`, badge:remain <= 1 ? "直前" : `${remain}T`, turn:next.turn, event:next };
 }
 
 function v043bHomeContextMessage() {
+  const importantMail = v043cImportantMailTarget();
+  if (importantMail) {
+    if (v043cT4FirstLiveReplyGate()) return "初ライブへの返事がまだです。メールを確認してください。";
+    return "初ライブへの出演依頼が届いています。メールを確認してください。";
+  }
   const selected = v043bSelectedHomeCommand();
   if (selected) return v043bCommandPreview(selected);
   const tutorial = !state.tutorialSkipHints && (state.liveCount || 0) === 0 ? tutorialPhaseInfo() : null;
@@ -13350,7 +13498,7 @@ function v043bHomeContextMessage() {
   if (typeof hasPendingSongFinalize === "function" && hasPendingSongFinalize()) return "未完成の曲がある。作詞・作曲から仕上げよう";
   if (isLiveTurn()) return "今日はライブ本番。予定から準備を確認しよう";
   const next = v043bNextEventSummary();
-  if (next.turn) return `${next.title}まで ${next.badge}`;
+  if (next.turn) return `${next.title}まで ${next.badge}${v043cIsFirstLiveEvent(next.event) ? ` / ${v043cFirstLiveReplyStatus().homeText}` : ""}`;
   return "行動を選ぶと詳細を確認。同じ行動をもう一度タップで実行";
 }
 
@@ -13445,9 +13593,12 @@ function renderHomeTopBarV042() {
 }
 
 function renderHomeContextBarV043b() {
+  const target = v043cImportantMailTarget();
+  if (v043cT4FirstLiveReplyGate()) v043bClearHomeCommandSelection();
   const selected = v043bSelectedHomeCommand();
-  const cls = selected ? "selected" : "idle";
-  return `<section class="v043b-context-bar ${cls}" aria-live="polite"><span>${selected ? "選択中" : "ガイド"}</span><b>${escapeHtml(v043bHomeContextMessage())}</b></section>`;
+  const cls = target ? "important" : (selected ? "selected" : "idle");
+  const mailAction = target ? `<em class="v043c-context-action-label">メールを開く</em><button class="v043cOpenFirstLiveMailBtn v043c-context-hit" data-mail-id="${escapeHtml(target.id)}" aria-label="メールを開く"></button>` : "";
+  return `<section class="v043b-context-bar ${cls}" aria-live="polite"><span>${target ? "要返信" : (selected ? "選択中" : "ガイド")}</span><b>${escapeHtml(v043bHomeContextMessage())}</b>${mailAction}</section>`;
 }
 
 function renderTurnRailV042() {
@@ -13467,6 +13618,7 @@ function renderTurnRailV042() {
 }
 
 function v042CommandDisabledReason(id) {
+  if (v043cT4FirstLiveReplyGate()) return "初ライブへの返事がまだ";
   if (mustCompleteFirstDraftTutorial()) return "未完成曲を先に完成";
   if (state.tutorialStage === "needSong") return "先に作詞・作曲";
   const need = tutorialRequiredCommandForTurn();
@@ -13557,6 +13709,8 @@ function renderPhoneAppFrameV042(title, icon, body) {
 function renderPhoneAppMenuV042() {
   const counts = v042NotificationCounts();
   const badge = n => n ? `<em class="nav-badge">${n}</em>` : "";
+  const important = v043cImportantMailTarget();
+  const importantBlock = important ? `<button class="v043cOpenFirstLiveMailBtn v043c-important-mail" data-mail-id="${escapeHtml(important.id)}"><b>要返信：ライブイベントのお誘い</b><small>メール詳細を開いて返事する</small></button>` : "";
   const apps = [
     ["shop", "🛒", "ショップ", counts.shop, "機材・回復"],
     ["mail", "✉️", "メール", counts.mail, "受信トレイ"],
@@ -13564,7 +13718,7 @@ function renderPhoneAppMenuV042() {
     ["bandbook", "📖", "図鑑", counts.bandbook, "他バンド"],
     ["account", "⚙", "オプション", counts.option, "名前と表示"]
   ];
-  return `<div class="v042-phone-menu"><div class="v042-phone-title"><b>携帯</b><span>${counts.total ? `通知 ${counts.total}` : "通知なし"}</span></div><div class="v042-app-list">${apps.map(([mode,icon,label,noteCount,note]) => `<button class="phoneModeBtn v042-app-icon" data-phone-mode="${mode}"><span>${icon}</span><b>${label}</b>${badge(noteCount)}<small>${note}</small></button>`).join("")}</div></div>`;
+  return `<div class="v042-phone-menu"><div class="v042-phone-title"><b>携帯</b><span>${counts.total ? `通知 ${counts.total}` : "通知なし"}</span></div>${importantBlock}<div class="v042-app-list">${apps.map(([mode,icon,label,noteCount,note]) => `<button class="phoneModeBtn v042-app-icon" data-phone-mode="${mode}"><span>${icon}</span><b>${label}</b>${badge(noteCount)}<small>${note}</small></button>`).join("")}</div></div>`;
 }
 
 function renderMailScreen() {
