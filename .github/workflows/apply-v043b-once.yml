@@ -1,0 +1,45 @@
+name: Apply audited v0.4.3b patch
+
+on:
+  push:
+    branches:
+      - release/v0.4.3b-home-navigation
+    paths:
+      - .github/workflows/apply-v043b-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply audited candidate patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git apply --check .github/v043b_candidate1_release.patch
+          git apply .github/v043b_candidate1_release.patch
+          node --check game.js
+          cat > /tmp/expected.sha256 <<'EOF'
+          9d70fd7679e219b369d5426708542667acac988482833bdd5d27f776ddb4d19e  README.md
+          8d5a1374373536672fb6f8e83c1945709251b0f2b96eb547ce836a74805cd663  VERSION.txt
+          6613ae552cad036351c00294b2076b808f224bc88a6b758711646c4aa3fcbac9  game.js
+          e976bba04a99f3c484412c5eb3627d6c8a96ff35a1584063d351ca509eda1f37  index.html
+          ec5eec14c55ba86173eedbaba4cb89069a516bb430c9109dd342e661c9d8bf3d  style.css
+          74d9f2e016ec8b863e7861597152c2677b4bac0cd8199079c61e445c58fb5f35  sw.js
+          EOF
+          sha256sum -c /tmp/expected.sha256
+      - name: Commit release files only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/v043b_candidate1_release.patch .github/workflows/apply-v043b-once.yml
+          git add README.md VERSION.txt game.js index.html style.css sw.js
+          git commit -m "Implement v0.4.3b home navigation"
+          git push origin HEAD:release/v0.4.3b-home-navigation
