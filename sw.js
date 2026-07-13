@@ -1,4 +1,4 @@
-const CACHE_NAME = "underground-v0-4-3e-visual-rc-draft";
+const CACHE_NAME = "underground-v0-4-3-rc1";
 const ASSETS = [
   "./",
   "./index.html",

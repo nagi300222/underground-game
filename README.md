@@ -4,7 +4,7 @@
 
 ## 現行版
 
-`v0.4.3e-visual-rc-draft`
+`v0.4.3-rc1`
 
 ## GitHub Pages 公開に必要なルートファイル
 
