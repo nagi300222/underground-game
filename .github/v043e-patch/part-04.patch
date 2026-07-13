@@ -1,0 +1,83 @@
+       <button id="saveBtn" class="v042-admin-btn">セーブ</button>
+       <button id="loadBtn" class="v042-admin-btn">ロード</button>
+       <button id="refreshAppBtn" class="v042-admin-btn">最新版</button>
+       <button id="titleBtn" class="v042-admin-btn">タイトルへ</button>
+       ${dev}
+     </div></details>
+-    <button class="globalPhoneBtn v042-home-phone" title="携帯を開く"><span>📱</span>${counts.total ? `<em>${counts.total}</em>` : ""}</button>
++    <button class="globalPhoneBtn v042-home-phone" title="携帯を開く"><span>${v043eIcon("phone")}</span>${counts.total ? `<em>${counts.total}</em>` : ""}</button>
+   </header>`;
+ }
+ 
+@@ -13867,7 +13906,7 @@ function renderHomeActionButtonsV042() {
+     const reason = v042CommandDisabledReason(id);
+     const active = selected === id;
+     const hint = reason || (active ? "もう一度タップで実行" : note);
+-    return `<button class="v043b-action-btn v042-action-btn ${active ? "selected" : ""} ${reason ? "disabled" : ""}" data-command="${id}" aria-pressed="${active ? "true" : "false"}" ${reason ? "disabled" : ""} title="${escapeHtml(hint)}"><span>${icon}</span><b>${label}</b><small>${escapeHtml(hint)}</small>${active ? "<em>✓</em>" : ""}</button>`;
++    return `<button class="v043b-action-btn v042-action-btn ${active ? "selected" : ""} ${reason ? "disabled" : ""}" data-command="${id}" aria-pressed="${active ? "true" : "false"}" ${reason ? "disabled" : ""} title="${escapeHtml(hint)}"><span>${v043eIcon(icon)}</span><b>${label}</b><small>${escapeHtml(hint)}</small>${active ? `<em>${v043eIcon("check")}</em>` : ""}</button>`;
+   }).join("");
+ }
+ 
+@@ -13875,7 +13914,7 @@ function renderSongcraftBlockV042() {
+   const s = songcraftHomeStatus();
+   const locked = !mustCompleteFirstDraftTutorial() && (state.tutorialStage === "needCommand" || state.scheduleTutorialStage === "needSchedule");
+   const note = locked ? (state.scheduleTutorialStage === "needSchedule" ? "先に予定を確認" : "次は行動を選ぶ") : s.note;
+-  return `<button class="openSongEditorBtn v042-songcraft ${locked ? "disabled" : ""}" ${locked ? "disabled" : ""}><span>🎼</span><b>作詞・作曲</b><small>${escapeHtml(note)}</small><em>${escapeHtml(s.badge)}</em></button>`;
++  return `<button class="openSongEditorBtn v042-songcraft ${locked ? "disabled" : ""}" ${locked ? "disabled" : ""}><span>${v043eIcon("song")}</span><b>作詞・作曲</b><small>${escapeHtml(note)}</small><em>${escapeHtml(s.badge)}</em></button>`;
+ }
+ 
+ function renderPlanBlockV042() {
+@@ -13910,7 +13949,8 @@ function renderHomeStatusGridV042() {
+     ["集客力", displayAudiencePower(b), "info", "🎫"],
+     ["業界評価", Math.round(b.industry || 0), "info", "🏢"]
+   ];
+-  return `<section class="v042-status-card"><div class="v042-status-grid">${rows.map(([k,v,cls,icon]) => `<div class="v042-status ${cls}"><span>${icon} ${k}</span><b>${escapeHtml(String(v))}</b></div>`).join("")}</div></section>`;
++  const icons = ["money", "audience", "fatigue", "fame", "ticket", "industry"];
++  return `<section class="v042-status-card"><div class="v042-status-grid">${rows.map(([k,v,cls,icon], idx) => `<div class="v042-status ${cls}"><span>${v043eIcon(icons[idx] || icon)} ${k}</span><b>${escapeHtml(String(v))}</b></div>`).join("")}</div></section>`;
+ }
+ 
+ function renderPhoneScreen() {
+@@ -13918,7 +13958,7 @@ function renderPhoneScreen() {
+   return `<div class="v042-phone-backdrop">
+     <section class="v042-phone-shell" role="dialog" aria-label="携帯">
+       <div class="v042-phone-speaker"></div>
+-      <button class="phoneCloseBtn v042-phone-close" title="閉じる">×</button>
++      <button class="phoneCloseBtn v042-phone-close" title="閉じる" aria-label="閉じる">${v043eIcon("close")}</button>
+       <div class="v042-phone-screen">
+         ${renderPhoneModeContentV042(mode)}
+       </div>
+@@ -13927,7 +13967,7 @@ function renderPhoneScreen() {
+ }
+ 
+ function renderPhoneModeContentV042(mode) {
+-  if (mode === "shop") return renderPhoneAppFrameV042("ショップ", "🛒", renderShopScreen());
++  if (mode === "shop") return renderPhoneAppFrameV042("ショップ", "shop", renderShopScreen());
+   if (mode === "mail") return renderMailScreen();
+   if (mode === "sns") { state.snsLastSeenCount = (state.snsPosts || []).length; return renderSnsScreen(); }
+   if (mode === "bandbook") return renderPhoneBandBookScreen();
+@@ -13936,7 +13976,8 @@ function renderPhoneModeContentV042(mode) {
+ }
+ 
+ function renderPhoneAppFrameV042(title, icon, body) {
+-  return `<div class="v042-phone-app-view"><div class="v042-phone-app-top"><button class="phoneModeBtn ghost-btn" data-phone-mode="menu">←</button><b>${icon} ${escapeHtml(title)}</b></div><div class="v042-phone-app-body">${body}</div></div>`;
++  const frameIcon = v043eIconPaths[icon] ? v043eIcon(icon) : icon;
++  return `<div class="v042-phone-app-view"><div class="v042-phone-app-top"><button class="phoneModeBtn ghost-btn" data-phone-mode="menu">${v043eIcon("back")}</button><b>${frameIcon} ${escapeHtml(title)}</b></div><div class="v042-phone-app-body">${body}</div></div>`;
+ }
+ 
+ function renderPhoneAppMenuV042() {
+@@ -13945,13 +13986,13 @@ function renderPhoneAppMenuV042() {
+   const important = v043cImportantMailTarget();
+   const importantBlock = important ? `<button class="v043cOpenFirstLiveMailBtn v043c-important-mail" data-mail-id="${escapeHtml(important.id)}"><b>要返信：ライブイベントのお誘い</b><small>メール詳細を開いて返事する</small></button>` : "";
+   const apps = [
+-    ["shop", "🛒", "ショップ", counts.shop, "機材・回復"],
+-    ["mail", "✉️", "メール", counts.mail, "受信トレイ"],
+-    ["sns", "#", "SNS", counts.sns, "タイムライン"],
+-    ["bandbook", "📖", "図鑑", counts.bandbook, "他バンド"],
+-    ["account", "⚙", "オプション", counts.option, "名前と表示"]
++    ["shop", "shop", "ショップ", counts.shop, "機材・回復"],
++    ["mail", "mail", "メール", counts.mail, "受信トレイ"],
++    ["sns", "sns", "SNS", counts.sns, "タイムライン"],
++    ["bandbook", "book", "図鑑", counts.bandbook, "他バンド"],
++    ["account", "settings", "オプション", counts.option, "名前と表示"]
+   ];
+-  return `<div class="v042-phone-menu"><div class="v042-phone-title"><b>携帯</b><span>${counts.total ? `通知 ${counts.total}` : "通知なし"}</span></div>${importantBlock}<div class="v042-app-list">${apps.map(([mode,icon,label,noteCount,note]) => `<button class="phoneModeBtn v042-app-icon" data-phone-mode="${mode}"><span>${icon}</span><b>${label}</b>${badge(noteCount)}<small>${note}</small></button>`).join("")}</div></div>`;
