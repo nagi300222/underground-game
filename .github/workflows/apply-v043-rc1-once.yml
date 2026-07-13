@@ -1,0 +1,45 @@
+name: Promote v0.4.3 RC1
+
+on:
+  push:
+    branches:
+      - release/v0.4.3-rc1
+    paths:
+      - .github/workflows/apply-v043-rc1-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/v0.4.3-rc1
+          fetch-depth: 0
+      - name: Apply audited RC1 promotion
+        shell: bash
+        run: |
+          set -euo pipefail
+          git apply --check .github/v043-rc1-release.patch
+          git apply .github/v043-rc1-release.patch
+          node --check game.js
+          cat > /tmp/expected.sha256 <<'EOF'
+          f8ab85fbdeacab4634902605da64649477c66dde7c293169860ba4cdb8bc665a  README.md
+          15fed3200e9142f0d191e154b613916e49c7af7952f70a3762bc5467aa0984db  VERSION.txt
+          c135ca800f79e6e0443614ddd31c1e7f64bba0fb4600c88e1da74790f6ffa37b  game.js
+          097506485d4e29a56603492e09bf5c77d03798150d8f4003e20c874ae2d9f88b  index.html
+          62efb80082ba10a0a344104e0c114a5ca7323b7c2f7001228c16a34c5d4b35b2  sw.js
+          EOF
+          sha256sum -c /tmp/expected.sha256
+      - name: Commit RC1 promotion only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/v043-rc1-release.patch .github/workflows/apply-v043-rc1-once.yml
+          git add README.md VERSION.txt game.js index.html sw.js
+          git commit -m "Promote v0.4.3 RC1"
+          git push origin HEAD:release/v0.4.3-rc1
