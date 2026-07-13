@@ -4,7 +4,7 @@
   - 旧「（仮）」候補ブロックとPaper Moon Kids系コードは、旧セーブ互換/退避用に残すが、有効候補はMEMBER_DATABASEで上書きする。
 */
 
-const VERSION = "v0.4.3e-visual-rc-draft";
+const VERSION = "v0.4.3-rc1";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -6567,7 +6567,7 @@ function renderDevScreen() {
   </div>`;
 }
 
-const SAVE_VERSION = "v0.4.3e-visual-rc-draft";
+const SAVE_VERSION = "v0.4.3-rc1";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 let v043cUiRuntime = { scheduleTab: "planned", stateRef: null };
