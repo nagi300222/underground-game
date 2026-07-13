@@ -1,0 +1,65 @@
+diff --git a/README.md b/README.md
+index 65c7801..8787914 100644
+--- a/README.md
++++ b/README.md
+@@ -4,7 +4,7 @@
+ 
+ ## 現行版
+ 
+-`v0.4.3e-visual-rc-draft`
++`v0.4.3-rc1`
+ 
+ ## GitHub Pages 公開に必要なルートファイル
+ 
+diff --git a/VERSION.txt b/VERSION.txt
+index 708e5b7..179d395 100644
+--- a/VERSION.txt
++++ b/VERSION.txt
+@@ -1 +1 @@
+-v0.4.3e-visual-rc-draft
++v0.4.3-rc1
+diff --git a/game.js b/game.js
+index 3d4d0dd..fef73e1 100644
+--- a/game.js
++++ b/game.js
+@@ -4,7 +4,7 @@
+   - 旧「（仮）」候補ブロックとPaper Moon Kids系コードは、旧セーブ互換/退避用に残すが、有効候補はMEMBER_DATABASEで上書きする。
+ */
+ 
+-const VERSION = "v0.4.3e-visual-rc-draft";
++const VERSION = "v0.4.3-rc1";
+ 
+ const MAIN_GENRE_DATA = [
+   { name: "ロック", stage: "early", unlockTurn: 1 },
+@@ -6567,7 +6567,7 @@ function renderDevScreen() {
+   </div>`;
+ }
+ 
+-const SAVE_VERSION = "v0.4.3e-visual-rc-draft";
++const SAVE_VERSION = "v0.4.3-rc1";
+ let uiMode = "title";
+ let selectedSaveSlot = readCurrentSaveSlot();
+ let v043cUiRuntime = { scheduleTab: "planned", stateRef: null };
+diff --git a/index.html b/index.html
+index f306d98..6d9dfc5 100644
+--- a/index.html
++++ b/index.html
+@@ -3,7 +3,7 @@
+ <head>
+   <meta charset="utf-8" />
+   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+-  <title>アンダーグラウンド（仮） v0.4.3e-visual-rc-draft</title>
++  <title>アンダーグラウンド（仮） v0.4.3-rc1</title>
+   <meta name="theme-color" content="#111827" />
+   <meta name="apple-mobile-web-app-capable" content="yes" />
+   <meta name="apple-mobile-web-app-title" content="アングラ" />
+diff --git a/sw.js b/sw.js
+index 580eed0..6e8f454 100644
+--- a/sw.js
++++ b/sw.js
+@@ -1,4 +1,4 @@
+-const CACHE_NAME = "underground-v0-4-3e-visual-rc-draft";
++const CACHE_NAME = "underground-v0-4-3-rc1";
+ const ASSETS = [
+   "./",
+   "./index.html",
