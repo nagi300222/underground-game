@@ -4,7 +4,7 @@
   - 旧「（仮）」候補ブロックとPaper Moon Kids系コードは、旧セーブ互換/退避用に残すが、有効候補はMEMBER_DATABASEで上書きする。
 */
 
-const VERSION = "v0.4.3c-phone-mail-schedule-draft";
+const VERSION = "v0.4.3d-tutorial-conversation-info-draft";
 
 const MAIN_GENRE_DATA = [
   { name: "ロック", stage: "early", unlockTurn: 1 },
@@ -6237,6 +6237,7 @@ function startStoryEvent(id, opts={}) {
   if (state.activeStoryEvent) return false; // 再生中の上書き防止。呼び出し側はポップアップへフォールバックする。
   const ev = STORY_SCENE_DATABASE[id];
   if (!ev) return false;
+  v043dResetConversationLog(v043dConversationLogContextKey("story", id));
   state.activeStoryEvent = { id, step:0, result:false, rewardsApplied:false, context:opts.context || {}, returnView:state.view || "home" };
   if (!opts.silent) render();
   return true;
@@ -6282,7 +6283,7 @@ function runProgressionButtonAction(btn, action) {
 function advanceStoryEvent() {
   const active = state.activeStoryEvent;
   const ev = currentStoryEventDef();
-  if (!active || !ev) { state.activeStoryEvent = null; render(); return; }
+  if (!active || !ev) { state.activeStoryEvent = null; v043dResetConversationLog(); render(); return; }
   if (active.result) { finishStoryEvent(); return; }
   const scenes = Array.isArray(ev.scenes) ? ev.scenes : [];
   if (active.step < scenes.length - 1) active.step += 1;
@@ -6299,6 +6300,7 @@ function skipStoryEvent() {
 }
 function finishStoryEvent() {
   state.activeStoryEvent = null;
+  v043dResetConversationLog();
   if (maybeFinishPendingTurnAdvanceAfterPopups()) return;
   render();
 }
@@ -6307,12 +6309,17 @@ function renderStoryEventOverlay() {
   const ev = currentStoryEventDef();
   if (!ev) return "";
   const ctx = active.context || {};
+  const contextKey = v043dConversationLogContextKey("story", ev.id || active.id || "event");
+  const logEntries = v043dStoryLogEntries(ev, active);
+  const logButton = v043dRenderConversationLogButton(contextKey);
+  const logPanel = v043dRenderConversationLogPanel(logEntries, contextKey);
   if (active.result) {
     return `<div class="story-backdrop"><div class="story-stage story-bg-${escapeHtml(ev.background || "livehouse")}">
       <div class="story-result-card"><h2>イベント結果</h2><h3>${escapeHtml(ev.title || "イベント")}</h3>
         <div class="story-result-list">${(ev.rewards || []).map(r => `<div>＋ ${escapeHtml(formatStoryText(r.label || "結果", ctx))}</div>`).join("")}</div>
-        <button id="storyNextBtn" class="big-action">OK</button>
+        <div class="story-result-actions"><button id="storyNextBtn" class="big-action">OK</button>${logButton}</div>
       </div>
+      ${logPanel}
     </div></div>`;
   }
   const scenes = Array.isArray(ev.scenes) ? ev.scenes : [];
@@ -6327,8 +6334,9 @@ function renderStoryEventOverlay() {
     <div class="story-dialogue ${scene.bubble ? "bubble" : ""}">
       <div class="story-name">${escapeHtml(speaker || "？？？")}</div>
       <div class="story-text">${escapeHtml(body).replace(/\n/g,"<br>")}</div>
-      <div class="story-actions"><button id="storySkipBtn" class="ghost-btn">スキップ</button><button id="storyNextBtn" class="big-action">${(active.step || 0) >= scenes.length - 1 ? "結果へ" : "次へ"}</button></div>
+      <div class="story-actions"><button id="storySkipBtn" class="ghost-btn">スキップ</button><button id="storyNextBtn" class="big-action">${(active.step || 0) >= scenes.length - 1 ? "結果へ" : "次へ"}</button>${logButton}</div>
     </div>
+    ${logPanel}
   </div></div>`;
 }
 
@@ -6559,10 +6567,221 @@ function renderDevScreen() {
   </div>`;
 }
 
-const SAVE_VERSION = "v0.4.3c-phone-mail-schedule-draft";
+const SAVE_VERSION = "v0.4.3d-tutorial-conversation-info-draft";
 let uiMode = "title";
 let selectedSaveSlot = readCurrentSaveSlot();
 let v043cUiRuntime = { scheduleTab: "planned", stateRef: null };
+let v043dUiRuntime = {
+  conversationLogOpen: false,
+  contextKey: ""
+};
+
+function v043dConversationLogContextKey(kind, id="") {
+  return `${kind}:${id || ""}`;
+}
+function v043dResetConversationLog(contextKey="") {
+  v043dUiRuntime.conversationLogOpen = false;
+  v043dUiRuntime.contextKey = contextKey || "";
+}
+function v043dConversationLogIsOpen(contextKey="") {
+  return !!(v043dUiRuntime.conversationLogOpen && v043dUiRuntime.contextKey === contextKey);
+}
+function v043dSetConversationLogOpen(open, contextKey="") {
+  if (contextKey) v043dUiRuntime.contextKey = contextKey;
+  v043dUiRuntime.conversationLogOpen = !!open;
+}
+function v043dStoryLogEntries(ev, active={}) {
+  const ctx = active.context || {};
+  const scenes = Array.isArray(ev?.scenes) ? ev.scenes : [];
+  const currentStep = active.result ? scenes.length - 1 : clamp(Number(active.step || 0), 0, Math.max(0, scenes.length - 1));
+  const visibleCount = active.result ? scenes.length : currentStep + 1;
+  return scenes.slice(0, visibleCount).map((scene, index) => ({
+    speaker: formatStoryText(scene.speaker || "？？？", ctx),
+    text: formatStoryText(scene.text || "", ctx),
+    current: index === currentStep
+  })).filter(line => line.text);
+}
+function v043dOpeningLogEntries(scenes, step) {
+  const entries = [];
+  const visibleStep = clamp(Number(step || 0), 0, Math.max(0, scenes.length - 1));
+  scenes.forEach((scene, sourceIndex) => {
+    if (sourceIndex > visibleStep) return;
+    if (scene.thought || scene.bandPrompt) return;
+    if (scene.poster) {
+      entries.push({ speaker: "地の文", text: "フェスのポスターが壁に貼られている。", sourceIndex });
+      return;
+    }
+    if (scene.text) entries.push({ speaker: scene.speaker || "？？？", text: scene.text, sourceIndex });
+  });
+  const currentScene = scenes[visibleStep] || {};
+  const currentIndex = currentScene.thought || currentScene.bandPrompt
+    ? -1
+    : entries.reduce((last, entry, index) => entry.sourceIndex <= visibleStep ? index : last, -1);
+  return entries.map((entry, index) => ({ ...entry, current: index === currentIndex }));
+}
+function v043dRenderConversationLogButton(contextKey) {
+  const expanded = v043dConversationLogIsOpen(contextKey) ? "true" : "false";
+  return `<button type="button" class="v043d-conversation-log-btn" data-v043d-log-context="${escapeHtml(contextKey)}" aria-haspopup="dialog" aria-expanded="${expanded}">ログ</button>`;
+}
+function v043dRenderConversationLogPanel(entries, contextKey) {
+  const open = v043dConversationLogIsOpen(contextKey);
+  const rows = entries.length ? entries.map(line => `<article class="v043d-conversation-log-line ${line.current ? "current" : ""}">
+    <b>${escapeHtml(line.speaker || "？？？")}</b>
+    <p>${escapeHtml(line.text || "").replace(/\n/g, "<br>")}</p>
+  </article>`).join("") : `<div class="v043d-conversation-log-empty">まだ表示済みの台詞はありません。</div>`;
+  return `<div class="v043d-conversation-log" data-v043d-log-context="${escapeHtml(contextKey)}" role="dialog" aria-modal="true" aria-label="会話ログ" ${open ? "" : "hidden"} aria-hidden="${open ? "false" : "true"}">
+    <div class="v043d-conversation-log-card">
+      <header><b>会話ログ</b></header>
+      <div class="v043d-conversation-log-list">${rows}</div>
+      <button type="button" class="v043d-conversation-log-close" data-v043d-log-context="${escapeHtml(contextKey)}">閉じる</button>
+    </div>
+  </div>`;
+}
+function v043dRefreshConversationLogDom() {
+  document.querySelectorAll(".v043d-conversation-log").forEach(panel => {
+    const key = panel.dataset.v043dLogContext || "";
+    const open = v043dConversationLogIsOpen(key);
+    panel.hidden = !open;
+    panel.setAttribute("aria-hidden", open ? "false" : "true");
+  });
+  document.querySelectorAll(".v043d-conversation-log-btn").forEach(btn => {
+    const key = btn.dataset.v043dLogContext || "";
+    btn.setAttribute("aria-expanded", v043dConversationLogIsOpen(key) ? "true" : "false");
+  });
+}
+function v043dBindConversationLogControls() {
+  document.querySelectorAll(".v043d-conversation-log-btn").forEach(btn => {
+    if (btn.dataset.v043dLogBound === "1") return;
+    btn.dataset.v043dLogBound = "1";
+    btn.addEventListener("click", ev => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      v043dSetConversationLogOpen(true, btn.dataset.v043dLogContext || "");
+      v043dRefreshConversationLogDom();
+      const panel = Array.from(document.querySelectorAll(".v043d-conversation-log")).find(el => (el.dataset.v043dLogContext || "") === v043dUiRuntime.contextKey);
+      panel?.querySelector(".v043d-conversation-log-close")?.focus({ preventScroll: true });
+    });
+  });
+  document.querySelectorAll(".v043d-conversation-log-close").forEach(btn => {
+    if (btn.dataset.v043dLogBound === "1") return;
+    btn.dataset.v043dLogBound = "1";
+    btn.addEventListener("click", ev => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const contextKey = btn.dataset.v043dLogContext || v043dUiRuntime.contextKey;
+      v043dSetConversationLogOpen(false, contextKey);
+      v043dRefreshConversationLogDom();
+      Array.from(document.querySelectorAll(".v043d-conversation-log-btn")).find(el => (el.dataset.v043dLogContext || "") === contextKey)?.focus({ preventScroll: true });
+    });
+  });
+
+}
+
+function v043dIsQuietTutorialPopup(popup) {
+  const title = String(popup?.title || "");
+  return new Set([
+    "活動開始",
+    "今週は何しよう……",
+    "2ターン目：未完成曲を完成させよう",
+    "まずは曲作り",
+    "今週の行動を選ぼう"
+  ]).has(title);
+}
+
+function v043dQuietTutorialPopup() {
+  if (!state) return false;
+  if (v043dIsQuietTutorialPopup(state.activePopup)) {
+    state.activePopup = null;
+    return true;
+  }
+  return false;
+}
+
+function v043dTutorialHomeMessage() {
+  if (!state || state.tutorialSkipHints || (state.liveCount || 0) > 0) return "";
+  const turn = Number(state.turn || 1);
+  if (state.tutorialStage === "needSong") return "T1：まず作詞・作曲。曲作りのあとも同じターンで行動できます";
+  if (state.tutorialStage === "needCommand") return "T1：募集を選び、同じボタンをもう一度タップして実行";
+  if (turn === 2) return "T2：前ターンの曲を完成させてから、練習へ";
+  if (turn === 3) return "T3：初ライブを宣伝。届いた出演依頼にはメールで返事";
+  if (turn === 4) return "T4：初ライブ前日。出演返信を確認して、休憩";
+  if (turn === 5) return "T5：初ライブ。予定から準備を確認して本番へ";
+  return "";
+}
+
+function v043dTrustStage(value) {
+  const trust = clamp(Math.round(Number(value || 0)), 0, 100);
+  if (trust < 20) return "まだぎこちない";
+  if (trust < 40) return "少しずつ慣れてきた";
+  if (trust < 60) return "まとまり始めた";
+  if (trust < 80) return "信頼が育っている";
+  return "強く結束している";
+}
+
+function v043dLatestTrustReason() {
+  const row = (state?.logs || []).find(line => /信頼度|信頼/.test(String(line || "")));
+  if (row) return String(row).split("\n")[0].slice(0, 120);
+  const latestLive = Array.isArray(state?.liveResultHistory) ? state.liveResultHistory[state.liveResultHistory.length - 1] : null;
+  const rank = latestLive?.rank || "";
+  if (["S", "A", "B"].includes(rank)) return `最近のライブ評価${rank}で、バンドの信頼が深まった。`;
+  if (rank === "C") return "最近のライブでは、信頼度に大きな変化はなかった。";
+  if (["D", "E"].includes(rank)) return `最近のライブ評価${rank}で、バンドの空気が少し重くなった。`;
+  return "まだ信頼度の変化は記録されていません。";
+}
+
+function v043dFanGainBreakdown(result, event=null) {
+  const rank = String(result?.rank || "E");
+  const rankBase = ({ S:45, A:30, B:18, C:8, D:2, E:0 }[rank] || 0);
+  const scoreBonus = Math.round(Number(result?.total || 0) / 50);
+  const coreBefore = result?.coreEvent ? 3 : 0;
+  const mcBonus = hasSkill("mc_master") ? 2 : 0;
+  const meta = liveTypeMeta(event || currentLiveEvent() || { liveType: result?.liveType || "special" });
+  const growth = Number(meta?.growth || 1);
+  const selfOneManBonus = result?.liveType === "self_one_man" && ["S", "A"].includes(rank) ? 12 : 0;
+  const coreAfter = result?.coreEvent ? 2 : 0;
+  return { rankBase, scoreBonus, coreBefore, mcBonus, growth, selfOneManBonus, coreAfter };
+}
+
+function v043dRenderFanGainFactors(result={}) {
+  const factors = result.fanGainBreakdown || {};
+  const rows = [
+    `評価${escapeHtml(result.rank || "-")}：基礎 +${Number(factors.rankBase || 0)}（補正前）`,
+    `総合点${Number(result.total || 0)}：+${Number(factors.scoreBonus || 0)}（補正前）`
+  ];
+  if (Number(factors.coreBefore || 0) || Number(factors.coreAfter || 0)) rows.push("コア反応：ファン増加へ加点");
+  if (Number(factors.mcBonus || 0)) rows.push(`MCスキル：+${Number(factors.mcBonus)}（補正前）`);
+  if (Math.abs(Number(factors.growth || 1) - 1) > 0.001) rows.push(`公演種別補正：×${Number(factors.growth).toFixed(2).replace(/0+$/,"").replace(/\.$/,"")}`);
+  if (Number(factors.selfOneManBonus || 0)) rows.push(`ワンマン成功：+${Number(factors.selfOneManBonus)}`);
+  rows.push(`今回の最終増加：+${Number(result.gains?.fans || 0)}`);
+  return `<section class="v043d-fan-factors"><b>ファン増加の主な理由</b><div>${rows.map(row => `<span>${row}</span>`).join("")}</div><small>評価・総合点・コア反応・スキル・公演種別から算出。計算値そのものは変更していません。</small></section>`;
+}
+
+function v043dRenderInitialLiveExplanation(result={}) {
+  if (!result.isFirstLive) return "";
+  const gains = result.gains || {};
+  const low = Number(result.total || 0) <= 0 || String(result.rank || "") === "E";
+  const lead = low
+    ? "総合点が低くても、ライブ自体が無効になったわけではありません。"
+    : "初ライブの評価と、ライブで得た成果は別々に記録されます。";
+  return `<section class="v043d-first-live-explanation">
+    <b>初ライブの結果について</b>
+    <p>${lead} 総合点・評価は演奏など5軸の結果で、動員・ファン・コア人気・利益は下の数値どおり別に反映されます。</p>
+    <small>動員 ${Number(result.attendees || 0)}人 / ファン +${Number(gains.fans || 0)} / コア人気 +${Number(gains.core || 0)} / 利益 ${Number(gains.funds || result.profit || 0).toLocaleString()}円</small>
+  </section>`;
+}
+
+function v043dPopupKey(popup={}) {
+  const title = String(popup.title || "").trim().replace(/\s+/g, " ");
+  const body = String(popup.body || "").trim().replace(/\s+/g, " ");
+  return `${title}|${body}`;
+}
+
+function v043dPopupDuplicatesVisibleLiveResult(popup={}) {
+  const result = state?.liveResultModal || state?.pendingLiveResultModal;
+  if (!result) return false;
+  const title = String(popup.title || "").trim();
+  return title === "ライブ結果" || title === String(result.title || "").trim();
+}
 
 function loadDiscoveredSubGenres() {
   try { return JSON.parse(localStorage.getItem(DISCOVERY_KEY) || "{}"); } catch (e) { return {}; }
@@ -6761,6 +6980,7 @@ function startNewGameInSlot(slot) {
   slot = clamp(Number(slot || 1), 1, SAVE_SLOT_COUNT);
   const exists = !!savePayloadForSlot(slot);
   if (exists && !window.confirm(`スロット${slot}にはセーブがあります。新しく始めると、このスロットは次のオートセーブで上書きされます。続けますか？`)) return;
+  v043dResetConversationLog();
   v043aClearAllSelections();
   setCurrentSaveSlot(slot);
   state = createInitialState();
@@ -7096,7 +7316,8 @@ function normalizePopupQueue() {
   state.popupQueue = Array.isArray(state.popupQueue) ? state.popupQueue.filter(Boolean) : [];
   const seen = new Set();
   state.popupQueue = state.popupQueue.filter(p => {
-    const key = `${p.title || ""}|${String(p.body || "").slice(0, 42)}`;
+    if (v043dIsQuietTutorialPopup(p)) return false;
+    const key = v043dPopupKey(p);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -7118,6 +7339,11 @@ function nextPopupFromQueue() {
 }
 function showEventPopup(title, body, type="info", icon="🎸", payload={}) {
   const popup = { title, body, type, icon, ...(payload || {}) };
+  if (v043dIsQuietTutorialPopup(popup)) return;
+  if (v043dPopupDuplicatesVisibleLiveResult(popup)) return;
+  const popupKey = v043dPopupKey(popup);
+  if (state.activePopup && v043dPopupKey(state.activePopup) === popupKey) return;
+  if (Array.isArray(state.popupQueue) && state.popupQueue.some(item => v043dPopupKey(item) === popupKey)) return;
   if (title === "疲労が増えた" && !(String(body || "").includes("ライブ") || String(body || "").includes("打ち上げ"))) {
     log(`${title}：${String(body || "").split("\n")[0]}`, "warn");
     return;
@@ -7930,12 +8156,13 @@ function renderTitleSlotScreen(mode="load") {
   document.querySelectorAll(".titleSlotBtn").forEach(btn => btn.addEventListener("click", () => {
     const slot = Number(btn.dataset.slot || 1);
     if (isNew) startNewGameInSlot(slot);
-    else restoreGame(slot);
+    else { v043dResetConversationLog(); restoreGame(slot); }
   }));
   document.getElementById("titleBackBtn")?.addEventListener("click", () => { uiMode = "title"; render(); });
 }
 function goTitle() {
   uiMode = "title";
+  v043dResetConversationLog();
   if (state) state.saveSlotModal = null;
   render();
 }
@@ -8084,6 +8311,7 @@ function render() {
   v043bNormalizeNavigationState();
   if (!state.introSeen) return renderIntroScreen();
   maybeTriggerStoryEvents();
+  v043dQuietTutorialPopup();
   surfaceQueuedPopupIfIdle();
   if (state.ended) return renderEnding();
   const liveMode = isLiveTurn();
@@ -10905,6 +11133,7 @@ function renderLiveResultOverlay() {
         <div><b>利益</b><span>${profit.toLocaleString()}円</span><small>${escapeHtml(r.costLabel || "費用")}${Number(r.costValue || 0).toLocaleString()}円</small></div>
         <div><b>ファン</b><span>+${val(gains.fans || 0)}</span><small>次の集客の土台</small></div>
       </div>
+      ${v043dRenderInitialLiveExplanation(r)}
       <div class="result-bars">
         ${axes.map(([label, value]) => resultBar(label, value)).join("")}
       </div>
@@ -10913,6 +11142,7 @@ function renderLiveResultOverlay() {
         <div><b>業界評価</b><span>+${val(gains.industry || 0)}</span></div>
         <div><b>コア人気</b><span>+${val(gains.core || 0)}</span></div>
       </div>
+      ${v043dRenderFanGainFactors(r)}
       <div class="result-setlist"><b>SET LIST</b>${(r.songs || []).map((name, i) => `<span>${i + 1}. ${escapeHtml(name)}</span>`).join("")}</div>
       <div class="result-notes">
         <p>ライブアレンジ：${escapeHtml(r.adlib || r.adlibDisabledReason || "なし")}</p>
@@ -11036,7 +11266,7 @@ function bindEvents() {
   ["loadBtn", "homeLoadBtn"].forEach(id => { const btn = document.getElementById(id); if (btn) btn.addEventListener("click", () => { state.saveSlotModal = "load"; render(); }); });
   const titleBtn = document.getElementById("titleBtn");
   if (titleBtn) titleBtn.addEventListener("click", goTitle);
-  document.querySelectorAll(".slotActionBtn").forEach(btn => btn.addEventListener("click", () => { const slot = Number(btn.dataset.slot || 1); if (state.saveSlotModal === "save") saveGame(true, slot); else restoreGame(slot); }));
+  document.querySelectorAll(".slotActionBtn").forEach(btn => btn.addEventListener("click", () => { const slot = Number(btn.dataset.slot || 1); if (state.saveSlotModal === "save") saveGame(true, slot); else { v043dResetConversationLog(); restoreGame(slot); } }));
   const cancelSlotModalBtn = document.getElementById("cancelSlotModalBtn");
   if (cancelSlotModalBtn) cancelSlotModalBtn.addEventListener("click", () => { state.saveSlotModal = null; render(); });
   ["refreshAppBtn", "pwaRefreshBtn"].forEach(id => { const btn = document.getElementById(id); if (btn) btn.addEventListener("click", reloadLatestVersion); });
@@ -11046,6 +11276,7 @@ function bindEvents() {
   document.querySelectorAll("#storyNextBtn").forEach(btn => btn.addEventListener("click", () => runProgressionButtonAction(btn, advanceStoryEvent)));
   armProgressionButtonGate("#storyNextBtn");
   document.querySelectorAll("#storySkipBtn").forEach(btn => btn.addEventListener("click", skipStoryEvent));
+  v043dBindConversationLogControls();
   document.querySelectorAll(".actionResultCloseBtn").forEach(btn => btn.addEventListener("click", closeActionResultModal));
   document.querySelectorAll(".liveProgressNextBtn").forEach(btn => btn.addEventListener("click", showLiveResultAfterProgress));
   document.querySelectorAll(".moveSetlistBtn:not(:disabled)").forEach(btn => btn.addEventListener("click", () => moveSetlistSlot(Number(btn.dataset.slot), btn.dataset.dir)));
@@ -13038,6 +13269,8 @@ function makeLiveResultModal(r, setlist) {
     mannerWarning: r.mannerWarning || "",
     merchSummary: `${r.revenue.merch.label} / 売上${Number(r.revenue.merch.salesRevenue || 0).toLocaleString()}円 / 買い取り${Number(r.revenue.merch.buybackRevenue || 0).toLocaleString()}円`,
     coreEvent: !!r.coreEvent,
+    isFirstLive: (state.liveCount || 0) === 0,
+    fanGainBreakdown: v043dFanGainBreakdown(r, currentLiveEvent()),
     gains: r.gains || {},
     songs: setlist.map(s => s.title)
   };
@@ -13493,8 +13726,8 @@ function v043bHomeContextMessage() {
   }
   const selected = v043bSelectedHomeCommand();
   if (selected) return v043bCommandPreview(selected);
-  const tutorial = !state.tutorialSkipHints && (state.liveCount || 0) === 0 ? tutorialPhaseInfo() : null;
-  if (tutorial) return `T${state.turn || 1} チュートリアル: ${tutorial.body}`;
+  const tutorialMessage = v043dTutorialHomeMessage();
+  if (tutorialMessage) return tutorialMessage;
   if (typeof hasPendingSongFinalize === "function" && hasPendingSongFinalize()) return "未完成の曲がある。作詞・作曲から仕上げよう";
   if (isLiveTurn()) return "今日はライブ本番。予定から準備を確認しよう";
   const next = v043bNextEventSummary();
@@ -13759,9 +13992,13 @@ function renderAccountSettingsScreen() {
 function renderBandScreen() {
   const active = activeMembers();
   const upkeep = memberUpkeepCost();
+  const trust = clamp(Math.round(Number(state.band?.trust || 0)), 0, 100);
+  const trustStage = v043dTrustStage(trust);
+  const trustReason = v043dLatestTrustReason();
   return `<div class="v042-band-page">
     <section class="card v042-band-self"><div class="section-title"><h2>${escapeHtml(state.band.name || "自分たちのバンド")}</h2><span class="badge good">自バンド管理</span></div>
-      <div class="kv"><b>主人公</b><span>${escapeHtml(state.player?.name || "主人公")}</span><b>構成人数</b><span>${active.length}人</span><b>維持費目安</b><span>${v042FormatMoney(upkeep)}</span><b>ファン</b><span>${Math.round(state.band.fans || 0)}人</span></div>
+      <div class="kv"><b>主人公</b><span>${escapeHtml(state.player?.name || "主人公")}</span><b>構成人数</b><span>${active.length}人</span><b>維持費目安</b><span>${v042FormatMoney(upkeep)}</span><b>ファン</b><span>${Math.round(state.band.fans || 0)}人</span><b>信頼度</b><span>${trust}/100・${escapeHtml(trustStage)}</span></div>
+      <div class="v043d-trust-note"><b>最近の変化</b><span>${escapeHtml(trustReason)}</span><div class="meter mini"><div class="fill" style="width:${trust}%"></div></div></div>
       <button id="renameBandBtn" class="ghost-btn">バンド名を変更</button>
     </section>
     <section class="card"><div class="section-title"><h2>所属メンバー</h2><span class="badge">${active.length}人</span></div><div class="band-stage v042-member-stage">${active.map(renderMemberStageSlot).join("")}</div>${currentApplicantList().length ? renderApplicantList() : ""}</section>
@@ -13868,7 +14105,7 @@ function renderIntroScreen() {
   const storedHeroName = state.player?.name || "";
   const heroName = state.pendingPlayerName || (storedHeroName === "あなた" ? "" : storedHeroName);
   const bandName = state.pendingBandName || state.band?.name || "";
-  const scene = [
+  const openingScenes = [
     { speaker:"タカナシ", text:"「見慣れない顔だな。バンドに興味あるの？」", note:"ライブハウス前に立つ主人公。後ろからタカナシが聞いてくる。" },
     { speaker:"主人公", text:"「あ、はい！バンドがしたくて」" },
     { speaker:"タカナシ", text:"「ふーん、ここのライブハウスはいいところなんだ。バンド始めるならここからスタートするのがいいと思うぜ。」" },
@@ -13879,7 +14116,12 @@ function renderIntroScreen() {
     { speaker:"タカナシ", text:`「${heroName || "○○"}か、バンド名は決めてんのか？」` },
     { bandPrompt:true },
     { speaker:"タカナシ", text:`「${bandName || "○○"}か、覚えとくよ。」`, final:true }
-  ][step];
+  ];
+  const scene = openingScenes[step] || {};
+  const contextKey = v043dConversationLogContextKey("opening", "intro");
+  const logEntries = v043dOpeningLogEntries(openingScenes, step);
+  const logButton = v043dRenderConversationLogButton(contextKey);
+  const logPanel = v043dRenderConversationLogPanel(logEntries, contextKey);
   const visual = scene.poster || step >= 4 ? `<div class="v042-novel-poster opening-poster"><span>UNDER FES POSTER</span><b>UNDER<br>FES</b><small>地下から、名前を鳴らせ。</small></div>` : `<div class="v042-livehouse-bg"><span>LIVE HOUSE</span><b>UNDER GARAGE</b></div>`;
   const body = scene.poster
     ? `<div class="v042-novel-box poster-scene"><b>フェスのポスターが壁に貼られている。</b><button id="openingNextBtn" class="big-action">次へ</button></div>`
@@ -13888,7 +14130,7 @@ function renderIntroScreen() {
       : scene.bandPrompt
         ? `<div class="v042-thought-pop opening-input"><b>バンド名は？</b><input id="openingBandNameInput" class="wide-input" maxlength="28" placeholder="バンド名" value="${escapeHtml(bandName)}" /><button id="openingBandNameBtn" class="big-action">決定</button></div>`
         : `<div class="v042-novel-box"><span>${escapeHtml(scene.speaker || "")}</span>${scene.note ? `<small>${escapeHtml(scene.note)}</small>` : ""}<p>${escapeHtml(scene.text || "")}</p><button id="${scene.final ? "openingFinishBtn" : "openingNextBtn"}" class="big-action">${scene.final ? "ホームへ" : "次へ"}</button></div>`;
-  app.innerHTML = `<div class="v042-novel-opening">${visual}${body}</div>`;
+  app.innerHTML = `<div class="v042-novel-opening">${visual}<div class="v043d-opening-body">${body}<div class="v043d-opening-log-actions">${logButton}</div></div>${logPanel}</div>`;
   document.getElementById("openingNextBtn")?.addEventListener("click", (ev) => runProgressionButtonAction(ev.currentTarget, () => { state.openingStep = Math.min(9, step + 1); render(); }));
   document.getElementById("openingPlayerNameBtn")?.addEventListener("click", () => {
     const name = cleanProfileInput(document.getElementById("openingPlayerNameInput")?.value, "", 24);
@@ -13918,9 +14160,11 @@ function renderIntroScreen() {
     state.openingStep = 10;
     state.tutorialStage = "needSong";
     state.activePopup = { title:"活動開始", body:"まずは、曲でも作るか……\n作詞・作曲から新曲制作を始めよう。", type:"event", icon:"🎼" };
+    v043dResetConversationLog();
     saveGame(false);
     render();
   }));
+  v043dBindConversationLogControls();
   armProgressionButtonGate("#openingNextBtn, #openingFinishBtn");
 }
 

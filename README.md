@@ -4,7 +4,7 @@
 
 ## 現行版
 
-`v0.4.3c-phone-mail-schedule-draft`
+`v0.4.3d-tutorial-conversation-info-draft`
 
 ## GitHub Pages 公開に必要なルートファイル
 
