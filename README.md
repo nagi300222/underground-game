@@ -4,7 +4,9 @@
 
 ## 現行版
 
-`v0.4.3-rc1`
+`v0.4.3`
+
+動作保証は iPhone Safari のみ（Android 実機未検証）
 
 ## GitHub Pages 公開に必要なルートファイル
 
