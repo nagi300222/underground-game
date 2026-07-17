@@ -1,10 +1,11 @@
-const CACHE_NAME = "underground-v0-4-3";
+const CACHE_NAME = "underground-v0-4-3-skin1";
 const ASSETS = [
   "./",
   "./index.html",
   "./style.css",
   "./game.js",
-  "./manifest.json"
+  "./manifest.json",
+  "./fonts/barlow-condensed-semibold-subset.woff2"
 ];
 
 self.addEventListener("install", event => {
