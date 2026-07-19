@@ -595,12 +595,13 @@ button.stage-slot.selected {outline: 2px solid var(--accent);background: var(--b
 .result-header b {font-size: 1.15rem;}
 .result-header em {color: var(--muted);font-style: normal;}
 .rank-burst {position: absolute;top: 12px;right: 16px;width: 64px;height: 64px;display:grid;place-items:center;border-radius: 0;background: var(--bg);color: var(--ink);font-size: 2rem;font-weight: 1000;box-shadow: none;animation: rankBurst 260ms cubic-bezier(.2,.9,.1,1) both;font-family: var(--font-anton), var(--font-display);}
-/* RANKスタンプ叩き込み（STUDY 10正典）: 傾きは着地モーションのみに限定し、最終静止フレームはrotate(0)
-   （意思決定数値は傾けない、の絶対規則を遵守。SKIN_ORDER_v4 PR-E #2） */
+/* RANKスタンプ叩き込み（STUDY 10正典）: rotate(-8deg)は静止姿勢まで維持。
+   方針v2.0.2により「傾け禁止」の適用対象はリソース値・カウントアップ数字等の判断材料に限定され、
+   display級演出（RANKスタンプ）は対象外と明文化されたため（SKIN_ORDER_v4 PR-E #2、fix1で訂正） */
 @keyframes rankBurst {
   0% {opacity:0;transform: rotate(-8deg) scale(1.6);}
   60% {opacity:1;transform: rotate(-8deg) scale(.96);}
-  100% {opacity:1;transform: rotate(0deg) scale(1);}
+  100% {opacity:1;transform: rotate(-8deg) scale(1);}
 }
 @media (prefers-reduced-motion: reduce){
   .rank-burst{animation:none;}
