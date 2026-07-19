@@ -316,8 +316,8 @@ function genrePlanLabel(a, b, arrange="") {
   const pct = n => `${Math.round(n * 100)}%`;
   const arr = arrange ? ` / ${arrangeStatus(arrange).status}` : "";
   return a === b
-    ? `${a}→${b}：${a} ${pct(chance.mainA)} / サブ ${pct(chance.sub)} / レア ${pct(chance.rare)}${arr}`
-    : `${a}→${b}：${a} ${pct(chance.mainA)} / ${b} ${pct(chance.mainB)} / サブ ${pct(chance.sub)} / レア ${pct(chance.rare)}${arr}`;
+    ? `${a}→︎${b}：${a} ${pct(chance.mainA)} / サブ ${pct(chance.sub)} / レア ${pct(chance.rare)}${arr}`
+    : `${a}→︎${b}：${a} ${pct(chance.mainA)} / ${b} ${pct(chance.mainB)} / サブ ${pct(chance.sub)} / レア ${pct(chance.rare)}${arr}`;
 }
 function weightedPick(names, arrange="") {
   const weights = names.map(n => {
@@ -1575,7 +1575,7 @@ function grantBandSkill(skillId, sourceBandId, reason = "", opts = {}) {
   promoteBandState(sourceBandId, "skill_unlocked");
   const notImpl = sk.effectImplemented ? "" : "\n※現バージョンでは獲得記録のみ（数値効果なし）。";
   log(`交流スキル獲得：${sk.name}${levelText}${reason ? `（${reason}）` : ""}`, "event");
-  if (!opts.silentPopup) showEventPopup("交流スキル獲得", `${sk.name}${levelText}\n${sk.description}${notImpl}`, "rare", "🎁");
+  if (!opts.silentPopup) showEventPopup("交流スキル獲得", `${sk.name}${levelText}\n${sk.description}${notImpl}`, "rare", "◆︎");
   return true;
 }
 
@@ -1764,15 +1764,15 @@ function processBandStoryEvents(phase) {
 }
 
 const BAND_EVENT_TYPE_META = {
-  after_party: { title: "打ち上げ交流", icon: "🍻" },
-  mail_invite: { title: "招待メール", icon: "📩" },
-  skill_unlock: { title: "交流イベント", icon: "🤝" },
-  encounter: { title: "遭遇", icon: "👀" },
-  sns_discover: { title: "バンド情報", icon: "📰" },
-  battle: { title: "対バン", icon: "🎤" }
+  after_party: { title: "打ち上げ交流", icon: "○︎" },
+  mail_invite: { title: "招待メール", icon: "✉︎" },
+  skill_unlock: { title: "交流イベント", icon: "●︎" },
+  encounter: { title: "遭遇", icon: "●︎" },
+  sns_discover: { title: "バンド情報", icon: "▶︎" },
+  battle: { title: "対バン", icon: "♪︎" }
 };
 
-// バンドイベント→ノベルシーンの対応。ここにあるイベントは通常ポップアップの代わりに会話イベントで見せる。
+// バンドイベント→︎ノベルシーンの対応。ここにあるイベントは通常ポップアップの代わりに会話イベントで見せる。
 const BAND_EVENT_STORY_MAP = {
   event_triple_arrows_invite_live: "triple_arrows_invite",
   event_shelter_watched_live: "shelter_encounter",
@@ -1825,7 +1825,7 @@ function applyBandEventEffects(ev, opts = {}) {
     };
     const played = storyWillPlay ? startStoryEvent(sceneId, { silent: true, context: storyContext }) : false;
     if (!played) {
-      const meta = BAND_EVENT_TYPE_META[ev.type] || { title: "バンドイベント", icon: "🎸" };
+      const meta = BAND_EVENT_TYPE_META[ev.type] || { title: "バンドイベント", icon: "♪︎" };
       const bandName = bandById(ev.bandId)?.name || "";
       showEventPopup(meta.title, `${fx.addLog || bandName}\n（バンド図鑑が更新された）`, ev.unlockSkillId ? "rare" : "event", meta.icon);
     }
@@ -1913,7 +1913,7 @@ function recordBandBattlesAfterLive(ev, r) {
     startStoryEvent("pachi_pachi_first_live", { silent: true, context: { rank: r.rank } });
   }
   if (newlyRegistered.length) {
-    showEventPopup("バンド図鑑 更新", `図鑑に登録：${newlyRegistered.join(" / ")}\n交流値も少し上がった。詳細は携帯の「図鑑」から。`, "event", "📖");
+    showEventPopup("バンド図鑑 更新", `図鑑に登録：${newlyRegistered.join(" / ")}\n交流値も少し上がった。詳細は携帯の「図鑑」から。`, "event", "▶︎");
   }
   checkCommonSkillAcquisition();
 }
@@ -1993,7 +1993,7 @@ function renderBandBookDetail(id) {
   const stage = bandRelationStage(rel);
   const met = BAND_STATE_ORDER[entry.state] >= BAND_STATE_ORDER.met;
   const activeTab = ["profile", "comment", "lore"].includes(state.bandBookDetailTab) ? state.bandBookDetailTab : "profile";
-  const backBtn = `<button id="bandBookBackBtn" class="ghost-btn">← 図鑑一覧へ</button>`;
+  const backBtn = `<button id="bandBookBackBtn" class="ghost-btn">←︎ 図鑑一覧へ</button>`;
   if (unknown) {
     return `<div class="card bandbook-detail">
       <div class="section-title"><h2>？？？</h2><span class="badge">未遭遇</span></div>
@@ -2271,7 +2271,7 @@ function addLiveWorldReactionPosts(result, setlist, ev) {
   }
 }
 function mailSenderIcon(kind="info") {
-  return ({ live_offer:"🎫", fan_mail:"💌", member:"👤", info:"📱", warn:"⚠️" }[kind] || "📱");
+  return ({ live_offer:"◆︎", fan_mail:"✉︎", member:"●︎", info:"▪︎", warn:"⚠︎" }[kind] || "▪︎");
 }
 function mailKindLabel(kind="info") {
   return ({ live_offer:"出演依頼", fan_mail:"ファン", member:"候補者", info:"通知", warn:"注意" }[kind] || "通知");
@@ -5623,7 +5623,7 @@ function unlockSkill(id, reason="") {
   const skill = skillById(id);
   if (!skill) return false;
   state.playerSkills.push(id);
-  showEventPopup("SKILL UNLOCKED!!", `${skill.name}を覚えた！\n${skill.desc}${reason ? "\nきっかけ：" + reason : ""}`, skill.rarity === "レア" ? "rare" : "event", skill.rarity === "レア" ? "🌟" : "🧠");
+  showEventPopup("SKILL UNLOCKED!!", `${skill.name}を覚えた！\n${skill.desc}${reason ? "\nきっかけ：" + reason : ""}`, skill.rarity === "レア" ? "rare" : "event", skill.rarity === "レア" ? "▪︎" : "▪︎");
   log(`スキル獲得：${skill.name}。${skill.desc}`);
   return true;
 }
@@ -6437,13 +6437,13 @@ function devApplyBalanceProfile(profileId="grand_border") {
   });
   scheduleNextLive();
   state.view = "dev";
-  state.activePopup = { title:`DEV：${profile.label}`, body:formatGrandConditionSnapshot(), type:"event", icon:"📊" };
+  state.activePopup = { title:`DEV：${profile.label}`, body:formatGrandConditionSnapshot(), type:"event", icon:"▲︎" };
   log(`DEV：${profile.label}の仮数値を反映した。`, "event");
   render();
 }
 function devShowGrandCheck() {
   if (!devModeOn()) return;
-  state.activePopup = { title:"DEV：GRAND条件チェック", body:formatGrandConditionSnapshot(), type:grandConditionSnapshot().ok ? "rare" : "warn", icon:"✅" };
+  state.activePopup = { title:"DEV：GRAND条件チェック", body:formatGrandConditionSnapshot(), type:grandConditionSnapshot().ok ? "rare" : "warn", icon:"✓︎" };
   render();
 }
 function devPrepareBandEventSeed() {
@@ -6477,7 +6477,7 @@ function devPrepareBandEventSeed() {
   bb.seenEvents.event_kaede_acoustic_encounter = bb.seenEvents.event_kaede_acoustic_encounter || 27;
   bb.seenEvents.event_lact_name_drop = bb.seenEvents.event_lact_name_drop || 40;
   bb.lastBattle = { bandIds:["magnet_wolf"], bandId:"magnet_wolf", result:"success", rank:"A", total:78, turn:state.turn };
-  state.activePopup = { title:"DEV：主要バンドイベント土台", body:"優先8組の図鑑登録・前提フラグ・対バン回数を仮セットしました。\nDEVのノベルイベント再生、またはターン開始/ライブ後イベントの発火確認に使えます。", type:"event", icon:"🎤" };
+  state.activePopup = { title:"DEV：主要バンドイベント土台", body:"優先8組の図鑑登録・前提フラグ・対バン回数を仮セットしました。\nDEVのノベルイベント再生、またはターン開始/ライブ後イベントの発火確認に使えます。", type:"event", icon:"♪︎" };
   log("DEV：主要バンドイベント確認用の前提値をセットした。", "event");
   render();
 }
@@ -6550,7 +6550,7 @@ function renderDevScreen() {
       </div>
     </div>
     <div class="card dev-card"><h3>ターン移動</h3><div class="cols"><div><label>指定ターン</label><input id="devTurnInput" type="number" min="1" max="70" value="${state.turn || 1}" /></div></div><button id="devJumpTurnBtn" class="big-action">指定ターンへ移動</button></div>
-    <details class="dev-group" data-dev-group="progress"${devDetailsAttr("progress", true)}><summary>📊 進行・数値</summary><div class="card dev-card"><h3>バンドステータス</h3><div class="cols">
+    <details class="dev-group" data-dev-group="progress"${devDetailsAttr("progress", true)}><summary>▲︎ 進行・数値</summary><div class="card dev-card"><h3>バンドステータス</h3><div class="cols">
       <div><label>資金</label><input id="devFunds" type="number" value="${Number(state.band.funds || 0)}" /></div>
       <div><label>ファン</label><input id="devFans" type="number" value="${Number(state.band.fans || 0)}" /></div>
       <div><label>知名度</label><input id="devFame" type="number" value="${Number(state.band.fame || 0)}" /></div>
@@ -6558,11 +6558,11 @@ function renderDevScreen() {
       <div><label>信頼度</label><input id="devTrust" type="number" value="${Number(state.band.trust || 0)}" /></div>
       <div><label>疲労</label><input id="devFatigue" type="number" min="0" max="100" value="${Number(state.band.fatigue || 0)}" /></div>
     </div><button id="devApplyStatsBtn" class="big-action">ステータス反映</button></div>
-    </details><details class="dev-group" data-dev-group="events"${devDetailsAttr("events", false)}><summary>🎬 イベント・候補</summary><div class="card dev-card"><h3>ノベルイベント再生</h3><div class="cols"><div><label>イベント</label><select id="devStorySelect">${storyOptions}</select></div></div><button id="devStartStoryBtn" class="big-action">イベント再生</button></div>
+    </details><details class="dev-group" data-dev-group="events"${devDetailsAttr("events", false)}><summary>♪︎ イベント・候補</summary><div class="card dev-card"><h3>ノベルイベント再生</h3><div class="cols"><div><label>イベント</label><select id="devStorySelect">${storyOptions}</select></div></div><button id="devStartStoryBtn" class="big-action">イベント再生</button></div>
     <div class="card dev-card"><h3>加入候補追加</h3><div class="cols"><div><label>候補</label><select id="devApplicantSelect">${applicantOptions}</select></div></div><button id="devAddApplicantBtn" class="big-action">候補に出す</button><button id="devRecruitBtn" class="ghost-btn">通常募集を1回実行</button></div>
-    </details><details class="dev-group" data-dev-group="skills"${devDetailsAttr("skills", false)}><summary>🎁 スキル・成長</summary><div class="card dev-card"><h3>スキル確認</h3><p><small>主人公：${(state.playerSkills||[]).map(id=>skillById(id)?.name).filter(Boolean).join("・")||"なし"}<br>交流：${Object.entries(state.ownedBandSkills||{}).map(([id,rec])=>{const sk=bandSkillById(id);return sk?`${sk.name}${sk.type==="common"?`Lv${rec.level}`:""}`:"";}).filter(Boolean).join("・")||"なし"}</small></p><div class="cols"><div><label>主人公スキル付与</label><select id="devPlayerSkillSelect">${SKILL_DATA.map(sk=>`<option value="${sk.id}">${escapeHtml(sk.name)}</option>`).join("")}</select></div><div><label>交流スキル付与</label><select id="devBandSkillSelect">${Object.values(BAND_SKILL_DATABASE).filter(sk=>sk.id!=="diamond_shine").map(sk=>`<option value="${sk.id}">${escapeHtml(sk.name)}</option>`).join("")}</select></div></div><button id="devGrantPlayerSkillBtn" class="ghost-btn">主人公スキルを付与</button><button id="devGrantBandSkillBtn" class="ghost-btn">交流スキルを付与</button></div>
+    </details><details class="dev-group" data-dev-group="skills"${devDetailsAttr("skills", false)}><summary>◆︎ スキル・成長</summary><div class="card dev-card"><h3>スキル確認</h3><p><small>主人公：${(state.playerSkills||[]).map(id=>skillById(id)?.name).filter(Boolean).join("・")||"なし"}<br>交流：${Object.entries(state.ownedBandSkills||{}).map(([id,rec])=>{const sk=bandSkillById(id);return sk?`${sk.name}${sk.type==="common"?`Lv${rec.level}`:""}`:"";}).filter(Boolean).join("・")||"なし"}</small></p><div class="cols"><div><label>主人公スキル付与</label><select id="devPlayerSkillSelect">${SKILL_DATA.map(sk=>`<option value="${sk.id}">${escapeHtml(sk.name)}</option>`).join("")}</select></div><div><label>交流スキル付与</label><select id="devBandSkillSelect">${Object.values(BAND_SKILL_DATABASE).filter(sk=>sk.id!=="diamond_shine").map(sk=>`<option value="${sk.id}">${escapeHtml(sk.name)}</option>`).join("")}</select></div></div><button id="devGrantPlayerSkillBtn" class="ghost-btn">主人公スキルを付与</button><button id="devGrantBandSkillBtn" class="ghost-btn">交流スキルを付与</button></div>
     <div class="card dev-card"><h3>成長タイプ確認</h3><p><small>${activeMembers().map(m => escapeHtml(`${m.name}：${growthTypeSummary(m)}`)).join("<br>") || "メンバーなし"}</small></p></div>
-    </details><details class="dev-group" data-dev-group="balance"${devDetailsAttr("balance", false)}><summary>🧪 バランス・補助</summary><div class="card dev-card"><h3>v0.3.66 バランス確認</h3><p><small>${escapeHtml(formatGrandConditionSnapshot()).replace(/\n/g,"<br>")}</small></p><div class="dev-quick-grid"><button id="devGrandCheckBtn" class="ghost-btn">GRAND条件チェック</button><button class="devBalanceProfileBtn" data-profile="under_border">UNDER目安セット</button><button class="devBalanceProfileBtn" data-profile="grand_border">GRAND最低値セット</button><button class="devBalanceProfileBtn" data-profile="grand_strong">GRAND注目枠セット</button><button id="devBandEventSeedBtn" class="ghost-btn">主要バンドイベント土台セット</button></div></div>
+    </details><details class="dev-group" data-dev-group="balance"${devDetailsAttr("balance", false)}><summary>▪︎ バランス・補助</summary><div class="card dev-card"><h3>v0.3.66 バランス確認</h3><p><small>${escapeHtml(formatGrandConditionSnapshot()).replace(/\n/g,"<br>")}</small></p><div class="dev-quick-grid"><button id="devGrandCheckBtn" class="ghost-btn">GRAND条件チェック</button><button class="devBalanceProfileBtn" data-profile="under_border">UNDER目安セット</button><button class="devBalanceProfileBtn" data-profile="grand_border">GRAND最低値セット</button><button class="devBalanceProfileBtn" data-profile="grand_strong">GRAND注目枠セット</button><button id="devBandEventSeedBtn" class="ghost-btn">主要バンドイベント土台セット</button></div></div>
     <div class="card dev-card"><h3>補助</h3><button id="devEnsureSongsBtn" class="ghost-btn">オリジナル7曲を補充</button><button id="devClearTutorialBtn" class="ghost-btn">チュートリアル解除</button><button id="devClearEphemeralBtn" class="ghost-btn">一時モーダル状態を破棄</button></div></details>
   </div>`;
 }
@@ -7167,7 +7167,7 @@ function createInitialState() {
     saveNotice: "",
     activeSaveSlot: selectedSaveSlot || 1,
     saveSlotModal: null,
-    activePopup: { title:"はじめてのバンド活動", body:"曲を作って、メンバーを集めよう！\nまずは新しい曲のアイデアを作ろう。", type:"event", icon:"🎸" },
+    activePopup: { title:"はじめてのバンド活動", body:"曲を作って、メンバーを集めよう！\nまずは新しい曲のアイデアを作ろう。", type:"event", icon:"♪︎" },
     pendingNoSongcraftCommand: null,
     pendingBooking: null,
     pendingBoostSong: null,
@@ -7292,7 +7292,7 @@ function memberUpkeepCost() {
 function maybeExplainMemberCost() {
   if (state.memberCostExplained || bandSize() < 4) return;
   state.memberCostExplained = true;
-  showEventPopup("メンバーが増えた", "4人目が加わり、バンドとしての形が見えてきた。\n今後は最大人数や控えの制限はなく、加入した仲間は全員ライブ準備に出られる。\nただし人数が増えるほど維持費・交通費が増え、6人以上は1人ごとの出費が重くなる。", "event", "👥");
+  showEventPopup("メンバーが増えた", "4人目が加わり、バンドとしての形が見えてきた。\n今後は最大人数や控えの制限はなく、加入した仲間は全員ライブ準備に出られる。\nただし人数が増えるほど維持費・交通費が増え、6人以上は1人ごとの出費が重くなる。", "event", "●︎");
 }
 function allBandPeople() { return [state.player, ...state.members]; }
 function selectedMember() { return allBandPeople().find(m => m.id === state.selectedMemberId) || state.player; }
@@ -7336,7 +7336,7 @@ function firstDraftTutorialPopup() {
     title:"2ターン目：未完成曲を完成させよう",
     body:"1ターン目で作った曲はまだ未完成。\nこのターンは未完成曲だけを選び、作っていない作詞/作曲を進めて曲完成まで確認しよう。",
     type:"event",
-    icon:"📝"
+    icon:"▶︎"
   };
 }
 function maybeShowFatigueIncreasePopup(before, after, reason) {
@@ -7344,7 +7344,7 @@ function maybeShowFatigueIncreasePopup(before, after, reason) {
   if (inc <= 0) return;
   showEventPopup("疲労が増えた", `${reason}
 疲労 +${inc}%（現在 ${Math.round(after)}%）。
-疲労が高いと練習・宣伝・曲作りの効率が下がる。ライブ前日は休憩やドリンクも考えよう。`, "warn", "⚠️");
+疲労が高いと練習・宣伝・曲作りの効率が下がる。ライブ前日は休憩やドリンクも考えよう。`, "warn", "⚠︎");
 }
 function log(msg, type="info") {
   state.logs.unshift(msg);
@@ -7372,11 +7372,11 @@ function nextPopupFromQueue() {
     title: "まとめて確認",
     body: batch.map(p => `【${p.title || "通知"}】\n${p.body || ""}`).join("\n\n"),
     type: batch.some(p => p.type === "warn" || p.type === "bad") ? "warn" : (batch.some(p => p.type === "rare") ? "rare" : "event"),
-    icon: "📌",
+    icon: "▪︎",
     ...(scrollSafe ? { layout:"scroll-safe", modalClass:"afterparty-result-safe-modal", scrollSafe:true } : {})
   };
 }
-function showEventPopup(title, body, type="info", icon="🎸", payload={}) {
+function showEventPopup(title, body, type="info", icon="♪︎", payload={}) {
   const popup = { title, body, type, icon, ...(payload || {}) };
   if (v043dIsQuietTutorialPopup(popup)) return;
   if (v043dPopupDuplicatesVisibleLiveResult(popup)) return;
@@ -7427,7 +7427,7 @@ function focusPendingSongFinalize(showPopup=true) {
       body:`「${d.titleHint}」の作詞と作曲が揃っている。
 先に曲名とテーマを確認して、完成させよう。`,
       type:"song",
-      icon:"💿"
+      icon:"♪︎"
     };
   }
   render();
@@ -7471,7 +7471,7 @@ function surfaceQueuedPopupIfIdle() {
 function renderFlowRecoveryOverlay() {
   const p = state.pendingTurnAdvance || {};
   return `<div class="modal-backdrop"><div class="event-modal warn">
-    <div class="modal-icon">🔧</div>
+    <div class="modal-icon">▪︎</div>
     <div class="modal-copy"><h2>進行を再開します</h2><p>確認待ちの進行が残っています。
 OKを押すと次のターンへ進みます。
 source: ${escapeHtml(p.source || "unknown")}</p></div>
@@ -7579,7 +7579,7 @@ function v043cFirstLiveReplyStatus() {
   return {
     accepted,
     mail,
-    mailText: accepted ? "✓ 返事済み：出演" : "仮押さえ・返事待ち",
+    mailText: accepted ? "✓︎ 返事済み：出演" : "仮押さえ・返事待ち",
     scheduleText: accepted ? "出演確定" : "仮押さえ・返事待ち",
     homeText: accepted ? "出演確定" : "仮押さえ・返事待ち",
     cls: accepted ? "good" : "warn"
@@ -7677,7 +7677,7 @@ function finishPendingTurnAdvance() {
   if (bandSystemOn()) processBandStoryEvents("turnStart");
   if (state.hangoverTurn === state.turn) {
     state.popupQueue = state.popupQueue || [];
-    state.popupQueue.push({ title:"二日酔い", body:"昨日の打ち上げが響いている。\nこのターンは休憩しかできない。", type:"warn", icon:"😵" });
+    state.popupQueue.push({ title:"二日酔い", body:"昨日の打ち上げが響いている。\nこのターンは休憩しかできない。", type:"warn", icon:"✕︎" });
   }
   if (state.turn === 2 && Array.isArray(state.pendingDrafts) && state.pendingDrafts.some(d => !(d.lyricsDone && d.musicDone))) {
     state.firstDraftTutorialDraftIds = state.pendingDrafts.filter(d => !(d.lyricsDone && d.musicDone)).map(d => d.id);
@@ -7707,7 +7707,7 @@ function scheduleLiveProgressTimer() {
     const maxIdx = Math.max(0, (live.steps || []).length - 1);
     const nextIndex = (live.index || 0) + 1;
     if (nextIndex >= maxIdx) {
-      // 5曲目を通常表示→完了表示で二重判定しない。
+      // 5曲目を通常表示→︎完了表示で二重判定しない。
       live.index = maxIdx;
       live.complete = true;
       render();
@@ -7749,9 +7749,9 @@ function repeatImpactForSlot(repeatInfo, slot) {
   const hit = (repeatInfo?.repeats || []).find(r => r.idx === slot - 1);
   if (!hit) return null;
   if (repeatInfo.boom) {
-    return { icon:"🎤", text:`${slot}曲目の再演が刺さった`, detail:`同じ曲の${hit.occurrence}回目が、逆に客席の合唱を生んだ。` };
+    return { icon:"♪︎", text:`${slot}曲目の再演が刺さった`, detail:`同じ曲の${hit.occurrence}回目が、逆に客席の合唱を生んだ。` };
   }
-  return { icon:"⚠️", text:`${slot}曲目の再演が裏目`, detail:`同じ曲の${hit.occurrence}回目で、客席の集中が少し切れた。` };
+  return { icon:"⚠︎", text:`${slot}曲目の再演が裏目`, detail:`同じ曲の${hit.occurrence}回目で、客席の集中が少し切れた。` };
 }
 function liveSongLine(song, slot, rank, result, repeat) {
   if (repeat) return `${slot}曲目『${song.title}』 ${repeat.detail}`;
@@ -7785,34 +7785,34 @@ function liveSongMood(song, slot, rank, result) {
   const weak = ["D","E"].includes(rank);
   const pools = {
     1: [
-      { icon:"🔥", text:"開幕の熱", kind:"opener" },
-      { icon:"⚡", text:"一音目で空気が変わった", kind:"opener" },
-      { icon:"👏", text:"手拍子が起き始めた", kind:"opener" }
+      { icon:"▲︎", text:"開幕の熱", kind:"opener" },
+      { icon:"⚡︎", text:"一音目で空気が変わった", kind:"opener" },
+      { icon:"●︎", text:"手拍子が起き始めた", kind:"opener" }
     ],
     2: [
-      { icon:"👏", text:"曲順が良くて盛り上がった", kind:"flow" },
-      { icon:"🔥", text:"二曲目でフロアが前に出た", kind:"flow" },
-      { icon:"💡", text:"前曲から自然につながった", kind:"flow" }
+      { icon:"●︎", text:"曲順が良くて盛り上がった", kind:"flow" },
+      { icon:"▲︎", text:"二曲目でフロアが前に出た", kind:"flow" },
+      { icon:"☆︎", text:"前曲から自然につながった", kind:"flow" }
     ],
     3: [
-      { icon:"💡", text:"歌詞が届き始めた", kind:"middle" },
-      { icon:"🎤", text:"中盤で声がよく抜けた", kind:"middle" },
-      { icon:"⭐", text:"この日最初の山場になった", kind:"middle" }
+      { icon:"☆︎", text:"歌詞が届き始めた", kind:"middle" },
+      { icon:"♪︎", text:"中盤で声がよく抜けた", kind:"middle" },
+      { icon:"★︎", text:"この日最初の山場になった", kind:"middle" }
     ],
     4: [
-      { icon:"🌙", text:"空気を変えた", kind:"bridge" },
-      { icon:"💧", text:"静かな緊張感が出た", kind:"bridge" },
-      { icon:"⚡", text:"ラスト前にもう一段ギアが上がった", kind:"bridge" }
+      { icon:"☆︎", text:"空気を変えた", kind:"bridge" },
+      { icon:"○︎", text:"静かな緊張感が出た", kind:"bridge" },
+      { icon:"⚡︎", text:"ラスト前にもう一段ギアが上がった", kind:"bridge" }
     ],
     5: [
-      { icon: result.total >= 70 ? "⭐" : "🔥", text:"ラストで押し切った", kind:"finale" },
-      { icon:"🎤", text:"最後のサビで声が重なった", kind:"finale" },
-      { icon:"💥", text:"締めで一番大きい反応が来た", kind:"finale" }
+      { icon: result.total >= 70 ? "★︎" : "▲︎", text:"ラストで押し切った", kind:"finale" },
+      { icon:"♪︎", text:"最後のサビで声が重なった", kind:"finale" },
+      { icon:"★︎", text:"締めで一番大きい反応が来た", kind:"finale" }
     ]
   };
-  let pool = pools[slot] || [{ icon:"🔥", text:"客席が温まってきた", kind:"normal" }];
-  if (strong) pool = [...pool, { icon:"⭐", text:"客席の反応が明らかに良い", kind:"good" }];
-  if (weak) pool = [...pool, { icon:"⚠️", text:"荒さはあるが熱量で押した", kind:"rough" }];
+  let pool = pools[slot] || [{ icon:"▲︎", text:"客席が温まってきた", kind:"normal" }];
+  if (strong) pool = [...pool, { icon:"★︎", text:"客席の反応が明らかに良い", kind:"good" }];
+  if (weak) pool = [...pool, { icon:"⚠︎", text:"荒さはあるが熱量で押した", kind:"rough" }];
   return pool[rand(0, pool.length - 1)];
 }
 function firstLine(text) {
@@ -7937,7 +7937,7 @@ function maybePromoRecruitAfterCommand(command) {
     return null;
   }
   const applicant = addApplicantFromCandidates("宣伝効果");
-  if (applicant) showEventPopup("宣伝から加入希望！", `宣伝を見た ${applicant.name} から連絡が来た。\n募集結果と重複するため、同じターンに複数人が候補に来ることがある。`, "event", "📱");
+  if (applicant) showEventPopup("宣伝から加入希望！", `宣伝を見た ${applicant.name} から連絡が来た。\n募集結果と重複するため、同じターンに複数人が候補に来ることがある。`, "event", "▪︎");
   return applicant;
 }
 
@@ -8003,7 +8003,7 @@ function joinApplicantById(id) {
   log(`${applicant.name}が${applicant.joinStatus}として加入した。加入済みメンバーは全員バンド構成に入り、ライブ準備で担当を選べる。`);
   const joinStoryPlayed = novelEventsOn() && startStoryEvent("member_join_generic", { silent: true, context: memberJoinStoryContext(applicant) });
   if (!joinStoryPlayed) {
-    showEventPopup(applicant.joinStatus === "仮加入" ? "仮加入！" : "新メンバー加入！", `${applicant.name} がバンドに加わった！\n担当：${applicant.part}\n得意：${applicant.mainGenre}\n加入済みメンバーは全員ライブ準備に表示される。`, applicant.joinStatus === "仮加入" ? "event" : "rare", applicant.joinStatus === "仮加入" ? "🤝" : "🎉");
+    showEventPopup(applicant.joinStatus === "仮加入" ? "仮加入！" : "新メンバー加入！", `${applicant.name} がバンドに加わった！\n担当：${applicant.part}\n得意：${applicant.mainGenre}\n加入済みメンバーは全員ライブ準備に表示される。`, applicant.joinStatus === "仮加入" ? "event" : "rare", applicant.joinStatus === "仮加入" ? "●︎" : "★︎");
   }
   maybeExplainMemberCost();
   render();
@@ -8231,7 +8231,7 @@ function renderIntroScreen() {
   if (btn) btn.addEventListener("click", () => {
     state.introSeen = true;
     state.tutorialStage = "needSong";
-    state.activePopup = { title:"活動開始", body:"まずは、曲でも作るか……\n作詞・作曲から新曲制作を始めよう。", type:"event", icon:"🎼" };
+    state.activePopup = { title:"活動開始", body:"まずは、曲でも作るか……\n作詞・作曲から新曲制作を始めよう。", type:"event", icon:"♪︎" };
     saveGame(false);
     render();
   });
@@ -8262,7 +8262,7 @@ function maybeTriggerStoryEvents() {
       title:"UNDER FES情報入手",
       body:"あの人は、UNDERフェスの主催関係者だったらしい。\nフェス参加条件の目安が分かった。スケジュール帳で確認できるようになった。",
       type:"rare",
-      icon:"📄"
+      icon:"▶︎"
     };
     return;
   }
@@ -8272,7 +8272,7 @@ function maybeTriggerStoryEvents() {
       title:"ライブ予定なし",
       body:"ライブの予定をいれないとな……\n7ターン後までに本番がない。スケジュール帳で出演できるライブを探そう。",
       type:"warn",
-      icon:"📅"
+      icon:"■︎"
     };
   }
 }
@@ -8291,7 +8291,7 @@ function songcraftMaxPerTurn() { let max = 1; if ((state.liveCount || 0) >= 1) m
 function songcraftRemainingThisTurn() { state.songcraftUsedCountThisTurn = Number(state.songcraftUsedCountThisTurn || 0); return Math.max(0, songcraftMaxPerTurn() - state.songcraftUsedCountThisTurn); }
 function songcraftCountLabel() { return `曲作り ${songcraftRemainingThisTurn()}/${songcraftMaxPerTurn()}`; }
 function tutorialRequiredCommandForTurn() { if ((state.liveCount || 0) > 0) return null; if (state.turn === 1) return "recruit"; if (state.turn === 2) return "practice"; if (state.turn === 3) return "promo"; if (state.turn === 4) return "rest"; return null; }
-function tutorialCommandMessage(command) { const need = tutorialRequiredCommandForTurn(); if (!need || need === command) return null; const labels = { recruit:"メンバー募集", practice:"練習", promo:"宣伝", rest:"休憩" }; const bodies = { recruit:"待ってるだけじゃメンバーは集まらない。まずは募集をしてみよう。", practice:"曲を演奏する力もライブ評価に影響する。今日は練習してみよう。", promo:"ライブに出るなら、少しでも名前を知ってもらおう。今日は宣伝してみよう。", rest:"疲労が高いとライブで力を出し切れない。ライブに備えて休もう。" }; return { title:`今は${labels[need]}を試そう`, body:bodies[need], type:"guide", icon:"👉" }; }
+function tutorialCommandMessage(command) { const need = tutorialRequiredCommandForTurn(); if (!need || need === command) return null; const labels = { recruit:"メンバー募集", practice:"練習", promo:"宣伝", rest:"休憩" }; const bodies = { recruit:"待ってるだけじゃメンバーは集まらない。まずは募集をしてみよう。", practice:"曲を演奏する力もライブ評価に影響する。今日は練習してみよう。", promo:"ライブに出るなら、少しでも名前を知ってもらおう。今日は宣伝してみよう。", rest:"疲労が高いとライブで力を出し切れない。ライブに備えて休もう。" }; return { title:`今は${labels[need]}を試そう`, body:bodies[need], type:"guide", icon:"▶︎" }; }
 function completeSongcraftTutorial() {
   const wasNeedSongTutorial = state.tutorialStage === "needSong";
   state.songcraftUsedCountThisTurn = Number(state.songcraftUsedCountThisTurn || 0) + 1;
@@ -8304,13 +8304,13 @@ function completeSongcraftTutorial() {
     }
     state.tutorialStage = "needCommand";
     state.view = "home";
-    state.activePopup = { title:"今週は何しよう……", body:"曲作りの手応えはあった。\n次は今週の行動を選ぼう。練習・募集・バイトなどでバンドを動かせる。", type:"event", icon:"⚡" };
+    state.activePopup = { title:"今週は何しよう……", body:"曲作りの手応えはあった。\n次は今週の行動を選ぼう。練習・募集・バイトなどでバンドを動かせる。", type:"event", icon:"⚡︎" };
   }
 }
 
 function showTutorialBlocked(kind) {
   if (state.hangoverTurn === state.turn && kind !== "command") {
-    state.activePopup = { title:"二日酔い", body:"このターンは休憩しかできない。\n曲作りやライブ予約は、休んでからにしよう。", type:"warn", icon:"😵" };
+    state.activePopup = { title:"二日酔い", body:"このターンは休憩しかできない。\n曲作りやライブ予約は、休んでからにしよう。", type:"warn", icon:"✕︎" };
     render();
     return true;
   }
@@ -8329,12 +8329,12 @@ function showTutorialBlocked(kind) {
     // v0.3.0ではここで song もブロックしてしまい、
     // 曲作りポップアップ後に先へ進めない状態になっていた。
     if (kind === "song") return false;
-    state.activePopup = { title:"まずは曲作り", body:"最初は作詞・作曲から始めよう。\nホームの「作詞・作曲」だけが使える。", type:"event", icon:"🎼" };
+    state.activePopup = { title:"まずは曲作り", body:"最初は作詞・作曲から始めよう。\nホームの「作詞・作曲」だけが使える。", type:"event", icon:"♪︎" };
     render();
     return true;
   }
   if (state.tutorialStage === "needCommand" && kind !== "command") {
-    state.activePopup = { title:"今週の行動を選ぼう", body:"曲作りは進んだ。\n次は「今週の行動へ」から1ターン進めよう。", type:"event", icon:"⚡" };
+    state.activePopup = { title:"今週の行動を選ぼう", body:"曲作りは進んだ。\n次は「今週の行動へ」から1ターン進めよう。", type:"event", icon:"⚡︎" };
     render();
     return true;
   }
@@ -8500,7 +8500,7 @@ function v043aRenderConfirmationSheet(config={}) {
 function renderGlobalPhoneButton(liveMode=false) {
   const unread = unreadMailCount();
   const active = state.view === "phone";
-  return `<button class="globalPhoneBtn global-phone-btn ${active ? "active" : ""}" title="携帯を開く"><span class="global-phone-icon">📱</span><b>携帯</b>${unread ? `<em>${unread}</em>` : ""}</button>`;
+  return `<button class="globalPhoneBtn global-phone-btn ${active ? "active" : ""}" title="携帯を開く"><span class="global-phone-icon">▪︎</span><b>携帯</b>${unread ? `<em>${unread}</em>` : ""}</button>`;
 }
 
 function renderFloatingHomeButton(liveMode=false) {
@@ -8534,10 +8534,10 @@ function parentViewForNav(view) {
 function renderNav(liveMode=false) {
   // v0.4.1d: 下部は4タブ。携帯トップは右下の固定ボタンに一本化。
   const tabs = [
-    ["home", "ホーム", "🏠", "状況"],
-    ["command", "活動", "⚡", "行動/曲"],
-    ["schedule", "予定", "📅", "ライブ"],
-    ["band", "バンド", "👥", "管理/図鑑"]
+    ["home", "ホーム", "■︎", "状況"],
+    ["command", "活動", "⚡︎", "行動/曲"],
+    ["schedule", "予定", "■︎", "ライブ"],
+    ["band", "バンド", "●︎", "管理/図鑑"]
   ];
   const activeParent = parentViewForNav(state.view);
   return `<div class="tabbar tabbar-v040a ${liveMode ? "live-lock" : ""}">
@@ -8560,7 +8560,7 @@ function renderMainContent() {
   else if (state.view === "bandbook") html = renderBandBookScreen();
   else if (state.view === "dev") html = renderDevScreen();
   else html = renderHomeScreen();
-  const homeBack = (state.view || "home") !== "home" ? `<button class="jumpTabBtn page-home-btn" data-view="home">← ホームに戻る</button>` : "";
+  const homeBack = (state.view || "home") !== "home" ? `<button class="jumpTabBtn page-home-btn" data-view="home">←︎ ホームに戻る</button>` : "";
   return `<main class="view-panel" data-view="${state.view || "home"}">${homeBack}${html}</main>`;
 }
 
@@ -8615,7 +8615,7 @@ function renderUiPrepSummaryPanel() {
   return `<div class="card tips-card ui-prep-panel"><div class="section-title"><h2>v0.3.50 仮実装</h2><span class="badge good">方向性確認</span></div><div class="quiet-guide-chips">${chips.map(c=>`<span class="badge">${escapeHtml(c)}</span>`).join("")}</div><small>50ターン制・初ライブ導線・フェス候補・曲作り回数・コピー曲キャップを確認する仮実装版です。</small></div>`;
 }
 
-function maybeShowGuidePopupOnce(key, title, body, type="event", icon="💡") {
+function maybeShowGuidePopupOnce(key, title, body, type="event", icon="☆︎") {
   if (!state.seenGuidePopups || typeof state.seenGuidePopups !== "object") state.seenGuidePopups = {};
   if (state.seenGuidePopups[key]) return false;
   state.seenGuidePopups[key] = true;
@@ -8688,7 +8688,7 @@ function renderPhoneBandBookScreen() {
   const previousDetail = state.bandBookDetail;
   const content = renderBandBookScreen();
   state.bandBookDetail = previousDetail;
-  return `<div class="phone-screen grid phone-bandbook-screen"><div class="card phone-card wide-card"><div class="section-title"><h2>バンド図鑑</h2><span class="badge">携帯内</span></div><button class="phoneModeBtn ghost-btn" data-phone-mode="menu">← 携帯メニュー</button><p><small>出会ったバンドの記録。交流が深いほど読める話が増える。</small></p></div>${content}</div>`;
+  return `<div class="phone-screen grid phone-bandbook-screen"><div class="card phone-card wide-card"><div class="section-title"><h2>バンド図鑑</h2><span class="badge">携帯内</span></div><button class="phoneModeBtn ghost-btn" data-phone-mode="menu">←︎ 携帯メニュー</button><p><small>出会ったバンドの記録。交流が深いほど読める話が増える。</small></p></div>${content}</div>`;
 }
 function renderPhoneScreen() {
   const mode = state.phoneSubView || "menu";
@@ -8703,9 +8703,9 @@ function renderPhoneScreen() {
       <div class="section-title"><h2>携帯</h2><span class="badge ${unread ? "warn" : "good"}">${unread ? unread + "件未読" : "通知なし"}</span></div>
       <p><small>返信待ちは上。読み物は下のアプリから。</small></p>
       <div class="phone-app-grid">
-        <button class="phoneModeBtn phone-app-btn" data-phone-mode="mail"><span>✉️</span><b>メール</b><small>件名/送信者から確認${unread ? ` / 未読${unread}` : ""}</small></button>
-        <button class="phoneModeBtn phone-app-btn" data-phone-mode="sns"><span>💬</span><b>SNS</b><small>口コミ・告知・雑多な投稿</small></button>
-        <button class="phoneModeBtn phone-app-btn" data-phone-mode="bandbook"><span>🎤</span><b>バンド図鑑</b><small>出会ったバンド・交流・スキル</small></button>
+        <button class="phoneModeBtn phone-app-btn" data-phone-mode="mail"><span>✉︎</span><b>メール</b><small>件名/送信者から確認${unread ? ` / 未読${unread}` : ""}</small></button>
+        <button class="phoneModeBtn phone-app-btn" data-phone-mode="sns"><span>◆︎</span><b>SNS</b><small>口コミ・告知・雑多な投稿</small></button>
+        <button class="phoneModeBtn phone-app-btn" data-phone-mode="bandbook"><span>♪︎</span><b>バンド図鑑</b><small>出会ったバンド・交流・スキル</small></button>
       </div>
     </div>
     <div class="card phone-card">
@@ -8763,7 +8763,7 @@ function renderMailScreen() {
   return `<div class="phone-screen grid mail-modal-screen">
     <div class="card phone-card mail-card wide-card">
       <div class="section-title"><h2>メール</h2><span class="badge ${unreadMailCount() ? "warn" : "good"}">${unreadMailCount()}件未読</span></div>
-      <button class="phoneModeBtn ghost-btn" data-phone-mode="menu">← 携帯メニュー</button>
+      <button class="phoneModeBtn ghost-btn" data-phone-mode="menu">←︎ 携帯メニュー</button>
       <p><small>件名を押すと、本文をメール窓で開きます。返信や予定確認も本文内からできます。</small></p>
       ${actionableMails().length ? `<div class="pinned-section"><b>要返信</b><div class="mail-list pinned-mail-list">${actionableMails().map(renderMailRow).join("")}</div></div>` : ""}
       <div class="mail-list subject-only">${mails.length ? mails.map(renderMailRow).join("") : `<div class="empty-panel">メールなし</div>`}</div>
@@ -8772,7 +8772,7 @@ function renderMailScreen() {
   </div>`;
 }
 function renderMailModal(m) {
-  return `<div class="modal-backdrop mail-modal-backdrop"><div class="event-modal event mail-reader-modal"><div class="modal-icon">📩</div><div class="modal-copy">${renderMailDetail(m)}</div><div class="modal-actions confirm-wide"><button class="closeMailDetailBtn ghost-btn">閉じる</button></div></div></div>`;
+  return `<div class="modal-backdrop mail-modal-backdrop"><div class="event-modal event mail-reader-modal"><div class="modal-icon">✉︎</div><div class="modal-copy">${renderMailDetail(m)}</div><div class="modal-actions confirm-wide"><button class="closeMailDetailBtn ghost-btn">閉じる</button></div></div></div>`;
 }
 function closeMailDetail() {
   state.activeMailId = null;
@@ -8841,7 +8841,7 @@ function renderSnsScreen() {
   return `<div class="phone-screen grid">
     <div class="card phone-card sns-card wide-card">
       <div class="section-title"><h2>SNS</h2><span class="badge">旧Twitter風</span></div>
-      <button class="phoneModeBtn ghost-btn" data-phone-mode="menu">← 携帯メニュー</button>
+      <button class="phoneModeBtn ghost-btn" data-phone-mode="menu">←︎ 携帯メニュー</button>
       <div class="sns-compose-row">
         <button class="snsPostBtn big-action" data-sns-post="notice" ${postedToday || !hasUpcomingLive ? "disabled" : ""}>告知する</button>
         <button class="snsPostBtn ghost-btn" data-sns-post="chat" ${postedToday ? "disabled" : ""}>雑談する</button>
@@ -8915,17 +8915,17 @@ function renderGoalPulseCard() {
 // v0.3.72: ホーム上部「次にやること」ガイド
 function nextActionSuggestion() {
   const t = state.turn || 1;
-  if (isLiveTurn()) return { icon:"🎤", text:"今日はライブ本番。準備チェックを確認して本番へ。", view:null };
-  if (typeof hasPendingSongFinalize === "function" && hasPendingSongFinalize()) return { icon:"🎼", text:"未完成の曲がある。曲作りから仕上げよう（ターンは進まない）。", view:"songs" };
-  if ((state.band.fatigue || 0) >= 70) return { icon:"😴", text:`疲労${Math.round(state.band.fatigue)}%。休憩で整えるのが安全。`, view:"command" };
+  if (isLiveTurn()) return { icon:"♪︎", text:"今日はライブ本番。準備チェックを確認して本番へ。", view:null };
+  if (typeof hasPendingSongFinalize === "function" && hasPendingSongFinalize()) return { icon:"♪︎", text:"未完成の曲がある。曲作りから仕上げよう（ターンは進まない）。", view:"songs" };
+  if ((state.band.fatigue || 0) >= 70) return { icon:"▼︎", text:`疲労${Math.round(state.band.fatigue)}%。休憩で整えるのが安全。`, view:"command" };
   if (t >= 47 && !grandConditionSnapshot().ok) {
     const ng = grandConditionSnapshot().rows.find(r => !r.ok);
-    return { icon:"🏁", text:`GRANDまであと少し。未達：${ng ? ng.label : "条件"}を優先。`, view:"schedule" };
+    return { icon:"■︎", text:`GRANDまであと少し。未達：${ng ? ng.label : "条件"}を優先。`, view:"schedule" };
   }
-  if (t >= 26 && t < 30) return { icon:"🔥", text:"30T UNDER FESが近い。条件と疲労、セトリを確認。", view:"schedule" };
-  if (typeof shouldWarnNoLivePlan === "function" && shouldWarnNoLivePlan()) return { icon:"📅", text:"7ターン先まで本番がない。予定表でライブを入れよう。", view:"schedule" };
-  if ((state.songs || []).filter(s => !s.isCover).length < 7 && t >= 20) return { icon:"✍️", text:`オリジナル曲${(state.songs||[]).filter(s=>!s.isCover).length}/7。GRANDに向けて曲を増やそう。`, view:"songs" };
-  return { icon:"🎸", text:"今週どうする？ 練習・宣伝・募集は下のメニューから。", view:"command" };
+  if (t >= 26 && t < 30) return { icon:"▲︎", text:"30T UNDER FESが近い。条件と疲労、セトリを確認。", view:"schedule" };
+  if (typeof shouldWarnNoLivePlan === "function" && shouldWarnNoLivePlan()) return { icon:"■︎", text:"7ターン先まで本番がない。予定表でライブを入れよう。", view:"schedule" };
+  if ((state.songs || []).filter(s => !s.isCover).length < 7 && t >= 20) return { icon:"✍︎", text:`オリジナル曲${(state.songs||[]).filter(s=>!s.isCover).length}/7。GRANDに向けて曲を増やそう。`, view:"songs" };
+  return { icon:"♪︎", text:"今週どうする？ 練習・宣伝・募集は下のメニューから。", view:"command" };
 }
 function renderNextActionPanel() {
   const s = nextActionSuggestion();
@@ -8940,7 +8940,7 @@ function renderHomeGuidePanel() {
   const title = tutorial ? suggestion.title : "今週のメモ";
   const badge = tutorial ? suggestion.badge : "ガイド";
   const body = tutorial ? suggestion.body : suggestion.text;
-  const icon = tutorial ? "💡" : (suggestion.icon || "🎸");
+  const icon = tutorial ? "☆︎" : (suggestion.icon || "♪︎");
   const actionView = suggestion.actionView || suggestion.view || "";
   const actionLabel = suggestion.actionLabel || "開く";
   const action = actionView ? `<button class="jumpTabBtn ghost-btn home-guide-link" data-view="${escapeHtml(actionView)}">${escapeHtml(actionLabel)}</button>` : "";
@@ -8967,10 +8967,10 @@ function renderHomePrimaryActions() {
   const songNote = songLocked ? (state.scheduleTutorialStage === "needSchedule" ? "先に予定を確認" : "次は行動を選ぶ") : song.note;
   return `<section class="home-primary-grid" aria-label="主操作">
     <button class="jumpTabBtn home-main-action home-main-command big-action ${commandLocked ? "locked" : ""}" data-view="command" ${commandLocked ? "disabled" : ""}>
-      <span>⚡</span><b>今週の行動</b><small>${escapeHtml(commandNote)}</small><em>${commandLocked ? "ロック" : "進む"}</em>
+      <span>⚡︎</span><b>今週の行動</b><small>${escapeHtml(commandNote)}</small><em>${commandLocked ? "ロック" : "進む"}</em>
     </button>
     <button class="openSongEditorBtn home-main-action home-main-song big-action ${songLocked ? "locked" : ""}" ${songLocked ? "disabled" : ""}>
-      <span>🎼</span><b>作詞・作曲</b><small>${escapeHtml(songNote)}</small><em>${escapeHtml(song.badge)}</em>
+      <span>♪︎</span><b>作詞・作曲</b><small>${escapeHtml(songNote)}</small><em>${escapeHtml(song.badge)}</em>
     </button>
   </section>`;
 }
@@ -8989,7 +8989,7 @@ function renderHomeScheduleStrip() {
     const isFes = turn === 30 || turn === 50;
     let label = isNow ? "今" : `T${turn}`;
     let note = live ? (live.fixed ? "固定" : liveTypeMeta(live).short) : (turn === 30 ? "UNDER" : turn === 50 ? "GRAND" : "準備");
-    let icon = live ? "🎤" : isFes ? "🔥" : "·";
+    let icon = live ? "♪︎" : isFes ? "▲︎" : "·";
     return `<button class="jumpTabBtn mini-turn-chip ${isNow ? "now" : ""} ${live ? "live" : ""} ${isFes ? "fes" : ""}" data-view="schedule"><b>${icon} ${escapeHtml(label)}</b><small>${escapeHtml(note)}</small></button>`;
   });
   return `<div class="card home-schedule-strip v041-home-schedule" aria-label="予定ミニライン"><div class="section-title"><h2>週の流れ</h2><span class="badge">予定</span></div><div class="mini-turn-row">${items.join("")}</div></div>`;
@@ -8997,14 +8997,14 @@ function renderHomeScheduleStrip() {
 
 function renderHomeUtilityTiles() {
   const tiles = [
-    homeMenuButton("schedule", "📅", "予定", canBookSchedules() ? "予約・確認" : "初ライブ後", !canBookSchedules()),
-    homeMenuButton("band", "👥", "バンド", "メンバー"),
-    bandSystemOn() ? homeMenuButton("bandbook", "🎤", "バンド図鑑", `${bandDiscoveredCount()}/${Object.keys(BAND_DATABASE).length}組`) : homeMenuButton("bandbook", "🎤", "バンド図鑑", "交流記録"),
-    homeMenuButton("library", "📚", "記録", "歴代・ログ"),
-    homeMenuButton("shop", "🛒", "ショップ", "機材・回復"),
-    homeMenuButton("log", "📺", "ログ", "履歴")
+    homeMenuButton("schedule", "■︎", "予定", canBookSchedules() ? "予約・確認" : "初ライブ後", !canBookSchedules()),
+    homeMenuButton("band", "●︎", "バンド", "メンバー"),
+    bandSystemOn() ? homeMenuButton("bandbook", "♪︎", "バンド図鑑", `${bandDiscoveredCount()}/${Object.keys(BAND_DATABASE).length}組`) : homeMenuButton("bandbook", "♪︎", "バンド図鑑", "交流記録"),
+    homeMenuButton("library", "▶︎", "記録", "歴代・ログ"),
+    homeMenuButton("shop", "▼︎", "ショップ", "機材・回復"),
+    homeMenuButton("log", "▶︎", "ログ", "履歴")
   ].join("");
-  const dev = devModeOn() ? `<div class="home-dev-row">${homeMenuButton("dev", "🛠️", "DEV", "確認")}</div>` : "";
+  const dev = devModeOn() ? `<div class="home-dev-row">${homeMenuButton("dev", "▪︎", "DEV", "確認")}</div>` : "";
   return `<section class="card home-utility-card v041-home-menu" aria-label="管理メニュー"><div class="section-title"><h2>メニュー</h2><span class="badge">常時</span></div><div class="home-utility-grid v041-core-menu">${tiles}</div>${dev}</section>`;
 }
 
@@ -9035,7 +9035,7 @@ function homeSongMenuButton() {
   const forcedDraft = mustCompleteFirstDraftTutorial();
   const locked = !forcedDraft && (state.tutorialStage === "needCommand" || state.scheduleTutorialStage === "needSchedule");
   const note = forcedDraft ? "未完成曲を完成させる" : state.scheduleTutorialStage === "needSchedule" ? "まず予定を確認" : locked ? "次は行動を選ぼう" : "新曲・強化・未完成曲";
-  return `<button class="openSongEditorBtn menu-tile ${locked ? "locked" : ""}" ${locked ? "disabled" : ""}><span>🎼</span><b>作詞・作曲</b><small>${note}</small></button>`;
+  return `<button class="openSongEditorBtn menu-tile ${locked ? "locked" : ""}" ${locked ? "disabled" : ""}><span>♪︎</span><b>作詞・作曲</b><small>${note}</small></button>`;
 }
 
 function renderSavePanel() {
@@ -9419,9 +9419,9 @@ function confirmMailAction() {
       mail.payload.metName = applicant?.name || "";
     }
     if (applicant) {
-      showEventPopup("メンバー候補と会った", `${applicant.name}と会った。\nバンド情報の加入候補から、加入させるか選べます。`, "event", "🤝");
+      showEventPopup("メンバー候補と会った", `${applicant.name}と会った。\nバンド情報の加入候補から、加入させるか選べます。`, "event", "●︎");
     } else {
-      showEventPopup("今回は会えなかった", "条件に合う候補が見つからなかった。\nライブや宣伝で知名度を上げると、新しい候補が来やすくなります。", "warn", "📱");
+      showEventPopup("今回は会えなかった", "条件に合う候補が見つからなかった。\nライブや宣伝で知名度を上げると、新しい候補が来やすくなります。", "warn", "▪︎");
     }
     render();
     return;
@@ -9432,19 +9432,19 @@ function cancelMailAction() { state.pendingMailAction = null; render(); }
 function renderMailActionConfirmOverlay() {
   const a = state.pendingMailAction || {};
   if (a.type === "first_live_reply") {
-    return v043aRenderConfirmationSheet({ icon:"📩", tone:"event", extraClass:"mail-action-modal", title:"T5 初ライブへの返事", bodyHtml:"<p>ライブハウスUNDERへ、初ライブに出演すると返事します。</p>", actionsClass:"confirm-wide", confirmId:"confirmMailActionBtn", confirmLabel:"出演すると返事する", cancelId:"cancelMailActionBtn", cancelLabel:"まだ返事しない" });
+    return v043aRenderConfirmationSheet({ icon:"✉︎", tone:"event", extraClass:"mail-action-modal", title:"T5 初ライブへの返事", bodyHtml:"<p>ライブハウスUNDERへ、初ライブに出演すると返事します。</p>", actionsClass:"confirm-wide", confirmId:"confirmMailActionBtn", confirmLabel:"出演すると返事する", cancelId:"cancelMailActionBtn", cancelLabel:"まだ返事しない" });
   }
   if (a.type === "live_offer") {
     const offer = (state.liveOffers || []).find(o => o.id === a.offerId);
     if (!offer) { state.pendingMailAction = null; return ""; }
     const v = venueById(offer.venueId);
     const meta = liveTypeMeta(offer);
-    return v043aRenderConfirmationSheet({ icon:"📩", tone:"event", extraClass:"mail-action-modal", title:"ライブ参加の返信を送る？", bodyHtml:`<p>${offer.turn}T ${escapeHtml(meta.label)} / ${escapeHtml(v.name)}に参加します。\n予定表に追加しますか？</p><p>${escapeHtml(meta.feeLabel)}${eventBaseCost(offer, v).toLocaleString()}円</p>`, actionsClass:"confirm-wide", confirmId:"confirmMailActionBtn", confirmLabel:"返信して予定に追加", cancelId:"cancelMailActionBtn", cancelLabel:"戻る" });
+    return v043aRenderConfirmationSheet({ icon:"✉︎", tone:"event", extraClass:"mail-action-modal", title:"ライブ参加の返信を送る？", bodyHtml:`<p>${offer.turn}T ${escapeHtml(meta.label)} / ${escapeHtml(v.name)}に参加します。\n予定表に追加しますか？</p><p>${escapeHtml(meta.feeLabel)}${eventBaseCost(offer, v).toLocaleString()}円</p>`, actionsClass:"confirm-wide", confirmId:"confirmMailActionBtn", confirmLabel:"返信して予定に追加", cancelId:"cancelMailActionBtn", cancelLabel:"戻る" });
   }
   if (a.type === "member") {
     const mail = (state.phoneMails || []).find(m => m.id === a.mailId);
     const who = mail?.payload?.applicantName || mail?.sender || "メンバー候補";
-    return v043aRenderConfirmationSheet({ icon:"🤝", tone:"event", extraClass:"mail-action-modal", title:"メンバー候補に返信する？", bodyHtml:`<p>メールを送ってきた${escapeHtml(who)}と会いますか？\n会うと加入候補として表示されます。</p>`, actionsClass:"confirm-wide", confirmId:"confirmMailActionBtn", confirmLabel:"返信して会う", cancelId:"cancelMailActionBtn", cancelLabel:"戻る" });
+    return v043aRenderConfirmationSheet({ icon:"●︎", tone:"event", extraClass:"mail-action-modal", title:"メンバー候補に返信する？", bodyHtml:`<p>メールを送ってきた${escapeHtml(who)}と会いますか？\n会うと加入候補として表示されます。</p>`, actionsClass:"confirm-wide", confirmId:"confirmMailActionBtn", confirmLabel:"返信して会う", cancelId:"cancelMailActionBtn", cancelLabel:"戻る" });
   }
   state.pendingMailAction = null;
   return "";
@@ -9814,10 +9814,10 @@ function songEditorTitle(ed) {
   };
   return map[ed.step] || "曲エディタ";
 }
-function editorBackButton() { return `<button class="songEditorChoiceBtn ghost-btn editor-back-btn" data-action="editor:back">← 戻る</button>`; }
+function editorBackButton() { return `<button class="songEditorChoiceBtn ghost-btn editor-back-btn" data-action="editor:back">←︎ 戻る</button>`; }
 function lyricWordsFromText(text="") { return String(text || "").split(/[、,\s/]+/).filter(Boolean).slice(0,3); }
 function renderLyricWordInputs(words=[]) {
-  return `<div class="lyric-word-grid clear-lyric-grid">${[1,2,3].map(i=>`<div class="lyric-word-row"><label>${i}語目</label><div class="title-input-row"><input id="editorKeywordInput${i}" value="${escapeHtml(words[i-1] || "")}" placeholder="${i===1 ? "例：午前二時" : i===2 ? "例：コンビニ前" : "例：まだ鳴ってる"}" /><button class="keywordDiceBtn" data-target="${i}" type="button">🎲</button></div></div>`).join("")}</div>`;
+  return `<div class="lyric-word-grid clear-lyric-grid">${[1,2,3].map(i=>`<div class="lyric-word-row"><label>${i}語目</label><div class="title-input-row"><input id="editorKeywordInput${i}" value="${escapeHtml(words[i-1] || "")}" placeholder="${i===1 ? "例：午前二時" : i===2 ? "例：コンビニ前" : "例：まだ鳴ってる"}" /><button class="keywordDiceBtn" data-target="${i}" type="button">●︎</button></div></div>`).join("")}</div>`;
 }
 function draftProgressSmall(d) {
   return `${d.lyricsDone ? "作詞済" : "作詞未"} / ${d.musicDone ? "作曲済" : "作曲未"} / ${escapeHtml(genreDisplay(d))}${d.arrange ? " / " + escapeHtml(d.arrange) : ""}`;
@@ -9837,8 +9837,8 @@ function renderSongEditorStep(ed) {
   }
   if (ed.step === "menu") {
     return `<div class="choice-grid main-choice-grid">
-      ${choiceButton("<span>🎼</span><b>曲作成</b>", "compose:menu", "", "新曲作成・未完成曲の続き")}
-      ${choiceButton("<span>🎛️</span><b>編曲</b>", "arrange:menu", state.songs.length ? "" : "disabled", "曲強化・曲編集")}
+      ${choiceButton("<span>♪︎</span><b>曲作成</b>", "compose:menu", "", "新曲作成・未完成曲の続き")}
+      ${choiceButton("<span>♪︎</span><b>編曲</b>", "arrange:menu", state.songs.length ? "" : "disabled", "曲強化・曲編集")}
     </div>`;
   }
   if (ed.step === "composeMenu") {
@@ -9848,8 +9848,8 @@ function renderSongEditorStep(ed) {
       return `<div class="editor-summary tutorial-box"><b>2ターン目：未完成曲を完成させよう</b><span>ホームから作詞・作曲を開き、1ターン目の未完成曲を選ぼう。作っていない作詞/作曲を進めると曲が完成します。</span></div><div class="choice-grid song-choice">${tutorialTargets.map(d=>choiceButton(`<b>${escapeHtml(d.titleHint)}</b>`, `draft:select:${d.id}`, "", draftProgressSmall(d))).join("")}</div>`;
     }
     return `<div class="choice-grid main-choice-grid">
-      ${choiceButton("<span>🆕</span><b>新曲作成</b>", "new:start", "", "作詞か作曲から始める")}
-      ${state.pendingDrafts.map(d=>choiceButton(`<span>📝</span><b>${escapeHtml(d.titleHint)}</b>`, `draft:select:${d.id}`, "", draftProgressSmall(d))).join("")}
+      ${choiceButton("<span>♪︎</span><b>新曲作成</b>", "new:start", "", "作詞か作曲から始める")}
+      ${state.pendingDrafts.map(d=>choiceButton(`<span>▶︎</span><b>${escapeHtml(d.titleHint)}</b>`, `draft:select:${d.id}`, "", draftProgressSmall(d))).join("")}
       ${!hasDrafts ? `<div class="empty-panel">未完成曲はありません。</div>` : ""}
     </div>${editorBackButton()}`;
   }
@@ -9865,8 +9865,8 @@ function renderSongEditorStep(ed) {
   if (ed.step === "newMusicMember") return `<p><small>作曲者を選択。作曲力・ジャンル適性が曲の演奏/テンポに影響します。</small></p><div class="choice-grid member-choice">${activeMembers().map(m=>choiceButton(`<b>${m.name}</b>`, `new:musicMember:${m.id}`, "", memberCraftSmall(m, "music", ed))).join("")}</div>${editorBackButton()}`;
   if (ed.step === "newMain1") return `<div class="choice-grid genre-choice">${availableMainGenres().map(g=>choiceButton(`<b>${g}</b>`, `new:main1:${g}`)).join("")}</div>${editorBackButton()}`;
   if (ed.step === "newMain2") return `<div class="editor-summary mini"><b>1つ目</b><span>${ed.mainGenreA || "-"}</span></div><div class="choice-grid genre-choice">${availableMainGenres().map(g=>choiceButton(`<b>${g}</b>`, `new:main2:${g}`)).join("")}</div>${editorBackButton()}`;
-  if (ed.step === "newArrange") return `<div class="editor-summary mini"><b>ジャンル狙い</b><span>${ed.mainGenreA || "-"} → ${ed.mainGenreB || "-"}</span><span>${ed.mainGenreA && ed.mainGenreB ? genrePlanLabel(ed.mainGenreA, ed.mainGenreB, ed.arrange || "") : ""}</span></div><div class="choice-grid compact-choice-grid arrange-choice">${ARRANGES.map(x=>choiceButton(`<b>${x}</b>`, `new:arrange:${x}`)).join("")}</div>${editorBackButton()}`;
-  if (ed.step === "newMusicConfirm") return `<div class="editor-summary"><b>作曲確認</b><span>作曲者：${escapeHtml(activeMembers().find(m=>m.id===ed.memberId)?.name || "-")}</span><span>ジャンル：${ed.mainGenreA || "-"} → ${ed.mainGenreB || "-"}</span><span>アレンジ：${ed.arrange || "-"}</span><span>派生確率：${ed.mainGenreA && ed.mainGenreB ? genrePlanLabel(ed.mainGenreA, ed.mainGenreB, ed.arrange || "") : "-"}</span></div><button class="songEditorNextBtn big-action" data-action="new:musicExecute">作曲を完了する</button>${editorBackButton()}`;
+  if (ed.step === "newArrange") return `<div class="editor-summary mini"><b>ジャンル狙い</b><span>${ed.mainGenreA || "-"} →︎ ${ed.mainGenreB || "-"}</span><span>${ed.mainGenreA && ed.mainGenreB ? genrePlanLabel(ed.mainGenreA, ed.mainGenreB, ed.arrange || "") : ""}</span></div><div class="choice-grid compact-choice-grid arrange-choice">${ARRANGES.map(x=>choiceButton(`<b>${x}</b>`, `new:arrange:${x}`)).join("")}</div>${editorBackButton()}`;
+  if (ed.step === "newMusicConfirm") return `<div class="editor-summary"><b>作曲確認</b><span>作曲者：${escapeHtml(activeMembers().find(m=>m.id===ed.memberId)?.name || "-")}</span><span>ジャンル：${ed.mainGenreA || "-"} →︎ ${ed.mainGenreB || "-"}</span><span>アレンジ：${ed.arrange || "-"}</span><span>派生確率：${ed.mainGenreA && ed.mainGenreB ? genrePlanLabel(ed.mainGenreA, ed.mainGenreB, ed.arrange || "") : "-"}</span></div><button class="songEditorNextBtn big-action" data-action="new:musicExecute">作曲を完了する</button>${editorBackButton()}`;
   if (ed.step === "draftSelect") return `<div class="choice-grid song-choice">${state.pendingDrafts.map(d=>choiceButton(`<b>${escapeHtml(d.titleHint)}</b>`, `draft:select:${d.id}`, "", draftProgressSmall(d))).join("") || `<div class="empty-panel">制作中の曲はありません。</div>`}</div>${editorBackButton()}`;
   if (ed.step === "draftType") {
     const d = state.pendingDrafts.find(x=>x.id===ed.draftId);
@@ -9882,15 +9882,15 @@ function renderSongEditorStep(ed) {
   if (ed.step === "draftMusicMember") return `<p><small>作曲者を選択。</small></p><div class="choice-grid member-choice">${activeMembers().map(m=>choiceButton(`<b>${m.name}</b>`, `draft:musicMember:${m.id}`, "", memberCraftSmall(m, "music", state.pendingDrafts.find(x=>x.id===ed.draftId)||ed))).join("")}</div>${editorBackButton()}`;
   if (ed.step === "draftMain1") return `<div class="choice-grid genre-choice">${availableMainGenres().map(g=>choiceButton(`<b>${g}</b>`, `draft:main1:${g}`)).join("")}</div>${editorBackButton()}`;
   if (ed.step === "draftMain2") return `<div class="editor-summary mini"><b>1つ目</b><span>${ed.mainGenreA || "-"}</span></div><div class="choice-grid genre-choice">${availableMainGenres().map(g=>choiceButton(`<b>${g}</b>`, `draft:main2:${g}`)).join("")}</div>${editorBackButton()}`;
-  if (ed.step === "draftMusicArrange") return `<div class="editor-summary mini"><b>ジャンル狙い</b><span>${ed.mainGenreA || "-"} → ${ed.mainGenreB || "-"}</span></div><div class="choice-grid compact-choice-grid arrange-choice">${ARRANGES.map(x=>choiceButton(`<b>${x}</b>`, `draft:arrange:${x}`)).join("")}</div>${editorBackButton()}`;
-  if (ed.step === "draftMusicConfirm") return `<div class="editor-summary"><b>作曲確認</b><span>ジャンル：${ed.mainGenreA || "-"} → ${ed.mainGenreB || "-"}</span><span>アレンジ：${ed.arrange || "-"}</span><span>派生確率：${ed.mainGenreA && ed.mainGenreB ? genrePlanLabel(ed.mainGenreA, ed.mainGenreB, ed.arrange || "") : "-"}</span></div><button class="songEditorNextBtn big-action" data-action="draft:musicExecute">作曲を完了する</button>${editorBackButton()}`;
+  if (ed.step === "draftMusicArrange") return `<div class="editor-summary mini"><b>ジャンル狙い</b><span>${ed.mainGenreA || "-"} →︎ ${ed.mainGenreB || "-"}</span></div><div class="choice-grid compact-choice-grid arrange-choice">${ARRANGES.map(x=>choiceButton(`<b>${x}</b>`, `draft:arrange:${x}`)).join("")}</div>${editorBackButton()}`;
+  if (ed.step === "draftMusicConfirm") return `<div class="editor-summary"><b>作曲確認</b><span>ジャンル：${ed.mainGenreA || "-"} →︎ ${ed.mainGenreB || "-"}</span><span>アレンジ：${ed.arrange || "-"}</span><span>派生確率：${ed.mainGenreA && ed.mainGenreB ? genrePlanLabel(ed.mainGenreA, ed.mainGenreB, ed.arrange || "") : "-"}</span></div><button class="songEditorNextBtn big-action" data-action="draft:musicExecute">作曲を完了する</button>${editorBackButton()}`;
   if (ed.step === "draftFinalize") {
     const d = state.pendingDrafts.find(x => x.id === ed.draftId);
     if (!d) return `<div class="empty-panel">完成確認中の曲が見つかりません。</div>${editorBackButton()}`;
     const themeOptions = availableThemes().map(t => `<option value="${escapeHtml(t)}" ${t === (ed.theme || d.theme) ? "selected" : ""}>${escapeHtml(t)}</option>`).join("");
-    return `<div class="editor-form song-title-final"><div class="editor-summary tutorial-box"><b>曲完成前確認</b><span>作詞と作曲が揃った。ここで曲名とテーマを決めて完成させます。</span></div><label>曲名</label><div class="title-input-row"><input id="draftFinalTitle" value="${escapeHtml(ed.title || d.titleHint || "")}" placeholder="曲名" /><button class="songEditorChoiceBtn dice-title-btn" data-action="draft:titleRandom" title="ランダム生成">🎲</button></div><label>テーマ</label><select id="draftFinalTheme">${themeOptions}</select><div class="editor-summary mini"><b>制作内容</b><span>作詞${val(d.lyricsScore)}% / 作曲${val(d.musicScore)}% / ${escapeHtml(genreDisplay(d))} / ${escapeHtml(d.arrange || "")}</span><span>歌詞：${escapeHtml(d.keyword || "-")}</span></div><button class="songEditorNextBtn big-action" data-action="draft:finalize">この内容で完成させる</button>${editorBackButton()}</div>`;
+    return `<div class="editor-form song-title-final"><div class="editor-summary tutorial-box"><b>曲完成前確認</b><span>作詞と作曲が揃った。ここで曲名とテーマを決めて完成させます。</span></div><label>曲名</label><div class="title-input-row"><input id="draftFinalTitle" value="${escapeHtml(ed.title || d.titleHint || "")}" placeholder="曲名" /><button class="songEditorChoiceBtn dice-title-btn" data-action="draft:titleRandom" title="ランダム生成">●︎</button></div><label>テーマ</label><select id="draftFinalTheme">${themeOptions}</select><div class="editor-summary mini"><b>制作内容</b><span>作詞${val(d.lyricsScore)}% / 作曲${val(d.musicScore)}% / ${escapeHtml(genreDisplay(d))} / ${escapeHtml(d.arrange || "")}</span><span>歌詞：${escapeHtml(d.keyword || "-")}</span></div><button class="songEditorNextBtn big-action" data-action="draft:finalize">この内容で完成させる</button>${editorBackButton()}</div>`;
   }
-  if (ed.step === "arrangeMenu") return `<div class="choice-grid main-choice-grid">${choiceButton("<span>📈</span><b>曲強化</b>", "boost:start", "", "完成曲を選んで強化する")}${choiceButton("<span>✏️</span><b>曲編集</b>", "edit:start", "", "曲名・テーマ・ジャンル・アレンジ・歌詞を変更")}</div>${editorBackButton()}`;
+  if (ed.step === "arrangeMenu") return `<div class="choice-grid main-choice-grid">${choiceButton("<span>▲︎</span><b>曲強化</b>", "boost:start", "", "完成曲を選んで強化する")}${choiceButton("<span>✏︎</span><b>曲編集</b>", "edit:start", "", "曲名・テーマ・ジャンル・アレンジ・歌詞を変更")}</div>${editorBackButton()}`;
   if (ed.step === "boostSong") return `<div class="choice-grid song-choice">${state.songs.map(song=>choiceButton(`<b>${escapeHtml(song.title)}</b>`, `boost:song:${song.id}`, "", `${genreDisplay(song)} / 強化Lv${song.boostLevel || 0}`)).join("")}</div>${editorBackButton()}`;
   if (ed.step === "boostConfirm") {
     const song = state.songs.find(x=>x.id===ed.songId);
@@ -9909,7 +9909,7 @@ function renderSongEditorStep(ed) {
   return editorBackButton();
 }
 function editorSummary(ed) {
-  return `<div class="editor-summary"><b>制作内容</b><span>カテゴリ：${ed.type === "lyrics" ? "作詞" : "作曲"}</span><span>ジャンル狙い：${ed.mainGenreA || "-"} → ${ed.mainGenreB || "-"}</span><span>確率：${ed.mainGenreA && ed.mainGenreB ? genrePlanLabel(ed.mainGenreA, ed.mainGenreB, ed.arrange || "") : "-"}</span><span>歌詞：${ed.keyword || "-"}</span><span>アレンジ：${ed.arrange || "-"}</span></div>`;
+  return `<div class="editor-summary"><b>制作内容</b><span>カテゴリ：${ed.type === "lyrics" ? "作詞" : "作曲"}</span><span>ジャンル狙い：${ed.mainGenreA || "-"} →︎ ${ed.mainGenreB || "-"}</span><span>確率：${ed.mainGenreA && ed.mainGenreB ? genrePlanLabel(ed.mainGenreA, ed.mainGenreB, ed.arrange || "") : "-"}</span><span>歌詞：${ed.keyword || "-"}</span><span>アレンジ：${ed.arrange || "-"}</span></div>`;
 }
 function stepSongEditorBack(ed) {
   const backMap = {
@@ -9977,7 +9977,7 @@ function handleSongEditorAction(action) {
   if (action === "compose:menu") { if (!canStartAnySongcraft(["lyrics","music"], 20, "曲作成")) { render(); return; } state.songEditor = { step:"composeMenu" }; render(); return; }
   if (action === "arrange:menu") { if (mustCompleteFirstDraftTutorial()) { state.songEditor = { step:"composeMenu" }; render(); return; } if (!canStartSongcraft("music", 10, "編曲/曲編集")) { render(); return; } state.songEditor = { step:"arrangeMenu" }; render(); return; }
   if (action === "new:start" && mustCompleteFirstDraftTutorial()) { showEventPopup("まず未完成曲を完成", `2ターン目は、1ターン目で作った未完成曲だけを選べる。
-作っていない作詞/作曲を選んで、曲が完成する流れを確認しよう。`, "event", "📝"); return; }
+作っていない作詞/作曲を選んで、曲が完成する流れを確認しよう。`, "event", "▶︎"); return; }
   if (action === "new:start") { if (!canStartAnySongcraft(["lyrics","music"], 20, "新曲作成")) { render(); return; } state.songEditor = { step:"newType" }; render(); return; }
   if (action === "draft:start") { state.songEditor = { step:"draftSelect" }; render(); return; }
   if (action === "boost:start") { if (mustCompleteFirstDraftTutorial()) { state.songEditor = { step:"composeMenu" }; render(); return; } if (!canStartSongcraft("music", 10, "曲強化")) { render(); return; } state.songEditor = { step:"boostSong" }; render(); return; }
@@ -9988,7 +9988,7 @@ function handleSongEditorAction(action) {
   if ((m = action.match(/^new:lyricsMember:(.+)$/))) { ed.memberId = m[1]; ed.step = "newLyricWords"; render(); return; }
   if (action === "new:lyricsExecute") {
     const words = collectLyricWordsFromInputs();
-    if (!words) { showEventPopup("歌詞が未入力", "3つの歌詞ワードを1つ以上入力してから完了しよう。", "warn", "✍️"); return; }
+    if (!words) { showEventPopup("歌詞が未入力", "3つの歌詞ワードを1つ以上入力してから完了しよう。", "warn", "✍︎"); return; }
     ed.keyword = words;
     const member = activeMembers().find(x=>x.id===ed.memberId) || state.player;
     const ok = createDraftAndAdvance("lyrics", member, null, null, "", words, "", provisionalDraftTitle("lyrics", ed));
@@ -10018,7 +10018,7 @@ function handleSongEditorAction(action) {
     const d = state.pendingDrafts.find(x=>x.id===ed.draftId);
     if (!d) { log("制作中の曲が見つかりません。"); render(); return; }
     const words = collectLyricWordsFromInputs();
-    if (!words) { showEventPopup("歌詞が未入力", "3つの歌詞ワードを1つ以上入力してから完了しよう。", "warn", "✍️"); return; }
+    if (!words) { showEventPopup("歌詞が未入力", "3つの歌詞ワードを1つ以上入力してから完了しよう。", "warn", "✍︎"); return; }
     d.keyword = words;
     const member = activeMembers().find(x=>x.id===ed.memberId) || state.player;
     const ok = advanceDraftById(ed.draftId, "lyrics", member);
@@ -10164,10 +10164,10 @@ function renderTelop() {
 
 function fatigueFace(v) {
   const n = Number(v) || 0;
-  if (n >= 90) return "😵";
-  if (n >= 70) return "😫";
-  if (n >= 45) return "😐";
-  return "😊";
+  if (n >= 90) return "✕︎";
+  if (n >= 70) return "▼︎";
+  if (n >= 45) return "●︎";
+  return "★︎";
 }
 function nextMilestoneLabel() {
   const t = state.turn || 1;
@@ -10243,12 +10243,12 @@ function successAdvice() {
 
 function renderCommandCards() {
   const commands = [
-    ["practice", "練習", "技術・楽器Lv・演奏UP", "費用・疲労+", "🎸"],
-    ["rest", "休憩", "疲労DOWN・信頼UP", "成長なし", "☕"],
-    ["parttime", "バイト", "資金+15,000円", "疲労+", "💸"],
-    ["recruit", "募集", "仲間候補を探す", "費用・成果ランダム", "📣"],
-    ["promo", "宣伝", "知名度・認知度UP", "資金-", "📱"],
-    ["talk", "会話", "信頼UP・適性開花候補", "直接成長少", "💬"]
+    ["practice", "練習", "技術・楽器Lv・演奏UP", "費用・疲労+", "♪︎"],
+    ["rest", "休憩", "疲労DOWN・信頼UP", "成長なし", "☕︎"],
+    ["parttime", "バイト", "資金+15,000円", "疲労+", "○︎"],
+    ["recruit", "募集", "仲間候補を探す", "費用・成果ランダム", "▲︎"],
+    ["promo", "宣伝", "知名度・認知度UP", "資金-", "▪︎"],
+    ["talk", "会話", "信頼UP・適性開花候補", "直接成長少", "◆︎"]
   ];
   return `<div class="command-grid">${commands.map(([id,name,main,sub,icon]) => `
     <button class="command-card success-command" data-command="${id}">
@@ -10504,7 +10504,7 @@ function renderLivePrepSongSlot(slot, song) {
       <div class="slot-tags">${(song?.tags || []).slice(0, 4).map(t => `<span class="badge">${escapeHtml(t)}</span>`).join("")}</div>
     </div>
     <div class="slot-actions">
-      <div class="slot-move-row"><button class="moveSetlistBtn ghost-btn" data-slot="${slot}" data-dir="up" ${slot === 1 ? "disabled" : ""}>↑</button><button class="moveSetlistBtn ghost-btn" data-slot="${slot}" data-dir="down" ${slot === 5 ? "disabled" : ""}>↓</button></div>
+      <div class="slot-move-row"><button class="moveSetlistBtn ghost-btn" data-slot="${slot}" data-dir="up" ${slot === 1 ? "disabled" : ""}>↑︎</button><button class="moveSetlistBtn ghost-btn" data-slot="${slot}" data-dir="down" ${slot === 5 ? "disabled" : ""}>↓︎</button></div>
       <button class="openSongPickerBtn ghost-btn" data-slot="${slot}">曲を選ぶ</button>
       <button class="openSongDetailBtn ghost-btn" data-song-id="${escapeHtml(safeId)}">詳細</button>
     </div>
@@ -10554,10 +10554,10 @@ function renderLivePrepCheckPanel(v, { showStepLinks=false }={}) {
 }
 function livePrepStepMeta() {
   return [
-    { step:1, icon:"🎼", title:"セトリ", desc:"5曲と曲順" },
-    { step:2, icon:"🎤", title:"担当", desc:"Vo/Gt/Ba/Dr/Cho" },
-    { step:3, icon:"🧰", title:"サポート/物販", desc:"契約と仕入れ" },
-    { step:4, icon:"✅", title:"最終チェック", desc:"本番前確認" }
+    { step:1, icon:"♪︎", title:"セトリ", desc:"5曲と曲順" },
+    { step:2, icon:"♪︎", title:"担当", desc:"Vo/Gt/Ba/Dr/Cho" },
+    { step:3, icon:"▪︎", title:"サポート/物販", desc:"契約と仕入れ" },
+    { step:4, icon:"✓︎", title:"最終チェック", desc:"本番前確認" }
   ];
 }
 function currentLivePrepStep() {
@@ -10569,8 +10569,8 @@ function renderLivePrepStepNav(step) {
   return `<div class="live-prep-step-nav" role="tablist" aria-label="ライブ準備ステップ">${livePrepStepMeta().map(m => `<button type="button" class="prepStepBtn ${step === m.step ? "active" : ""}" data-step="${m.step}" aria-selected="${step === m.step ? "true" : "false"}"><span>${v043eIcon(m.icon)}</span><b>${m.step}. ${escapeHtml(m.title)}</b><small>${escapeHtml(m.desc)}</small></button>`).join("")}</div>`;
 }
 function renderLivePrepStepControls(step) {
-  const prev = step > 1 ? `<button type="button" class="prepStepPrevBtn ghost-btn" data-step="${step - 1}">← 前へ</button>` : `<span></span>`;
-  const next = step < 4 ? `<button type="button" class="prepStepNextBtn big-action" data-step="${step + 1}">次へ →</button>` : "";
+  const prev = step > 1 ? `<button type="button" class="prepStepPrevBtn ghost-btn" data-step="${step - 1}">←︎ 前へ</button>` : `<span></span>`;
+  const next = step < 4 ? `<button type="button" class="prepStepNextBtn big-action" data-step="${step + 1}">次へ →︎</button>` : "";
   return `<div class="live-prep-step-controls">${prev}${next}</div>`;
 }
 function renderLivePrepStepPanel(step, panelStep, inner) {
@@ -10832,7 +10832,7 @@ function renderMerchPrepControls(venue, audience) {
       const safeRange = merchSafeQtyRange(item, venue, audience);
       const risk = merchRiskLabel(qty, item, venue, audience);
       const digits = merchDigitsFromValue(qty);
-      return `<div class="merch-item-card"><div><b>${escapeHtml(item.name)}</b><small>仕入${item.cost.toLocaleString()}円 → 売値${item.price.toLocaleString()}円</small><small>客層：${item.best.join(" / ")}</small><small>${escapeHtml(item.desc)}</small><div class="quiet-guide-chips merch-signal"><span class="badge ${fit >= 1.08 ? "good" : fit < .9 ? "bad" : ""}">${fitLabel}</span><span class="badge merchRiskBadge ${risk.cls === "bad" ? "bad" : risk.cls === "warn" ? "warn" : risk.cls === "good" ? "good" : ""}" data-merch-id="${item.id}">${escapeHtml(risk.label)}</span></div><small class="safe-guide-line">安全目安 ${safeRange.low}〜${safeRange.high}個</small></div><div class="merch-qty-control merch-dial-control"><div class="merch-dial-readout"><span>仕入れ数</span><output class="merchQtyValue" data-merch-id="${item.id}">${String(qty).padStart(3, "0")}</output><span>個</span></div><div class="merch-dial-lock">${renderMerchDigitSelect(item.id, "hundreds", digits.hundreds, "百")}${renderMerchDigitSelect(item.id, "tens", digits.tens, "十")}${renderMerchDigitSelect(item.id, "ones", digits.ones, "一")}</div><div class="merch-dial-step"><button class="merchQtyStepBtn" data-merch-id="${item.id}" data-delta="-1" type="button" aria-label="${escapeHtml(item.name)}を1個減らす">−1</button><button class="merchQtyStepBtn" data-merch-id="${item.id}" data-delta="1" type="button" aria-label="${escapeHtml(item.name)}を1個増やす">＋1</button></div><input class="merchQtyInput" data-merch-id="${item.id}" type="hidden" value="${qty}" /></div></div>`;
+      return `<div class="merch-item-card"><div><b>${escapeHtml(item.name)}</b><small>仕入${item.cost.toLocaleString()}円 →︎ 売値${item.price.toLocaleString()}円</small><small>客層：${item.best.join(" / ")}</small><small>${escapeHtml(item.desc)}</small><div class="quiet-guide-chips merch-signal"><span class="badge ${fit >= 1.08 ? "good" : fit < .9 ? "bad" : ""}">${fitLabel}</span><span class="badge merchRiskBadge ${risk.cls === "bad" ? "bad" : risk.cls === "warn" ? "warn" : risk.cls === "good" ? "good" : ""}" data-merch-id="${item.id}">${escapeHtml(risk.label)}</span></div><small class="safe-guide-line">安全目安 ${safeRange.low}〜${safeRange.high}個</small></div><div class="merch-qty-control merch-dial-control"><div class="merch-dial-readout"><span>仕入れ数</span><output class="merchQtyValue" data-merch-id="${item.id}">${String(qty).padStart(3, "0")}</output><span>個</span></div><div class="merch-dial-lock">${renderMerchDigitSelect(item.id, "hundreds", digits.hundreds, "百")}${renderMerchDigitSelect(item.id, "tens", digits.tens, "十")}${renderMerchDigitSelect(item.id, "ones", digits.ones, "一")}</div><div class="merch-dial-step"><button class="merchQtyStepBtn" data-merch-id="${item.id}" data-delta="-1" type="button" aria-label="${escapeHtml(item.name)}を1個減らす">−1</button><button class="merchQtyStepBtn" data-merch-id="${item.id}" data-delta="1" type="button" aria-label="${escapeHtml(item.name)}を1個増やす">＋1</button></div><input class="merchQtyInput" data-merch-id="${item.id}" type="hidden" value="${qty}" /></div></div>`;
     }).join("")}</div>
   </div>`;
 }
@@ -10863,23 +10863,23 @@ function maybeTriggerCommandEvent(command) {
   const member = active[rand(0, active.length - 1)] || state.player;
   const events = {
     practice: [
-      ["練習後の一言", `${member.name}が最後にもう一回だけ合わせようと言った。\n信頼度が少し上がり、疲労も少しだけ増えた。`, () => { state.band.trust = clamp(state.band.trust + 1,0,100); state.band.fatigue = clamp(state.band.fatigue + 2,0,100); }, "🥁"],
-      ["小さな成長", `${member.name}が自分の音を掴みかけている。\nメンタル+1。`, () => { member.stats.mental = clamp(member.stats.mental + 1,1,99); }, "📈"]
+      ["練習後の一言", `${member.name}が最後にもう一回だけ合わせようと言った。\n信頼度が少し上がり、疲労も少しだけ増えた。`, () => { state.band.trust = clamp(state.band.trust + 1,0,100); state.band.fatigue = clamp(state.band.fatigue + 2,0,100); }, "♪︎"],
+      ["小さな成長", `${member.name}が自分の音を掴みかけている。\nメンタル+1。`, () => { member.stats.mental = clamp(member.stats.mental + 1,1,99); }, "▲︎"]
     ],
     rest: [
-      ["帰り道", `今日は早めに切り上げた。\nコンビニ前で少しだけ話して、バンドの空気が軽くなった。`, () => { state.band.trust = clamp(state.band.trust + 2,0,100); }, "🌙"]
+      ["帰り道", `今日は早めに切り上げた。\nコンビニ前で少しだけ話して、バンドの空気が軽くなった。`, () => { state.band.trust = clamp(state.band.trust + 2,0,100); }, "☆︎"]
     ],
     work: [
-      ["バイト先のBGM", `バイト中、店内で流れていた曲が妙に耳に残った。\n次の作曲に使えそうな気がする。`, () => { state.band.direction["ポップ"] = (state.band.direction["ポップ"] || 0) + 2; }, "🎧"]
+      ["バイト先のBGM", `バイト中、店内で流れていた曲が妙に耳に残った。\n次の作曲に使えそうな気がする。`, () => { state.band.direction["ポップ"] = (state.band.direction["ポップ"] || 0) + 2; }, "♪︎"]
     ],
     recruit: [
-      ["貼り紙を見た人", `スタジオの掲示板を見た人から連絡が来た。\n次の募集結果が少し良くなりそう。`, () => { state.band.fame = clamp(state.band.fame + 1,0,999); }, "📨"]
+      ["貼り紙を見た人", `スタジオの掲示板を見た人から連絡が来た。\n次の募集結果が少し良くなりそう。`, () => { state.band.fame = clamp(state.band.fame + 1,0,999); }, "✉︎"]
     ],
     promote: [
-      ["SNSが少し伸びた", `投稿がいつもより少しだけ回った。\nまだ小さいが、知らない誰かに届いている。`, () => { state.band.fame = clamp(state.band.fame + 2,0,999); }, "📱"]
+      ["SNSが少し伸びた", `投稿がいつもより少しだけ回った。\nまだ小さいが、知らない誰かに届いている。`, () => { state.band.fame = clamp(state.band.fame + 2,0,999); }, "▪︎"]
     ],
     talk: [
-      ["本音の会話", `${member.name}が最近の不安を少し話してくれた。\n信頼度+3。`, () => { state.band.trust = clamp(state.band.trust + 3,0,100); }, "☕"]
+      ["本音の会話", `${member.name}が最近の不安を少し話してくれた。\n信頼度+3。`, () => { state.band.trust = clamp(state.band.trust + 3,0,100); }, "☕︎"]
     ]
   };
   const list = events[command] || events.talk;
@@ -10980,7 +10980,7 @@ function renderActivePopupOverlay() {
   const modalClass = p?.modalClass ? String(p.modalClass).replace(/[^\w -]/g, "").trim() : "";
   return `<div class="modal-backdrop ${scrollSafe ? "active-popup-scroll-safe-backdrop" : ""}">
     <div class="event-modal ${p.type || "info"} ${scrollSafe ? "active-popup-scroll-safe-modal" : ""} ${escapeHtml(modalClass)}">
-      <div class="modal-icon">${p.icon || "🎸"}</div>
+      <div class="modal-icon">${p.icon || "♪︎"}</div>
       <div class="modal-copy"><h2>${escapeHtml(p.title)}</h2><p>${escapeHtml(p.body).replace(/\n/g,"<br>")}</p>${renderPopupBars(p.bars)}</div>
       <button class="popupCloseBtn big-action">OK</button>
     </div>
@@ -10988,7 +10988,7 @@ function renderActivePopupOverlay() {
 }
 
 function renderNoSongcraftConfirmOverlay() {
-  return v043aRenderConfirmationSheet({ icon:"🎼", tone:"warn", title:"作詞作曲せずに進める？", bodyHtml:"<p>このターンは曲を作らずに終わります。よければ行動を実行します。</p>", actionsClass:"confirm-wide", confirmId:"confirmNoSongcraftBtn", confirmLabel:"このまま行動する", cancelId:"cancelNoSongcraftBtn", cancelLabel:"曲作りへ戻る" });
+  return v043aRenderConfirmationSheet({ icon:"♪︎", tone:"warn", title:"作詞作曲せずに進める？", bodyHtml:"<p>このターンは曲を作らずに終わります。よければ行動を実行します。</p>", actionsClass:"confirm-wide", confirmId:"confirmNoSongcraftBtn", confirmLabel:"このまま行動する", cancelId:"cancelNoSongcraftBtn", cancelLabel:"曲作りへ戻る" });
 }
 
 function renderPopupBars(bars=[]) {
@@ -11010,7 +11010,7 @@ function renderCancelLiveConfirmOverlay() {
   const base = ev && v ? eventBaseCost(ev, v) : 0;
   const penalty = noShow ? base + Math.round(base * 0.5) : 0;
   const feeLabel = ev ? liveTypeMeta(ev).feeLabel : "費用";
-  return v043aRenderConfirmationSheet({ icon:noShow ? "⚠️" : "📅", tone:"warn", title:noShow ? "ライブをドタキャンする？" : "ライブをキャンセルする？", bodyHtml:`<p>${ev && v ? `${ev.turn}ターン目「${escapeHtml(v.name)}」を${noShow ? "ドタキャン" : "キャンセル"}します。` : "対象のライブをキャンセルします。"}<br>${noShow ? `${escapeHtml(feeLabel)}＋損料 ${penalty.toLocaleString()}円が発生し、信頼度と知名度が大きく下がります。` : "メリットはなく、信頼度と知名度が少し下がります。"}</p>`, actionsClass:"confirm-wide", confirmId:"confirmCancelLiveBtn", confirmLabel:noShow ? "ドタキャンする" : "キャンセルする", confirmClass:"big-action danger", cancelId:"cancelCancelLiveBtn", cancelLabel:"戻る" });
+  return v043aRenderConfirmationSheet({ icon:noShow ? "⚠︎" : "■︎", tone:"warn", title:noShow ? "ライブをドタキャンする？" : "ライブをキャンセルする？", bodyHtml:`<p>${ev && v ? `${ev.turn}ターン目「${escapeHtml(v.name)}」を${noShow ? "ドタキャン" : "キャンセル"}します。` : "対象のライブをキャンセルします。"}<br>${noShow ? `${escapeHtml(feeLabel)}＋損料 ${penalty.toLocaleString()}円が発生し、信頼度と知名度が大きく下がります。` : "メリットはなく、信頼度と知名度が少し下がります。"}</p>`, actionsClass:"confirm-wide", confirmId:"confirmCancelLiveBtn", confirmLabel:noShow ? "ドタキャンする" : "キャンセルする", confirmClass:"big-action danger", cancelId:"cancelCancelLiveBtn", cancelLabel:"戻る" });
 }
 
 function renderPurchaseConfirmOverlay() {
@@ -11022,15 +11022,15 @@ function renderPurchaseConfirmOverlay() {
   const names = { drink: "疲労回復ドリンク", effecter: "エフェクター", usedGear: "中古楽器", lightFx: "照明エフェクト" };
   const price = isGear ? equipmentUpgradeCost(gearId) : (prices[item] || 0);
   const title = isGear ? `${gear?.name || "機材"}を強化する？` : `${names[item] || "アイテム"}を購入する？`;
-  const desc = isGear ? `現在Lv${equipmentLevel(gearId)} → Lv${Math.min(5, equipmentLevel(gearId)+1)}。${gear?.desc || ""}` : "誤タップ防止のため、購入前に確認しています。";
-  return v043aRenderConfirmationSheet({ icon:"🛒", tone:"event", title, bodyHtml:`<p>価格：${price.toLocaleString()}円</p><p>${escapeHtml(desc)}</p>`, confirmId:"confirmPurchaseBtn", confirmLabel:isGear ? "強化する" : "購入する", cancelId:"cancelPurchaseBtn", cancelLabel:"戻る" });
+  const desc = isGear ? `現在Lv${equipmentLevel(gearId)} →︎ Lv${Math.min(5, equipmentLevel(gearId)+1)}。${gear?.desc || ""}` : "誤タップ防止のため、購入前に確認しています。";
+  return v043aRenderConfirmationSheet({ icon:"▼︎", tone:"event", title, bodyHtml:`<p>価格：${price.toLocaleString()}円</p><p>${escapeHtml(desc)}</p>`, confirmId:"confirmPurchaseBtn", confirmLabel:isGear ? "強化する" : "購入する", cancelId:"cancelPurchaseBtn", cancelLabel:"戻る" });
 }
 function renderSaveSlotOverlay() {
   const mode = state.saveSlotModal;
   const isSave = mode === "save";
   return `<div class="modal-backdrop">
     <div class="event-modal event slot-modal">
-      <div class="modal-icon">${isSave ? "💾" : "📂"}</div>
+      <div class="modal-icon">${isSave ? "▪︎" : "▪︎"}</div>
       <div class="modal-copy">
         <h2>${isSave ? "どのスロットにセーブする？" : "どのスロットをロードする？"}</h2>
         <p>${isSave ? "選んだスロットへ現在の進行を保存します。既存データがある場合は上書きされます。" : "ロードすると現在の画面上の進行は、選んだセーブデータに切り替わります。"}</p>
@@ -11055,7 +11055,7 @@ function renderBookingConfirmOverlay() {
   const prep = estimatePrepScore();
   const shortage = Math.max(0, v.prepNeed - prep);
   const riskProfile = liveRiskProfile(v);
-  return v043aRenderConfirmationSheet({ icon:"📅", tone:"event", extraClass:"booking-modal", title:`${b.turn}ターン目の${meta.short}を入れる？`, bodyHtml:`<p>${escapeHtml(v.name)} / キャパ${v.capacity} / ${escapeHtml(meta.feeLabel)}${eventBaseCost(ev, v).toLocaleString()}円</p><p>準備要求：${v.prepNeed} / 現在準備：${val(prep)}${shortage ? ` / 不足${val(shortage)}` : " / 準備OK"}</p><div class="quiet-guide-chips">${renderRiskBadges(riskProfile)}</div>${bands.length ? `<p>呼ぶ/共演候補：${bands.map(x=>escapeHtml(x.name)).join(" / ")}</p>` : ""}<p>${escapeHtml(meta.desc)}</p><p>予約後、残り2ターン以内は通常キャンセル不可。当日ドタキャンは各ライブ種別の表示費用＋損料が必要。</p>`, confirmId:"confirmBookingBtn", confirmLabel:"決定する", cancelId:"cancelBookingBtn", cancelLabel:"戻る" });
+  return v043aRenderConfirmationSheet({ icon:"■︎", tone:"event", extraClass:"booking-modal", title:`${b.turn}ターン目の${meta.short}を入れる？`, bodyHtml:`<p>${escapeHtml(v.name)} / キャパ${v.capacity} / ${escapeHtml(meta.feeLabel)}${eventBaseCost(ev, v).toLocaleString()}円</p><p>準備要求：${v.prepNeed} / 現在準備：${val(prep)}${shortage ? ` / 不足${val(shortage)}` : " / 準備OK"}</p><div class="quiet-guide-chips">${renderRiskBadges(riskProfile)}</div>${bands.length ? `<p>呼ぶ/共演候補：${bands.map(x=>escapeHtml(x.name)).join(" / ")}</p>` : ""}<p>${escapeHtml(meta.desc)}</p><p>予約後、残り2ターン以内は通常キャンセル不可。当日ドタキャンは各ライブ種別の表示費用＋損料が必要。</p>`, confirmId:"confirmBookingBtn", confirmLabel:"決定する", cancelId:"cancelBookingBtn", cancelLabel:"戻る" });
 }
 function renderBoostSongConfirmOverlay() {
   const songId = state.pendingBoostSong;
@@ -11063,7 +11063,7 @@ function renderBoostSongConfirmOverlay() {
   if (!song) { state.pendingBoostSong = null; return ""; }
   const cost = plannedSongcraftFatigueCost("music", 10);
   const over = (state.band.fatigue || 0) + cost > 100;
-  return v043aRenderConfirmationSheet({ icon:"📈", tone:"event", title:"この曲を強化する？", bodyHtml:`<p>「${escapeHtml(song.title)}」 / ${escapeHtml(genreDisplay(song))}<br>現在：強化Lv${song.boostLevel || 0}<br>疲労+${cost}%</p><p>疲労を消費して、曲の強化Lvと演奏力を少し上げます。</p>${over ? `<p class="bad-text">疲労が100％を超えるため、今は強化できません。</p>` : ""}`, confirmId:"confirmBoostSongBtn", confirmLabel:"強化する", confirmAttrs:over ? "disabled" : "", cancelId:"cancelBoostSongBtn", cancelLabel:"戻る" });
+  return v043aRenderConfirmationSheet({ icon:"▲︎", tone:"event", title:"この曲を強化する？", bodyHtml:`<p>「${escapeHtml(song.title)}」 / ${escapeHtml(genreDisplay(song))}<br>現在：強化Lv${song.boostLevel || 0}<br>疲労+${cost}%</p><p>疲労を消費して、曲の強化Lvと演奏力を少し上げます。</p>${over ? `<p class="bad-text">疲労が100％を超えるため、今は強化できません。</p>` : ""}`, confirmId:"confirmBoostSongBtn", confirmLabel:"強化する", confirmAttrs:over ? "disabled" : "", cancelId:"cancelBoostSongBtn", cancelLabel:"戻る" });
 }
 
 function renderAfterpartyOverlay() {
@@ -11072,7 +11072,7 @@ function renderAfterpartyOverlay() {
   const canJoin = fatigue <= 80;
   const bands = (p.invitedBandIds || []).map(rivalById).filter(Boolean);
   return `<div class="modal-backdrop"><div class="event-modal event afterparty-modal">
-    <div class="modal-icon">🍻</div>
+    <div class="modal-icon">○︎</div>
     <div class="modal-copy"><h2>ライブ後の打ち上げに行く？</h2>
       <p>${escapeHtml(p.title || "ライブ")}が終わった。参加すると、短い打ち上げイベントが発生する。共演バンドとの交流・紹介・メンバー成長のチャンスがあるが、疲労も増える。</p>
       <p>現在疲労：${Math.round(fatigue)}% / 参加条件：疲労80%以下${canJoin ? "" : "（疲れすぎて参加不可）"}</p>
@@ -11088,7 +11088,7 @@ function renderAfterpartyEventOverlay() {
   const choices = Array.isArray(scene.choices) ? scene.choices : [];
   const bandLine = (ev.invitedBandIds || []).map(rivalById).filter(Boolean).map(b => escapeHtml(b.name)).join(" / ");
   return `<div class="modal-backdrop"><div class="event-modal event afterparty-modal afterparty-choice-modal">
-    <div class="modal-icon">${escapeHtml(scene.icon || "🍻")}</div>
+    <div class="modal-icon">${escapeHtml(scene.icon || "○︎")}</div>
     <div class="modal-copy"><h2>${escapeHtml(scene.title || "打ち上げイベント")}</h2>
       <p>${escapeHtml(scene.body || "ライブ後の空気が、まだ残っている。").replace(/\n/g,"<br>")}</p>
       ${bandLine ? `<p><small>共演：${bandLine}</small></p>` : `<p><small>今回は自分たち中心の打ち上げ。</small></p>`}
@@ -11104,10 +11104,10 @@ function renderActionResultOverlay() {
   const r = state.actionResultModal;
   return `<div class="modal-backdrop result-backdrop">
     <div class="action-result-modal">
-      <div class="result-header"><span>WEEK RESULT</span><b>${escapeHtml(r.title)}</b><em>${r.icon || "⚡"}</em></div>
+      <div class="result-header"><span>WEEK RESULT</span><b>${escapeHtml(r.title)}</b><em>${r.icon || "⚡︎"}</em></div>
       <p>${escapeHtml(r.body || "今週の行動を終えた。").replace(/\n/g,"<br>")}</p>
       <div class="gain-grid">${(r.diffs || []).map(([k,v,u]) => `<div><span>${k}</span><b class="${v>=0 ? "plus" : "minus"}">${v>=0 ? "+" : ""}${u === "円" ? v.toLocaleString() : v}${u}</b></div>`).join("") || `<div><span>変化</span><b>なし</b></div>`}</div>
-      ${r.event ? `<div class="inline-event"><b>${escapeHtml(r.event.icon || "✨")} ${escapeHtml(r.event.title)}</b><span>${escapeHtml(r.event.body)}</span></div>` : ""}
+      ${r.event ? `<div class="inline-event"><b>${escapeHtml(r.event.icon || "☆︎")} ${escapeHtml(r.event.title)}</b><span>${escapeHtml(r.event.body)}</span></div>` : ""}
       ${r.training ? renderTrainingGains(r.training) : ""}
       ${r.songcraftResult ? `<div class="inline-event songcraft-summary"><b>${escapeHtml(r.songcraftResult.title || "曲作り")}</b><span>${escapeHtml(r.songcraftResult.body || "").replace(/\n/g,"<br>")}</span>${renderPopupBars(r.songcraftResult.bars)}</div>` : ""}
       ${r.tutorialMsg ? `<div class="tutorial-message">${escapeHtml(r.tutorialMsg).replace(/\n/g,"<br>")}</div>` : ""}
@@ -11121,7 +11121,7 @@ function renderTrainingGains(training) {
   if (!rows.length) return "";
   return `<div class="training-gain-list"><b>練習で伸びたステータス</b>${rows.map(r => {
     if (r.name) {
-      const diffText = (r.diffs || []).map(d => `${statLabel(d.key)} ${d.before}→${d.after}`).join(" / ");
+      const diffText = (r.diffs || []).map(d => `${statLabel(d.key)} ${d.before}→︎${d.after}`).join(" / ");
       const maxAfter = Math.max(...(r.diffs || []).map(d => d.after), 0);
       return `<div class="training-gain-row"><span>${escapeHtml(r.name)} <em>${escapeHtml(r.growthType || DEFAULT_MEMBER_GROWTH_TYPE)}</em></span><small>${escapeHtml(diffText || "変化なし")}</small><div class="meter mini"><div class="fill" style="width:${clamp(maxAfter,0,99)}%"></div></div></div>`;
     }
@@ -11133,7 +11133,7 @@ function renderLiveProgressOverlay() {
   const l = state.liveProgressModal;
   const steps = l.steps || [];
   const idx = clamp(l.index || 0, 0, Math.max(0, steps.length - 1));
-  const current = steps[idx] || { line:"ライブ開始！", icon:"🔥", event:"会場が温まってきた" };
+  const current = steps[idx] || { line:"ライブ開始！", icon:"▲︎", event:"会場が温まってきた" };
   const pct = steps.length ? Math.round((idx + 1) / steps.length * 100) : 100;
   const prevPct = steps.length ? Math.round(idx / steps.length * 100) : 0;
   const complete = !!l.complete;
@@ -11200,7 +11200,7 @@ function renderBandNameOverlay() {
   const renaming = !!state.renameBandNamePrompt;
   return `<div class="modal-backdrop">
     <div class="event-modal event band-name-modal">
-      <div class="modal-icon">🏷️</div>
+      <div class="modal-icon">◆︎</div>
       <div class="modal-copy"><h2>${renaming ? "バンド名を変更する" : "バンド名を決めよう"}</h2><p>${renaming ? "改名すると、古い名前で覚えていた人が少し迷う。認知度がごく少し下がります。" : "ライブハウスに名前を出すには、バンド名が必要だ。"}</p><input id="bandNameInput" class="wide-input" placeholder="例：名無しの地下バンド" value="${escapeHtml(state.band.name || "")}" /></div>
       <div class="modal-actions confirm-wide"><button id="confirmBandNameBtn" class="big-action">この名前で行く</button>${renaming ? `<button id="cancelBandNameBtn" class="ghost-btn">戻る</button>` : ""}</div>
     </div>
@@ -11262,7 +11262,7 @@ function bindEvents() {
     state.view = v;
     if (v === "schedule" && state.scheduleTutorialStage === "needSchedule") {
       state.scheduleTutorialStage = "done";
-      showEventPopup("スケジュール帳", "今後のライブの予定を組もう。\n出たいライブ候補をタップすると、会場費・キャパ・準備要求を確認して予約できる。", "event", "📅");
+      showEventPopup("スケジュール帳", "今後のライブの予定を組もう。\n出たいライブ候補をタップすると、会場費・キャパ・準備要求を確認して予約できる。", "event", "■︎");
     }
     render();
   }));
@@ -11355,7 +11355,7 @@ function bindEvents() {
   const renameBandBtn = document.getElementById("renameBandBtn");
   if (renameBandBtn) renameBandBtn.addEventListener("click", () => { state.renameBandNamePrompt = true; render(); });
   const confirmBandNameBtn = document.getElementById("confirmBandNameBtn");
-  if (confirmBandNameBtn) confirmBandNameBtn.addEventListener("click", () => { const name = (document.getElementById("bandNameInput")?.value || "").trim() || "名無しの地下バンド"; const renaming = !!state.renameBandNamePrompt; state.band.name = name; state.bandNamePrompt = false; state.renameBandNamePrompt = false; if (renaming) state.band.fame = clamp(Number(state.band.fame || 0) - 2, 0, 999); log(`バンド名を「${name}」に${renaming ? "変更" : "決定"}した。${renaming ? "認知度が少し下がった。" : ""}`); showEventPopup(renaming ? "バンド名変更" : "バンド名決定", `${renaming ? "新しい名前で活動し直す。" : "今日からこの名前でライブハウスに出る。"}\n${name}${renaming ? "\n認知度-2" : ""}`, "event", "🏷️"); if (state.pendingTurnAdvance) { if (!maybeFinishPendingTurnAdvanceAfterPopups()) render(); } else render(); });
+  if (confirmBandNameBtn) confirmBandNameBtn.addEventListener("click", () => { const name = (document.getElementById("bandNameInput")?.value || "").trim() || "名無しの地下バンド"; const renaming = !!state.renameBandNamePrompt; state.band.name = name; state.bandNamePrompt = false; state.renameBandNamePrompt = false; if (renaming) state.band.fame = clamp(Number(state.band.fame || 0) - 2, 0, 999); log(`バンド名を「${name}」に${renaming ? "変更" : "決定"}した。${renaming ? "認知度が少し下がった。" : ""}`); showEventPopup(renaming ? "バンド名変更" : "バンド名決定", `${renaming ? "新しい名前で活動し直す。" : "今日からこの名前でライブハウスに出る。"}\n${name}${renaming ? "\n認知度-2" : ""}`, "event", "◆︎"); if (state.pendingTurnAdvance) { if (!maybeFinishPendingTurnAdvanceAfterPopups()) render(); } else render(); });
   const cancelBandNameBtn = document.getElementById("cancelBandNameBtn");
   if (cancelBandNameBtn) cancelBandNameBtn.addEventListener("click", () => { state.renameBandNamePrompt = false; render(); });
   const confirmNoSongcraftBtn = document.getElementById("confirmNoSongcraftBtn");
@@ -11458,7 +11458,7 @@ function continuePostLiveFlow() {
   if (state.postLiveStory) {
     const ev = state.postLiveStory;
     state.postLiveStory = null;
-    state.activePopup = { title:ev.title, body:ev.body, type:"event", icon:ev.icon || "🕴️" };
+    state.activePopup = { title:ev.title, body:ev.body, type:"event", icon:ev.icon || "●︎" };
     return;
   }
   const next = nextPopupFromQueue();
@@ -11508,7 +11508,7 @@ function buildAfterpartyEventScene(p) {
     choices[0] = { key:"review", label:"メンバーで反省会する", desc:"協調性・メンタル重視 / 疲労ふつう", fatigue:15, relMod:0, statMod:1, applicantMod:-0.10, fame:0, industry:0, funds:0, songBoost:0 };
     choices[1] = { key:"staff", label:"店長に挨拶する", desc:"業界評価・資金少し / 疲労ふつう", fatigue:16, relMod:0, statMod:0, applicantMod:0.02, fame:1, industry:1, funds:2000, songBoost:1 };
   }
-  return { rank:p.rank, total:p.total, liveType:p.liveType, invitedBandIds:[...(p.invitedBandIds || [])], title:p.title, baseEvent, scene:{ title:subject, body, icon:"🍻", choices } };
+  return { rank:p.rank, total:p.total, liveType:p.liveType, invitedBandIds:[...(p.invitedBandIds || [])], title:p.title, baseEvent, scene:{ title:subject, body, icon:"○︎", choices } };
 }
 function applyAfterpartyChoiceStats(payload, choice, exposure) {
   const event = payload.baseEvent || genericAfterpartyEvent(payload.rank);
@@ -11584,7 +11584,7 @@ Triple Arrowsの刺激を受け、ステータスが上がった。
 
 主人公：
 「ふう、疲れが溜まってたら二日酔いだったな…」
-疲労+${fatigueGainNow}%`, type:"event", icon:"🍻" };
+疲労+${fatigueGainNow}%`, type:"event", icon:"○︎" };
       }
     } else {
       setRelationshipWithBand("paper_moon", relationshipWithBand("paper_moon") + 18);
@@ -11603,7 +11603,7 @@ Paper Moon Kids（仮）の刺激を受け、ステータスが上がった。
 
 主人公：
 「ふう、疲れが溜まってたら二日酔いだったな…」
-疲労+${Math.max(0, Math.round((state.band.fatigue || 0) - fatigueBefore))}%`, type:"event", icon:"🍻" };
+疲労+${Math.max(0, Math.round((state.band.fatigue || 0) - fatigueBefore))}%`, type:"event", icon:"○︎" };
     }
     schedulePendingTurnAdvance("afterparty");
     render();
@@ -11666,9 +11666,9 @@ function resolveAfterpartyChoice(choiceKey="listen") {
   if (Number(choice.fame || 0)) extraLines.push(`知名度+${choice.fame}`);
   if (Number(choice.industry || 0)) extraLines.push(`業界評価+${choice.industry}`);
   if (songBoost) extraLines.push(`曲強化：「${songBoost.title}」演奏+${songBoost.gain}`);
-  const resultBody = `${relText}\n選択：${choice.label}\nイベント：${payload.baseEvent?.title || scene.title} - ${payload.baseEvent?.text || "短い反省会をした。"}${statLines.length ? "\n" + statLines.join("\n") : ""}${extraLines.length ? "\n" + extraLines.join(" / ") : ""}${introText}\n疲労+${Math.round(state.band.fatigue-before)}%。二日酔い判定${Math.round(chance*100)}%${hungover ? " → 発生" : " → なし"}。`;
+  const resultBody = `${relText}\n選択：${choice.label}\nイベント：${payload.baseEvent?.title || scene.title} - ${payload.baseEvent?.text || "短い反省会をした。"}${statLines.length ? "\n" + statLines.join("\n") : ""}${extraLines.length ? "\n" + extraLines.join(" / ") : ""}${introText}\n疲労+${Math.round(state.band.fatigue-before)}%。二日酔い判定${Math.round(chance*100)}%${hungover ? " →︎ 発生" : " →︎ なし"}。`;
   state.popupQueue = state.popupQueue || [];
-  state.popupQueue.push({ title:"打ち上げ結果", body:resultBody, type:hungover ? "warn" : "event", icon:"🍻", layout:"scroll-safe", modalClass:"afterparty-result-safe-modal", scrollSafe:true });
+  state.popupQueue.push({ title:"打ち上げ結果", body:resultBody, type:hungover ? "warn" : "event", icon:"○︎", layout:"scroll-safe", modalClass:"afterparty-result-safe-modal", scrollSafe:true });
   log(`打ち上げイベント：${payload.baseEvent?.title || scene.title} / ${choice.label}。${relText}${extraLines.length ? " / " + extraLines.join(" / ") : ""}${introText ? " / " + introText.trim() : ""} 疲労+${Math.round(state.band.fatigue-before)}%。`, hungover ? "warn" : "event");
   if (bandSystemOn()) {
     processBandStoryEvents("afterParty");
@@ -11791,7 +11791,7 @@ function handleCommandClick(command) {
   const guide = tutorialCommandMessage(command);
   if (guide) { state.activePopup = guide; render(); return; }
   if (state.hangoverTurn === state.turn && command !== "rest") {
-    state.activePopup = { title:"二日酔い", body:"このターンは休憩しかできない。\n休憩を選ぶと通常行動に戻ります。", type:"warn", icon:"😵" };
+    state.activePopup = { title:"二日酔い", body:"このターンは休憩しかできない。\n休憩を選ぶと通常行動に戻ります。", type:"warn", icon:"✕︎" };
     render();
     return;
   }
@@ -11871,13 +11871,13 @@ function trainingSummary(before, after) {
 }
 function commandMeta(command) {
   return {
-    practice:{ label:"練習", icon:"🥁", body:"スタジオに音が鳴った。少しだけバンドが前に進んだ。" },
-    rest:{ label:"休憩", icon:"☕", body:"今日は休むことにした。身体が軽くなった。" },
-    parttime:{ label:"バイト", icon:"💴", body:"音楽のために、今日は働いた。" },
-    recruit:{ label:"募集", icon:"📣", body:"掲示板とSNSにメンバー募集を出した。" },
-    promo:{ label:"宣伝", icon:"📱", body:"まだ小さいが、知らない誰かに届いている。" },
-    talk:{ label:"会話", icon:"💬", body:"少しだけ本音を話した。バンドの空気が変わった。" }
-  }[command] || { label:"行動", icon:"⚡", body:"今週の行動を終えた。" };
+    practice:{ label:"練習", icon:"♪︎", body:"スタジオに音が鳴った。少しだけバンドが前に進んだ。" },
+    rest:{ label:"休憩", icon:"☕︎", body:"今日は休むことにした。身体が軽くなった。" },
+    parttime:{ label:"バイト", icon:"○︎", body:"音楽のために、今日は働いた。" },
+    recruit:{ label:"募集", icon:"▲︎", body:"掲示板とSNSにメンバー募集を出した。" },
+    promo:{ label:"宣伝", icon:"▪︎", body:"まだ小さいが、知らない誰かに届いている。" },
+    talk:{ label:"会話", icon:"◆︎", body:"少しだけ本音を話した。バンドの空気が変わった。" }
+  }[command] || { label:"行動", icon:"⚡︎", body:"今週の行動を終えた。" };
 }
 function avgActiveMemberStat(key) {
   const list = activeMembers();
@@ -11940,24 +11940,24 @@ function commandMiniEventPool(command, phase, member) {
   const post = phase !== "pre_under";
   const pools = {
     practice: [
-      { title:pre ? "フェス前の合わせ" : "GRANDを意識した通し練習", body:pre ? `${member.name}が「この曲、もう一回だけ合わせよう」と言った。UNDER FES前の空気が少し締まる。` : `${member.name}が本番を想定して、曲間まで含めた通し練習を提案した。`, icon:"🥁", effect:()=>{ member.stats.teamwork=clamp(member.stats.teamwork+1,1,99); member.stats.rhythm=clamp(member.stats.rhythm+1,1,99); state.band.fatigue=clamp((state.band.fatigue||0)+2,0,100); } },
-      { title:"手応えのある一音", body:`${member.name}が、自分の音の芯を少し掴んだ。`, icon:"📈", effect:()=>{ member.stats.technique=clamp(member.stats.technique+1,1,99); member.stats.mental=clamp(member.stats.mental+1,1,99); } }
+      { title:pre ? "フェス前の合わせ" : "GRANDを意識した通し練習", body:pre ? `${member.name}が「この曲、もう一回だけ合わせよう」と言った。UNDER FES前の空気が少し締まる。` : `${member.name}が本番を想定して、曲間まで含めた通し練習を提案した。`, icon:"♪︎", effect:()=>{ member.stats.teamwork=clamp(member.stats.teamwork+1,1,99); member.stats.rhythm=clamp(member.stats.rhythm+1,1,99); state.band.fatigue=clamp((state.band.fatigue||0)+2,0,100); } },
+      { title:"手応えのある一音", body:`${member.name}が、自分の音の芯を少し掴んだ。`, icon:"▲︎", effect:()=>{ member.stats.technique=clamp(member.stats.technique+1,1,99); member.stats.mental=clamp(member.stats.mental+1,1,99); } }
     ],
     promo: [
-      { title:pre ? "フライヤーの一言" : "フェス後の反応", body:pre ? "配ったフライヤーに、通りすがりの人が少し足を止めた。" : "UNDER FES後、名前を覚えている客が少し増えていた。", icon:"📱", effect:()=>{ state.band.fame=clamp((state.band.fame||0)+2,0,999); state.band.fans=clamp((state.band.fans||0)+rand(1,3),0,99999); } },
-      { title:"投稿の伸び", body:"SNSの投稿がいつもより少しだけ回った。", icon:"📣", effect:()=>{ state.band.fame=clamp((state.band.fame||0)+1,0,999); state.bookingInviteBoostTurns=Math.max(state.bookingInviteBoostTurns||0,2); } }
+      { title:pre ? "フライヤーの一言" : "フェス後の反応", body:pre ? "配ったフライヤーに、通りすがりの人が少し足を止めた。" : "UNDER FES後、名前を覚えている客が少し増えていた。", icon:"▪︎", effect:()=>{ state.band.fame=clamp((state.band.fame||0)+2,0,999); state.band.fans=clamp((state.band.fans||0)+rand(1,3),0,99999); } },
+      { title:"投稿の伸び", body:"SNSの投稿がいつもより少しだけ回った。", icon:"▲︎", effect:()=>{ state.band.fame=clamp((state.band.fame||0)+1,0,999); state.bookingInviteBoostTurns=Math.max(state.bookingInviteBoostTurns||0,2); } }
     ],
     recruit: [
-      { title:pre ? "掲示板の反応" : "噂を聞いた候補", body:pre ? "スタジオの掲示板を見た人から、短い返信が来た。" : "最近のライブを見ていた人が、加入に少し興味を持っているらしい。", icon:"📨", effect:()=>{ state.band.fame=clamp((state.band.fame||0)+1,0,999); state.promoRecruitTurns=Math.max(state.promoRecruitTurns||0,2); } },
-      { title:"サポート経由の紹介", body:"知り合いサポートから、メンバー候補の話を少し聞いた。", icon:"🤝", effect:()=>{ state.band.industry=clamp((state.band.industry||0)+1,0,999); } }
+      { title:pre ? "掲示板の反応" : "噂を聞いた候補", body:pre ? "スタジオの掲示板を見た人から、短い返信が来た。" : "最近のライブを見ていた人が、加入に少し興味を持っているらしい。", icon:"✉︎", effect:()=>{ state.band.fame=clamp((state.band.fame||0)+1,0,999); state.promoRecruitTurns=Math.max(state.promoRecruitTurns||0,2); } },
+      { title:"サポート経由の紹介", body:"知り合いサポートから、メンバー候補の話を少し聞いた。", icon:"●︎", effect:()=>{ state.band.industry=clamp((state.band.industry||0)+1,0,999); } }
     ],
     parttime: [
-      { title:"臨時の追加シフト", body:"バイト先で少しだけ多く入って、機材代の足しにした。", icon:"💴", effect:()=>{ state.band.funds += 3000; state.band.fatigue=clamp((state.band.fatigue||0)+2,0,100); } },
-      { title:"店内BGM", body:"店内で流れていた曲が妙に耳に残った。次の曲作りのヒントになりそうだ。", icon:"🎧", effect:()=>{ state.freeSongcraftCharge=(state.freeSongcraftCharge||0)+1; } }
+      { title:"臨時の追加シフト", body:"バイト先で少しだけ多く入って、機材代の足しにした。", icon:"○︎", effect:()=>{ state.band.funds += 3000; state.band.fatigue=clamp((state.band.fatigue||0)+2,0,100); } },
+      { title:"店内BGM", body:"店内で流れていた曲が妙に耳に残った。次の曲作りのヒントになりそうだ。", icon:"♪︎", effect:()=>{ state.freeSongcraftCharge=(state.freeSongcraftCharge||0)+1; } }
     ],
     talk: [
-      { title:pre ? "フェス前の本音" : "次の目標", body:pre ? `${member.name}が、UNDER FESへの不安を少し話してくれた。` : `${member.name}が、GRANDへ向けて今足りないものを言葉にした。`, icon:"☕", effect:()=>{ state.band.trust=clamp((state.band.trust||0)+2,0,100); member.stats.mental=clamp(member.stats.mental+1,1,99); } },
-      { title:"何気ない一言", body:"雑談の中の一言が、次の曲の核になった。", icon:"✍️", effect:()=>{ const title=boostRecentOriginalSongTiny("会話イベント"); if(!title) state.freeSongcraftCharge=(state.freeSongcraftCharge||0)+1; } }
+      { title:pre ? "フェス前の本音" : "次の目標", body:pre ? `${member.name}が、UNDER FESへの不安を少し話してくれた。` : `${member.name}が、GRANDへ向けて今足りないものを言葉にした。`, icon:"☕︎", effect:()=>{ state.band.trust=clamp((state.band.trust||0)+2,0,100); member.stats.mental=clamp(member.stats.mental+1,1,99); } },
+      { title:"何気ない一言", body:"雑談の中の一言が、次の曲の核になった。", icon:"✍︎", effect:()=>{ const title=boostRecentOriginalSongTiny("会話イベント"); if(!title) state.freeSongcraftCharge=(state.freeSongcraftCharge||0)+1; } }
     ]
   };
   return pools[command] || [];
@@ -11973,7 +11973,7 @@ function maybeGenerateCommandEvent(command) {
   const ev = list[rand(0, list.length - 1)];
   ev.effect();
   log(`ミニイベント発生：${ev.title}。${ev.body}`, "event");
-  return { title:ev.title, body:`${ev.body}\n発生率：${Math.round(chance*100)}% / ${phase === "pre_under" ? "UNDER FES前" : phase === "post_under" ? "UNDER FES後" : "GRAND準備期"}`, icon:ev.icon || "✨" };
+  return { title:ev.title, body:`${ev.body}\n発生率：${Math.round(chance*100)}% / ${phase === "pre_under" ? "UNDER FES前" : phase === "post_under" ? "UNDER FES後" : "GRAND準備期"}`, icon:ev.icon || "☆︎" };
 }
 
 
@@ -12097,7 +12097,7 @@ function joinApplicant() {
   applicant.joinStatus = Math.random() < 0.45 ? "仮加入" : "本加入";
   state.members.push(applicant);
   log(`${applicant.name}が${applicant.joinStatus}として加入した。加入済みメンバーは全員バンド構成に入り、ライブ準備で担当を選べる。`);
-  showEventPopup(applicant.joinStatus === "仮加入" ? "仮加入！" : "新メンバー加入！", `${applicant.name} がバンドに加わった！\n担当：${applicant.part}\n得意：${applicant.mainGenre}\n加入済みメンバーは全員ライブ準備に表示される。`, applicant.joinStatus === "仮加入" ? "event" : "rare", applicant.joinStatus === "仮加入" ? "🤝" : "🎉");
+  showEventPopup(applicant.joinStatus === "仮加入" ? "仮加入！" : "新メンバー加入！", `${applicant.name} がバンドに加わった！\n担当：${applicant.part}\n得意：${applicant.mainGenre}\n加入済みメンバーは全員ライブ準備に表示される。`, applicant.joinStatus === "仮加入" ? "event" : "rare", applicant.joinStatus === "仮加入" ? "●︎" : "★︎");
   maybeExplainMemberCost();
   state.lastApplicant = null;
   render();
@@ -12259,26 +12259,26 @@ function plannedSongcraftFatigueCost(type, baseCost) {
 }
 function canStartSongcraft(type, baseCost, label) {
   if (songcraftRemainingThisTurn() <= 0 && !mustCompleteFirstDraftTutorial()) {
-    showEventPopup("今週の曲作りは完了", `今日はもう曲作りを進めきった。\n${songcraftCountLabel()}。次のターンに続きを進めよう。`, "warn", "🎼");
+    showEventPopup("今週の曲作りは完了", `今日はもう曲作りを進めきった。\n${songcraftCountLabel()}。次のターンに続きを進めよう。`, "warn", "♪︎");
     return false;
   }
   const cost = plannedSongcraftFatigueCost(type, baseCost);
   if ((state.band.fatigue || 0) + cost > 100) {
-    showEventPopup("疲労限界", `${label}には疲労${cost}%が必要です。疲労が100％を超えるため、先に休憩かドリンクを使おう。`, "warn", "⚠️");
+    showEventPopup("疲労限界", `${label}には疲労${cost}%が必要です。疲労が100％を超えるため、先に休憩かドリンクを使おう。`, "warn", "⚠︎");
     return false;
   }
   return true;
 }
 function canStartAnySongcraft(types, baseCost, label) {
   if (songcraftRemainingThisTurn() <= 0 && !mustCompleteFirstDraftTutorial()) {
-    showEventPopup("今週の曲作りは完了", `今日はもう曲作りを進めきった。\n${songcraftCountLabel()}。次のターンに続きを進めよう。`, "warn", "🎼");
+    showEventPopup("今週の曲作りは完了", `今日はもう曲作りを進めきった。\n${songcraftCountLabel()}。次のターンに続きを進めよう。`, "warn", "♪︎");
     return false;
   }
   const list = Array.isArray(types) ? types : [types];
   const remaining = 100 - (state.band.fatigue || 0);
   const minCost = Math.min(...list.map(t => plannedSongcraftFatigueCost(t, baseCost)));
   if (remaining < minCost) {
-    showEventPopup("疲労限界", `${label}には最低でも疲労${minCost}%の余力が必要です。先に休憩かドリンクを使おう。`, "warn", "⚠️");
+    showEventPopup("疲労限界", `${label}には最低でも疲労${minCost}%の余力が必要です。先に休憩かドリンクを使おう。`, "warn", "⚠︎");
     return false;
   }
   return true;
@@ -12295,7 +12295,7 @@ function songcraftFatigueCost(type, baseCost) {
 function applySongcraftFatigue(type, baseCost, member, label) {
   const r = songcraftFatigueCost(type, baseCost);
   if ((state.band.fatigue || 0) + r.cost > 100) {
-    showEventPopup("疲労限界", `${label}には疲労${r.cost}%が必要です。疲労が100％を超えるため、先に休憩かドリンクを使おう。`, "warn", "⚠️");
+    showEventPopup("疲労限界", `${label}には疲労${r.cost}%が必要です。疲労が100％を超えるため、先に休憩かドリンクを使おう。`, "warn", "⚠︎");
     return false;
   }
   const fatigueBeforeCraft = state.band.fatigue || 0;
@@ -12308,7 +12308,7 @@ function applySongcraftFatigue(type, baseCost, member, label) {
   const afterLv = craftLevel(type);
   if (afterLv > beforeLv) {
     showEventPopup(type === "lyrics" ? "作詞Lv UP!!" : "作曲Lv UP!!", `${type === "lyrics" ? "作詞" : "作曲"}Lvが${afterLv}になった！
-疲労軽減・疲労なし制作・サブジャンル派生が少し有利になる。`, "rare", "⬆️");
+疲労軽減・疲労なし制作・サブジャンル派生が少し有利になる。`, "rare", "⬆︎");
   }
   activeMembers().forEach(m => {
     m.stats.sense = clamp(m.stats.sense + 1, 1, 99);
@@ -12321,7 +12321,7 @@ function applySongcraftFatigue(type, baseCost, member, label) {
     if (type === "music") member.stats.technique = clamp(member.stats.technique + 2, 1, 99);
   }
   if (r.free) { log(`${label}は${r.reason}で疲労なしで進められた。`, "rare"); showEventPopup("ひらめき制作！", `${label}は${r.reason}で疲労なしで進められた。
-今週はまだ余力が残っている。`, "rare", "💡"); }
+今週はまだ余力が残っている。`, "rare", "☆︎"); }
   else {
     log(`${label}で疲労+${r.cost}%。作詞Lv${craftLevel("lyrics")} / 作曲Lv${craftLevel("music")}。`, "song");
     maybeShowFatigueIncreasePopup(fatigueBeforeCraft, state.band.fatigue, `${label}で疲労がたまった。`);
@@ -12395,7 +12395,7 @@ function createDraftAndAdvance(type, member, mainGenreA, mainGenreB, theme, keyw
     };
     state.pendingDrafts.push(draft);
     const rollLabel = resolved.rollType === "main" ? "メインジャンル生成" : resolved.rollType === "combo-sub" ? "狙い派生成功" : "派生サブジャンル生成";
-    log(`新曲「${titleHint}」の種が生まれた。狙い:${a}→${b} / 結果:${genreDisplay(draft)}（${rollLabel}） / ${resolved.chanceText}`);
+    log(`新曲「${titleHint}」の種が生まれた。狙い:${a}→︎${b} / 結果:${genreDisplay(draft)}（${rollLabel}） / ${resolved.chanceText}`);
   } else {
     log(`制作中の「${titleHint}」を続ける。`);
   }
@@ -12428,7 +12428,7 @@ function advanceDraft(d, type, member) {
     if (score > 70 && !d.tags.includes("エモさ")) d.tags.push("エモさ");
     log(`${member.name}が「${d.titleHint}」の作詞を完成させた。完成度 ${val(score)}%。`, "song");
     if (score >= 75) showEventPopup("歌詞が刺さった", `${member.name}の言葉が、スタジオの空気を一瞬止めた。
-「${d.titleHint}」の歌詞完成度 ${val(score)}%。`, "song", "✍️");
+「${d.titleHint}」の歌詞完成度 ${val(score)}%。`, "song", "✍︎");
   } else {
     d.musicDone = true;
     d.musicScore = Math.max(d.musicScore, score);
@@ -12436,11 +12436,11 @@ function advanceDraft(d, type, member) {
     if ((d.arrange.includes("ドラム") || d.arrange.includes("DJ")) && !d.tags.includes("爆発力")) d.tags.push("爆発力");
     log(`${member.name}が「${d.titleHint}」の作曲を完成させた。完成度 ${val(score)}%。`, "song");
     if (score >= 75) showEventPopup("リフがハマった", `${member.name}が鳴らしたフレーズに、全員が少し前のめりになった。
-「${d.titleHint}」の作曲完成度 ${val(score)}%。`, "song", "🎼");
+「${d.titleHint}」の作曲完成度 ${val(score)}%。`, "song", "♪︎");
   }
   if (d.lyricsDone && d.musicDone) {
     state.songEditor = { step:"draftFinalize", draftId:d.id, title:d.titleHint, theme:d.theme };
-    showEventPopup("曲完成前確認", `「${d.titleHint}」の作詞と作曲が揃った。\n曲名とテーマを確認して、完成させよう。`, "song", "💿");
+    showEventPopup("曲完成前確認", `「${d.titleHint}」の作詞と作曲が揃った。\n曲名とテーマを確認して、完成させよう。`, "song", "♪︎");
   } else {
     const next = d.lyricsDone ? "作曲" : "作詞";
     const done = d.lyricsDone ? "作詞" : "作曲";
@@ -12455,7 +12455,7 @@ ${done}完成度：${val(score)}%
 ジャンル：${genreDisplay(d)}
 ${bonus.length ? "ボーナス：" + bonus.join(" / ") + "\n" : ""}次は${next}をしよう！`;
     state.lastSongcraftResult = { title:`${done} 50％完成！`, body:halfBody, bars };
-    showEventPopup(`${done} 50％完成！`, halfBody, "song", d.lyricsDone ? "✍️" : "🎼", { bars });
+    showEventPopup(`${done} 50％完成！`, halfBody, "song", d.lyricsDone ? "✍︎" : "♪︎", { bars });
     // 曲作り枠は通常行動枠と別。50%完成ではターン進行しない。
   }
   return true;
@@ -12532,7 +12532,7 @@ function finishDraft(draftId) {
   }
   const discovery = registerGenreDiscovery(song.subGenre, song.title);
   if (discovery) {
-    showEventPopup(discovery.rare ? "RARE GENRE DISCOVERED!!" : "NEW GENRE DISCOVERED!!", `${discovery.rare ? "レア" : "新"}ジャンル「${discovery.genre}」を発見！\n「${song.title}」から生まれた新しい方向性。`, discovery.rare ? "rare" : "song", discovery.rare ? "⭐" : "💡");
+    showEventPopup(discovery.rare ? "RARE GENRE DISCOVERED!!" : "NEW GENRE DISCOVERED!!", `${discovery.rare ? "レア" : "新"}ジャンル「${discovery.genre}」を発見！\n「${song.title}」から生まれた新しい方向性。`, discovery.rare ? "rare" : "song", discovery.rare ? "★︎" : "☆︎");
   }
   const bonusLines = [];
   if (discovery?.rare) bonusLines.push(`レアジャンル発見：${genreDisplay(song)}`);
@@ -12552,7 +12552,7 @@ ${liveExperienceBonus ? `ライブ経験ボーナス：+${val(liveExperienceBonu
     { label:"流行", value:val(song.trend) }
   ] };
   log(`新曲「${song.title}」が完成！ ジャンル:${genreDisplay(song)} / タグ:${song.tags.join("・")}`, "song");
-  showEventPopup("新曲完成！", resultBody, discovery?.rare ? "rare" : "song", discovery?.rare ? "⭐" : "💿", { bars:[
+  showEventPopup("新曲完成！", resultBody, discovery?.rare ? "rare" : "song", discovery?.rare ? "★︎" : "♪︎", { bars:[
     { label:"歌詞", value:val(song.lyrics) },
     { label:"演奏", value:val(song.performance) },
     { label:"テンポ", value:val(song.tempo) },
@@ -12594,10 +12594,10 @@ function boostSongSimple(songId) {
   if ((s.standardPoints || 0) >= 5 && !hasTag(s, "定番")) { s.tags.push("定番"); s.mannerism = 0; }
   const bars = ["catchy","tempo","recognition","lyrics","performance","trend"].map(k => ({ label: statSongLabel(k), value: val(s[k]||0) }));
   state.lastSongcraftResult = { title:"曲強化完了", body:`「${s.title}」を強化した。
-強化Lv ${levelBefore} → ${s.boostLevel}
+強化Lv ${levelBefore} →︎ ${s.boostLevel}
 演奏+${val(gain)} / 歌詞・キャッチーも少しUP`, bars };
-  showEventPopup("曲強化完了", state.lastSongcraftResult.body, "song", "📈", { bars });
-  log(`「${s.title}」を曲強化。強化Lv${levelBefore}→${s.boostLevel}、演奏+${val(gain)}。`, "song");
+  showEventPopup("曲強化完了", state.lastSongcraftResult.body, "song", "▲︎", { bars });
+  log(`「${s.title}」を曲強化。強化Lv${levelBefore}→︎${s.boostLevel}、演奏+${val(gain)}。`, "song");
   // 曲強化も曲作り枠。通常行動とは別なのでターン進行しない。
   return true;
 }
@@ -12624,8 +12624,8 @@ function editSongMetadataFromEditor(songId) {
   if (kw.tags?.length) s.tags = [...new Set([...(s.tags||[]), ...kw.tags.slice(0,2)])];
   s.mannerism = Math.max(0, (s.mannerism || 0) - 3);
   const bars = ["catchy","tempo","recognition","lyrics","performance","trend"].map(k => ({ label: statSongLabel(k), value: val(s[k]||0) }));
-  showEventPopup("曲編集完了", `「${oldTitle}」を編集した。\n曲名：${oldTitle} → ${s.title}\nジャンル：${oldGenre} → ${genreDisplay(s)}\nテーマ：${theme}\n歌詞：${lyricsText || "-"}`, "song", "✏️", { bars });
-  log(`「${oldTitle}」を曲編集。ジャンル:${oldGenre}→${genreDisplay(s)}。`);
+  showEventPopup("曲編集完了", `「${oldTitle}」を編集した。\n曲名：${oldTitle} →︎ ${s.title}\nジャンル：${oldGenre} →︎ ${genreDisplay(s)}\nテーマ：${theme}\n歌詞：${lyricsText || "-"}`, "song", "✏︎", { bars });
+  log(`「${oldTitle}」を曲編集。ジャンル:${oldGenre}→︎${genreDisplay(s)}。`);
 }
 function boostSong(type, member, songId) {
   return boostSongSimple(songId);
@@ -12654,7 +12654,7 @@ function arrangeSongFromEditor(songId) {
   s.mannerism = Math.max(0, (s.mannerism || 0) - 5);
   s.standardPoints = (s.standardPoints || 0) + 1;
   const bars = ["catchy","tempo","recognition","lyrics","performance","trend"].map(k => ({ label: statSongLabel(k), value: val(s[k]||0) }));
-  showEventPopup("編曲完了", `「${s.title}」を編曲した。\n${statSongLabel(param)} +${baseGain}\nジャンル:${genreDisplay(old)} → ${genreDisplay(s)}\nアレンジ:${arr}`, "song", "🎛️", { bars });
+  showEventPopup("編曲完了", `「${s.title}」を編曲した。\n${statSongLabel(param)} +${baseGain}\nジャンル:${genreDisplay(old)} →︎ ${genreDisplay(s)}\nアレンジ:${arr}`, "song", "♪︎", { bars });
   log(`「${s.title}」を編曲した。${statSongLabel(param)}+${baseGain}。`);
 }
 function statSongLabel(k) {
@@ -12708,13 +12708,13 @@ function performLive() {
   const liveTurn = state.turn;
   const ev = currentLiveEvent();
   if (!ev) {
-    state.activePopup = { title:"ライブ予定が見つからない", body:"このターンのライブ予定が見つからなかった。\nスケジュールを再確認します。", type:"warn", icon:"📅" };
+    state.activePopup = { title:"ライブ予定が見つからない", body:"このターンのライブ予定が見つからなかった。\nスケジュールを再確認します。", type:"warn", icon:"■︎" };
     refreshLiveSchedule();
     render();
     return;
   }
   if (setlist.length < 5) {
-    state.activePopup = { title:"セトリ不足", body:"ライブには5曲必要です。\n曲数が足りない場合はコピー曲で補充します。", type:"warn", icon:"🎼" };
+    state.activePopup = { title:"セトリ不足", body:"ライブには5曲必要です。\n曲数が足りない場合はコピー曲で補充します。", type:"warn", icon:"♪︎" };
     state.livePrepSetlist = autoBuildSetlist();
     render();
     return;
@@ -12738,8 +12738,8 @@ function performLive() {
     state.playerExtraInstrumentsUnlocked = true;
     state.scheduleTutorialStage = "none";
     state.popupQueue = state.popupQueue || [];
-    state.popupQueue.push({ title:"新しい可能性", body:"主人公「ボーカル以外にも道があるかな……」\n主人公がボーカル以外の楽器も担当可能になった。", type:"event", icon:"🎸" });
-    state.popupQueue.push({ title:"スケジュール解放", body:"次からは自分でライブ予定を組む。\nまずはスケジュール帳を開いて、出たいライブを探そう。", type:"event", icon:"📅" });
+    state.popupQueue.push({ title:"新しい可能性", body:"主人公「ボーカル以外にも道があるかな……」\n主人公がボーカル以外の楽器も担当可能になった。", type:"event", icon:"♪︎" });
+    state.popupQueue.push({ title:"スケジュール解放", body:"次からは自分でライブ予定を組む。\nまずはスケジュール帳を開いて、出たいライブを探そう。", type:"event", icon:"■︎" });
   }
   else if (state.turn < state.maxTurn && shouldPushFesShortagePopup(result)) {
     state.popupQueue = state.popupQueue || [];
@@ -12769,7 +12769,7 @@ function buildFesShortagePopup(lastResult=null) {
   const body = lines.length
     ? `${goalName}まで、まだ足りないものがある。\n\n${lines.map(x => `・${x}`).join("\n")}`
     : `${goalName}のラインはかなり近い。\n次はセトリ相性・新曲・定番曲の使い分けで安定を狙おう。`;
-  return { title:"目標までの不足", body, type:lines.length ? "warn" : "rare", icon:lines.length ? "📋" : "⭐" };
+  return { title:"目標までの不足", body, type:lines.length ? "warn" : "rare", icon:lines.length ? "▶︎" : "★︎" };
 }
 function fesShortageLines(lastResult=null, grand=false) {
   const b = state.band;
@@ -13223,7 +13223,7 @@ function applyLiveResult(r, setlist, supports) {
   revealSubGenresAfterLive(r, setlist);
   if (!state.fesInfoKnown && (state.liveCount >= 1 || state.turn >= 12 || b.industry >= 15)) {
     state.fesInfoKnown = true;
-    showEventPopup("UNDER FES情報入手", "ライブハウス店長から、選考に必要な最低ラインを聞いた。\nスケジュール帳でフェス条件を確認できるようになった。", "event", "📄");
+    showEventPopup("UNDER FES情報入手", "ライブハウス店長から、選考に必要な最低ラインを聞いた。\nスケジュール帳でフェス条件を確認できるようになった。", "event", "▶︎");
   }
   activeMembers().filter(m => r.performers.includes(m.id)).forEach(m => growMemberAfterLive(m, r.rank, r.positions[m.id]));
   const exposureBands = invitedBandsForEvent(ev);
@@ -13333,7 +13333,7 @@ function growSongAfterLive(liveSong, rank, slot, coreEvent) {
   s.recognition = clamp(s.recognition + ({ S:8,A:6,B:4,C:2,D:1,E:0 }[rank] || 0) + (coreEvent ? 2 : 0), 0, 99);
   s.performance = clamp(s.performance + (rank === "E" ? 0 : 1), 0, 99);
   s.standardPoints = (s.standardPoints || 0) + 1 + (["S","A","B"].includes(rank) ? 1 : 0) + ((slot === 1 || slot === 5) && ["S","A","B"].includes(rank) ? 1 : 0);
-  if (s.standardPoints >= 5 && !hasTag(s,"定番")) { s.tags.push("定番"); s.mannerism = 0; log(`${s.title}がライブ定番曲になった。`); showEventPopup("STANDARD SONG!!", `「${s.title}」が定番曲になった！\nライブでの成功が積み重なり、マンネリ化しにくくなる。`, "rare", "⭐"); }
+  if (s.standardPoints >= 5 && !hasTag(s,"定番")) { s.tags.push("定番"); s.mannerism = 0; log(`${s.title}がライブ定番曲になった。`); showEventPopup("STANDARD SONG!!", `「${s.title}」が定番曲になった！\nライブでの成功が積み重なり、マンネリ化しにくくなる。`, "rare", "★︎"); }
   if (hasTag(s, "定番")) s.mannerism = 0;
   if ((s.recognition >= 50 && s.standardPoints >= 5 && (s.lyrics >= 60 || s.catchy >= 60)) && !hasTag(s,"代表曲候補")) { s.tags.push("代表曲候補"); log(`${s.title}が代表曲候補になった。`); }
 }
@@ -13402,7 +13402,7 @@ function renderGlobalPhoneButton(liveMode=false) {
   if (liveMode || state.view === "home") return "";
   const unread = unreadMailCount();
   const active = state.view === "phone";
-  return `<button class="globalPhoneBtn global-phone-btn ${active ? "active" : ""}" title="携帯を開く"><span class="global-phone-icon">📱</span><b>携帯</b>${unread ? `<em>${unread}</em>` : ""}</button>`;
+  return `<button class="globalPhoneBtn global-phone-btn ${active ? "active" : ""}" title="携帯を開く"><span class="global-phone-icon">▪︎</span><b>携帯</b>${unread ? `<em>${unread}</em>` : ""}</button>`;
 }
 
 function renderHomeScheduleStrip() {
@@ -13413,7 +13413,7 @@ function renderHomeScheduleStrip() {
     const isNow = turn === base;
     const isFes = turn === 30 || turn === 50;
     const note = live ? (live.fixed ? "固定" : liveTypeMeta(live).short) : (turn === 30 ? "UNDER" : turn === 50 ? "GRAND" : "準備");
-    const icon = live ? "🎤" : isFes ? "★" : "・";
+    const icon = live ? "♪︎" : isFes ? "★︎" : "・";
     const cls = `${turn < base ? "done" : ""} ${isNow ? "now" : ""} ${live ? "live" : ""} ${isFes ? "fes" : ""}`;
     return `<button class="jumpTabBtn mini-turn-chip turn-cell ${cls}" data-view="schedule" data-turn="${turn}"><b>${icon} T${turn}</b><small>${escapeHtml(note)}</small></button>`;
   });
@@ -13436,7 +13436,7 @@ function renderTopStats() {
     `集客力 ${displayAudiencePower(b)}`,
     `業界評価 ${Math.round(b.industry || 0)}`
   ];
-  return `<div class="success-dashboard compact-dashboard l0-dashboard v041-status-board"><div class="v041-top-row"><div class="v041-profile-names"><b>${escapeHtml(b.name || "名無しの地下バンド")}</b><small>${escapeHtml(state.player?.name || "主人公")}</small></div><button class="globalPhoneBtn global-phone-btn home-phone-btn ${state.view === "phone" ? "active" : ""}" title="携帯を開く"><span class="global-phone-icon">📱</span>${unread ? `<em>${unread}</em>` : ""}</button></div><div class="compact-stat-strip slim-stats l0-stat-strip v041-status-main">${main.map(x=>`<div class="stat success-stat compact-stat ${x.alert ? "danger-stat" : ""}"><span>${x.k}</span><b>${x.label}</b></div>`).join("")}</div><div class="v041-status-sub">${sub.map(x=>`<span>${escapeHtml(x)}</span>`).join("")}</div></div>`;
+  return `<div class="success-dashboard compact-dashboard l0-dashboard v041-status-board"><div class="v041-top-row"><div class="v041-profile-names"><b>${escapeHtml(b.name || "名無しの地下バンド")}</b><small>${escapeHtml(state.player?.name || "主人公")}</small></div><button class="globalPhoneBtn global-phone-btn home-phone-btn ${state.view === "phone" ? "active" : ""}" title="携帯を開く"><span class="global-phone-icon">▪︎</span>${unread ? `<em>${unread}</em>` : ""}</button></div><div class="compact-stat-strip slim-stats l0-stat-strip v041-status-main">${main.map(x=>`<div class="stat success-stat compact-stat ${x.alert ? "danger-stat" : ""}"><span>${x.k}</span><b>${x.label}</b></div>`).join("")}</div><div class="v041-status-sub">${sub.map(x=>`<span>${escapeHtml(x)}</span>`).join("")}</div></div>`;
 }
 
 function profileAccount() {
@@ -13482,10 +13482,10 @@ function renderPhoneScreen() {
     <div class="card phone-card phone-launch-card">
       <div class="section-title"><h2>携帯</h2><span class="badge ${counts.total ? "warn" : "good"}">${counts.total ? counts.total + "件" : "通知なし"}</span></div>
       <div class="phone-app-grid">
-        <button class="phoneModeBtn phone-app-btn" data-phone-mode="mail"><span>✉</span><b>メール</b>${badge(counts.mail)}<small>出演依頼と連絡</small></button>
+        <button class="phoneModeBtn phone-app-btn" data-phone-mode="mail"><span>✉︎</span><b>メール</b>${badge(counts.mail)}<small>出演依頼と連絡</small></button>
         <button class="phoneModeBtn phone-app-btn" data-phone-mode="sns"><span>#</span><b>SNS</b>${badge(counts.sns)}<small>タイムライン</small></button>
-        <button class="phoneModeBtn phone-app-btn" data-phone-mode="bandbook"><span>☰</span><b>バンド図鑑</b><small>交流記録</small></button>
-        <button class="phoneModeBtn phone-app-btn" data-phone-mode="account"><span>⚙</span><b>アカウント設定</b><small>名前と表示</small></button>
+        <button class="phoneModeBtn phone-app-btn" data-phone-mode="bandbook"><span>☰︎</span><b>バンド図鑑</b><small>交流記録</small></button>
+        <button class="phoneModeBtn phone-app-btn" data-phone-mode="account"><span>⚙︎</span><b>アカウント設定</b><small>名前と表示</small></button>
       </div>
     </div>
     <div class="card phone-card">
@@ -13527,7 +13527,7 @@ function renderSnsPost(p) {
   const author = self ? acc.snsUserName : (p.author || "@unknown");
   const display = self ? acc.snsDisplayName : author.replace(/^@/, "");
   const reactions = Math.max(0, Math.round((p.reactions || 0) + (p.turn || 1) % 7 + (p.mood === "reaction" ? 12 : 3)));
-  return `<article class="sns-post tweet-card ${escapeHtml(p.mood || "normal")}"><div class="sns-avatar">${escapeHtml(display.slice(0, 1).toUpperCase())}</div><div class="sns-body"><header><b>${escapeHtml(display)}</b><span>${escapeHtml(author)}</span><em>${p.turn || "?"}T</em></header><p>${escapeHtml(p.body || "")}</p><footer><span>#underground</span><span>↻ ${Math.floor(reactions / 3)}</span><span>♡ ${reactions}</span></footer></div></article>`;
+  return `<article class="sns-post tweet-card ${escapeHtml(p.mood || "normal")}"><div class="sns-avatar">${escapeHtml(display.slice(0, 1).toUpperCase())}</div><div class="sns-body"><header><b>${escapeHtml(display)}</b><span>${escapeHtml(author)}</span><em>${p.turn || "?"}T</em></header><p>${escapeHtml(p.body || "")}</p><footer><span>#underground</span><span>↻︎ ${Math.floor(reactions / 3)}</span><span>♡︎ ${reactions}</span></footer></div></article>`;
 }
 
 function renderAccountSettingsScreen() {
@@ -13535,7 +13535,7 @@ function renderAccountSettingsScreen() {
   return `<div class="phone-screen grid account-screen">
     <div class="card phone-card wide-card">
       <div class="section-title"><h2>アカウント設定</h2><span class="badge">表示用</span></div>
-      <button class="phoneModeBtn ghost-btn" data-phone-mode="menu">← 携帯メニュー</button>
+      <button class="phoneModeBtn ghost-btn" data-phone-mode="menu">←︎ 携帯メニュー</button>
       <div class="account-form">
         <label>主人公名<input id="accountPlayerName" maxlength="24" value="${escapeHtml(state.player?.name || "")}" /></label>
         <label>バンド名<input id="accountBandName" maxlength="28" value="${escapeHtml(state.band?.name || "")}" /></label>
@@ -13596,7 +13596,7 @@ function renderTopStats() {
     `集客力 ${displayAudiencePower(b)}`,
     `業界評価 ${Math.round(b.industry || 0)}`
   ];
-  return `<div class="success-dashboard compact-dashboard l0-dashboard v041-status-board"><div class="v041-top-row"><div class="v041-profile-names"><b>${escapeHtml(b.name || "名無しの地下バンド")}</b><small>${escapeHtml(state.player?.name || "主人公")}</small></div><button class="globalPhoneBtn global-phone-btn home-phone-btn ${state.view === "phone" ? "active" : ""}" title="携帯を開く"><span class="global-phone-icon">📱</span>${unread ? `<em>${unread}</em>` : ""}</button></div><div class="compact-stat-strip slim-stats l0-stat-strip v041-status-main">${main.map(x=>`<div class="stat success-stat compact-stat ${x.alert ? "danger-stat" : ""}"><span>${x.k}</span><b>${x.label}</b></div>`).join("")}</div><div class="v041-status-sub">${sub.map(x=>`<span>${escapeHtml(x)}</span>`).join("")}</div></div>`;
+  return `<div class="success-dashboard compact-dashboard l0-dashboard v041-status-board"><div class="v041-top-row"><div class="v041-profile-names"><b>${escapeHtml(b.name || "名無しの地下バンド")}</b><small>${escapeHtml(state.player?.name || "主人公")}</small></div><button class="globalPhoneBtn global-phone-btn home-phone-btn ${state.view === "phone" ? "active" : ""}" title="携帯を開く"><span class="global-phone-icon">▪︎</span>${unread ? `<em>${unread}</em>` : ""}</button></div><div class="compact-stat-strip slim-stats l0-stat-strip v041-status-main">${main.map(x=>`<div class="stat success-stat compact-stat ${x.alert ? "danger-stat" : ""}"><span>${x.k}</span><b>${x.label}</b></div>`).join("")}</div><div class="v041-status-sub">${sub.map(x=>`<span>${escapeHtml(x)}</span>`).join("")}</div></div>`;
 }
 
 function renderIntroScreen() {
@@ -13655,7 +13655,7 @@ function renderIntroScreen() {
     state.introSeen = true;
     state.openingStep = 8;
     state.tutorialStage = "needSong";
-    state.activePopup = { title:"活動開始", body:`タカナシ：\n「${name}か、覚えとくよ。」`, type:"event", icon:"🎸" };
+    state.activePopup = { title:"活動開始", body:`タカナシ：\n「${name}か、覚えとくよ。」`, type:"event", icon:"♪︎" };
     saveGame(false);
     render();
   });
@@ -13826,7 +13826,7 @@ function renderMainContent() {
   else if (state.view === "bandbook") html = renderBandBookScreen();
   else if (state.view === "dev") html = renderDevScreen();
   else html = renderHomeScreen();
-  const homeBack = (state.view || "home") !== "home" ? `<button class="jumpTabBtn page-home-btn v042-page-home" data-view="home">← ホームへ</button>` : "";
+  const homeBack = (state.view || "home") !== "home" ? `<button class="jumpTabBtn page-home-btn v042-page-home" data-view="home">←︎ ホームへ</button>` : "";
   return `<main class="view-panel v042-view-panel" data-view="${state.view || "home"}">${homeBack}${html}</main>`;
 }
 
@@ -13920,7 +13920,7 @@ function renderSongcraftBlockV042() {
 function renderPlanBlockV042() {
   const next = (state.liveEvents || []).filter(e => !e.cancelled && e.turn >= state.turn).sort((a,b)=>a.turn-b.turn)[0];
   const remain = next ? Math.max(0, Number(next.turn) - Number(state.turn || 1)) : 0;
-  return `<button class="jumpTabBtn v042-plan" data-view="schedule"><span>📅</span><b>予定</b><small>${next ? `${next.turn}T / あと${remain}T` : "予定なし"}</small></button>`;
+  return `<button class="jumpTabBtn v042-plan" data-view="schedule"><span>■︎</span><b>予定</b><small>${next ? `${next.turn}T / あと${remain}T` : "予定なし"}</small></button>`;
 }
 
 function renderHomeIllustrationV042() {
@@ -13942,12 +13942,12 @@ function renderHomeIllustrationV042() {
 function renderHomeStatusGridV042() {
   const b = state.band || {};
   const rows = [
-    ["資金", v042FormatMoney(b.funds), Number(b.funds || 0) < 0 ? "bad" : Number(b.funds || 0) < 10000 ? "warn" : "good", "💴"],
-    ["ファン", `${Math.round(b.fans || 0)}人`, "good", "👥"],
-    ["疲労", `${Math.round(b.fatigue || 0)}%`, Number(b.fatigue || 0) >= 80 ? "bad" : Number(b.fatigue || 0) >= 60 ? "warn" : "good", "⚡"],
-    ["知名度", Math.round(b.fame || 0), "info", "📣"],
-    ["集客力", displayAudiencePower(b), "info", "🎫"],
-    ["業界評価", Math.round(b.industry || 0), "info", "🏢"]
+    ["資金", v042FormatMoney(b.funds), Number(b.funds || 0) < 0 ? "bad" : Number(b.funds || 0) < 10000 ? "warn" : "good", "○︎"],
+    ["ファン", `${Math.round(b.fans || 0)}人`, "good", "●︎"],
+    ["疲労", `${Math.round(b.fatigue || 0)}%`, Number(b.fatigue || 0) >= 80 ? "bad" : Number(b.fatigue || 0) >= 60 ? "warn" : "good", "⚡︎"],
+    ["知名度", Math.round(b.fame || 0), "info", "▲︎"],
+    ["集客力", displayAudiencePower(b), "info", "◆︎"],
+    ["業界評価", Math.round(b.industry || 0), "info", "■︎"]
   ];
   const icons = ["money", "audience", "fatigue", "fame", "ticket", "industry"];
   return `<section class="v042-status-card"><div class="v042-status-grid">${rows.map(([k,v,cls,icon], idx) => `<div class="v042-status ${cls}"><span>${v043eIcon(icons[idx] || icon)} ${k}</span><b>${escapeHtml(String(v))}</b></div>`).join("")}</div></section>`;
@@ -13999,7 +13999,7 @@ function renderMailScreen() {
   const acc = profileAccount();
   const active = state.activeMailId ? (state.phoneMails || []).find(m => m.id === state.activeMailId) : null;
   const edit = state.phoneAccountEdit === "mail";
-  const body = active ? `<button class="closeMailDetailBtn ghost-btn">← 受信トレイ</button>${renderMailDetail(active)}` : `<div class="v042-mail-list">${(state.phoneMails || []).map(renderMailRow).join("") || `<div class="empty-panel">メールはまだありません。</div>`}</div>`;
+  const body = active ? `<button class="closeMailDetailBtn ghost-btn">←︎ 受信トレイ</button>${renderMailDetail(active)}` : `<div class="v042-mail-list">${(state.phoneMails || []).map(renderMailRow).join("") || `<div class="empty-panel">メールはまだありません。</div>`}</div>`;
   const form = edit ? `<div class="v042-inline-edit"><label>メールアドレス<input id="mailInlineEmail" maxlength="40" value="${escapeHtml(acc.email)}"></label><button id="saveMailAddressBtn" class="big-action">保存</button></div>` : "";
   return `<div class="v042-mail-app"><div class="v042-phone-app-top"><button class="phoneModeBtn ghost-btn" data-phone-mode="menu">${v043eIcon("back")}</button><b>${v043eIcon("mail")} メール</b><button class="phoneInlineEditBtn ghost-btn" data-edit="mail">${v043eIcon("settings")} 設定</button></div><div class="v042-mail-account"><span>${escapeHtml(acc.email)}</span></div>${form}${body}</div>`;
 }
@@ -14200,7 +14200,7 @@ function renderIntroScreen() {
     state.bandNamePrompt = false;
     state.openingStep = 10;
     state.tutorialStage = "needSong";
-    state.activePopup = { title:"活動開始", body:"まずは、曲でも作るか……\n作詞・作曲から新曲制作を始めよう。", type:"event", icon:"🎼" };
+    state.activePopup = { title:"活動開始", body:"まずは、曲でも作るか……\n作詞・作曲から新曲制作を始めよう。", type:"event", icon:"♪︎" };
     v043dResetConversationLog();
     saveGame(false);
     render();
