@@ -2067,7 +2067,8 @@ small,.badge,.tabbar .tabBtn small,.menu-tile small{font-size:12px;line-height:1
 .position-row{grid-template-columns:34px minmax(0,1fr) minmax(84px,32%) !important;gap:7px !important;}
 .position-row .ghost-btn{grid-column:2 / -1;}
 .setlistSelect,.positionSelect,.chorusSelect,.merchQtyInput,.merchDigitSelect,select,input,button{max-width:100%;box-sizing:border-box;}
-.live-result-modal{width:min(94vw, 560px) !important;max-height:88vh !important;overflow-y:auto !important;gap:7px !important;padding:12px !important;padding-bottom:12px !important;}
+/* PR-H #2 gate2: 動的テキスト(会場名等)を含むためcut+4pxの恒久規則を厳密適用(16px) */
+.live-result-modal{width:min(94vw, 560px) !important;max-height:88vh !important;overflow-y:auto !important;gap:7px !important;padding:16px !important;padding-bottom:16px !important;}
 .live-result-modal .result-actions{position:static !important;left:auto !important;right:auto !important;bottom:auto !important;background: none !important;padding-top:4px !important;display:grid;gap:7px;}
 .result-rank-line{grid-template-columns:54px minmax(0,1fr) !important;gap:8px !important;}
 .result-rank-line .rank-burst{width:50px !important;height:50px !important;font-size:28px !important;}
@@ -2844,7 +2845,8 @@ button .v043e-icon,
   .result-backdrop:has(.live-result-modal)::before,
   .result-backdrop:has(.live-result-modal)::after{height:2.5vh;}
   .result-rank-line .rank-burst{width:clamp(64px,17vh,92px) !important;height:clamp(64px,17vh,92px) !important;font-size:clamp(1.3rem,6vh,2rem) !important;}
-  .live-result-modal{gap:6px !important;padding:10px !important;padding-bottom:72px !important;}
+  /* PR-H #2 gate2: 動的テキスト(会場名等)を含むためcut+4pxの恒久規則を厳密適用(16px) */
+  .live-result-modal{gap:6px !important;padding:16px !important;padding-bottom:72px !important;}
   .result-bars{gap:4px;margin:8px 0;}
   .result-summary-grid,.result-secondary-gains{gap:5px;margin:8px 0;}
   .result-summary-grid div,.result-secondary-gains div{padding:6px;}
