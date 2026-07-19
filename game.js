@@ -6616,7 +6616,9 @@ const v043eIconPaths = {
   point: `<path d="M6 12 H17 M12 6 L18 12 L12 18"></path>`,
   moon: `<circle cx="12" cy="12" r="8"></circle><circle cx="16" cy="9" r="7.5" fill="var(--bg)" stroke="none"></circle>`,
   cross: `<path d="M6 6 L18 18 M18 6 L6 18"></path>`,
-  drop: `<circle cx="12" cy="15" r="5"></circle><path d="M12 4 L16 11 M12 4 L8 11"></path>`
+  drop: `<circle cx="12" cy="15" r="5"></circle><path d="M12 4 L16 11 M12 4 L8 11"></path>`,
+  /* PR-I: 携帯アイコン新版（発注者指定図形）。従来はキー未定義でプレースホルダーへフォールバックしていた（SKIN_ORDER v2.1 PR-I） */
+  phone: `<path d="M13 3.5 H17 V20.5 H7 V3.5 H11"></path><path d="M10 6.5 H14"></path><path d="M10.5 17.8 H13.5"></path>`
 };
 
 function v043eIcon(name, className="") {
