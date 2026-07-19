@@ -7749,9 +7749,10 @@ function dgDiamondBurst(container, colorVar, wave1Count, wave2Count, wave2DelayM
     for (let i = 0; i < count; i++) {
       const angleDeg = (360 / 8) * (i % 8);
       const angleRad = angleDeg * Math.PI / 180;
-      const distance = 46 + Math.random() * 40;
-      const size = 6 + Math.random() * 5;
-      const duration = 380 + Math.random() * 140;
+      /* STUDY 10b: 粒子寿命620-860ms・飛距離60-120px・サイズ7-13px・後半減速イージング（SKIN_ORDER_v4 fix4） */
+      const distance = 60 + Math.random() * 60;
+      const size = 7 + Math.random() * 6;
+      const duration = 620 + Math.random() * 240;
       const dx = Math.cos(angleRad) * distance;
       const dy = Math.sin(angleRad) * distance;
       const p = document.createElement("div");
@@ -7763,7 +7764,7 @@ function dgDiamondBurst(container, colorVar, wave1Count, wave2Count, wave2DelayM
       const anim = p.animate([
         { transform: "translate(-50%,-50%) rotate(45deg) scale(1)", opacity: 1 },
         { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) rotate(45deg) scale(.4)`, opacity: 0 }
-      ], { duration, easing: "cubic-bezier(.2,.9,.1,1)", fill: "forwards" });
+      ], { duration, easing: "cubic-bezier(.15,.8,.25,1)", fill: "forwards" });
       anim.onfinish = () => p.remove();
     }
   }
@@ -7784,15 +7785,22 @@ function dgFormatNumber(v, plus, suffix, currency) {
   const sign = rounded < 0 ? "-" : (plus ? "+" : "");
   return `${sign}${currency || ""}${Math.abs(rounded).toLocaleString("ja-JP")}${suffix || ""}`;
 }
-/* 数値カウントアップ準備: 表示は即座に0へ巻き戻し、実際のカウント開始はdurationMs後まで遅延させる
-   ことで「最終値が一瞬見えてから0に戻る」ちらつきを防止する（SKIN_ORDER_v4 PR-E #2） */
-function dgPrepareNumberCountUp(el, durationMs) {
+/* 数値カウントアップ準備: 表示は即座に0へ巻き戻す（「最終値が一瞬見えてから0に戻る」ちらつき防止）。
+   開始タイミング・所要時間は呼び出し側が.start(durationMs)で指定し、タップ早送り時は.jumpToEnd()で
+   アニメーションを介さず直接最終値へ設定する（SKIN_ORDER_v4 PR-E #2、fix4でstart/jumpToEndへ再構成） */
+function dgPrepareNumberCountUp(el) {
   if (!el) return null;
   const parsed = dgParseNumberText(el.textContent);
   if (!parsed) return null;
   el.style.fontVariantNumeric = "tabular-nums";
   el.textContent = dgFormatNumber(0, parsed.plus, parsed.suffix, parsed.currency);
-  return () => dgCountUp(0, parsed.target, durationMs, (v) => { el.textContent = dgFormatNumber(v, parsed.plus, parsed.suffix, parsed.currency); });
+  let token = null;
+  return {
+    start(durationMs) { token = dgCountUp(0, parsed.target, durationMs, (v) => { el.textContent = dgFormatNumber(v, parsed.plus, parsed.suffix, parsed.currency); }); },
+    /* start()済みで既にrAFループが走っている場合、先にcancelledを立てて次フレームでの
+       中間値上書きを止めてから最終値を書く（fix4で発見した不具合の対策） */
+    jumpToEnd() { if (token) token.cancelled = true; el.textContent = dgFormatNumber(parsed.target, parsed.plus, parsed.suffix, parsed.currency); }
+  };
 }
 /* --- ホーム帰還時のゲージ差分伸長: applyLiveResult()呼び出し直前に旧値を1行スナップショットし
    （前後呼び出し）、render()側で「view=home への到達を初めて検知した回」にのみ消費・クリアする
@@ -7811,24 +7819,35 @@ function dgAnimateHomeGaugeGrowth(snapshot) {
     if (!parsed) return;
     el.style.fontVariantNumeric = "tabular-nums";
     el.textContent = dgFormatNumber(fromVal, parsed.plus, parsed.suffix, parsed.currency);
-    dgCountUp(fromVal, parsed.target, 700, (v) => { el.textContent = dgFormatNumber(v, parsed.plus, parsed.suffix, parsed.currency); });
+    /* STUDY 10b: 結果画面の演出倍率(約1.3倍)にホーム帰還ゲージも揃える。700ms→910ms（SKIN_ORDER_v4 fix4） */
+    dgCountUp(fromVal, parsed.target, 910, (v) => { el.textContent = dgFormatNumber(v, parsed.plus, parsed.suffix, parsed.currency); });
   });
 }
+/* --- コレオグラフィ再構成（新タイムライン、fix4）: 0-1000ms総合点カウントアップ→1120msスタンプ
+   叩き込み開始(260ms)→1270msひし形バースト(S/Aのみ)→1670ms残り全要素カウントアップ(1170ms)＋
+   全ゲージ伸長(1300ms)。総合点の算出ロジックは不変、表示演出のみ（値は事前確定→演出で開示）。
+   スタンプは新規に特大版を生成し結果ヘッダ右の空きスペースへ絶対配置、粒子原点もここ。
+   旧来の小型ランク表示(.rank-burst)はCSSで恒常的にdisplay:none化（DOM削除はしない）。
+   演出レイヤー内に透明なタップキャッチャーを重ね、タップで全要素を最終状態へ短絡する
+   （stopPropagationによりゲーム入力へは伝播しない。300msゲート等の他画面機構とは無関係）（SKIN_ORDER_v4 fix4） */
 function dgAnimateLiveResultReveal() {
-  if (dgPrefersReducedMotion()) return;
   if (typeof document === "undefined" || typeof document.querySelector !== "function") return;
   const modal = document.querySelector(".live-result-modal");
   if (!modal) return;
   const rankMatch = modal.className.match(/rank-(\S)/);
   const rank = rankMatch ? rankMatch[1] : "C";
 
-  const starters = [];
-  modal.querySelectorAll(".result-score b, .result-primary-gains b, .result-secondary-gains b").forEach(el => {
-    const starter = dgPrepareNumberCountUp(el, 800);
-    if (starter) starters.push(starter);
-  });
+  const stamp = document.createElement("div");
+  stamp.className = "dg-rank-stamp-lg";
+  stamp.textContent = rank;
+  stamp.setAttribute("aria-hidden", "true");
+  modal.appendChild(stamp);
 
-  // ゲージも即座に0%へ巻き戻し（ちらつき防止）、伸長開始は数値カウントアップと同じ240msに揃える
+  const scoreHandle = dgPrepareNumberCountUp(modal.querySelector(".result-score b"));
+  const remainingHandles = Array.prototype.slice.call(
+    modal.querySelectorAll(".result-primary-gains span, .result-secondary-gains span, .result-bar b")
+  ).map(el => dgPrepareNumberCountUp(el)).filter(Boolean);
+
   const fillEls = modal.querySelectorAll(".result-bars .fill");
   const fillTargets = [];
   fillEls.forEach(fillEl => {
@@ -7837,19 +7856,56 @@ function dgAnimateLiveResultReveal() {
     fillEl.style.width = "0%";
   });
 
-  window.setTimeout(() => {
-    const rankBurstEl = modal.querySelector(".rank-burst");
-    if (rankBurstEl && rank === "S") dgDiamondBurst(rankBurstEl, "--fame", 8, 6, 90);
-    else if (rankBurstEl && rank === "A") dgDiamondBurst(rankBurstEl, "--vio", 8, 0, 0);
-  }, 150);
+  function jumpAllToFinal() {
+    stamp.style.animation = "none";
+    stamp.style.opacity = "1";
+    stamp.style.transform = "rotate(-8deg) scale(1)";
+    if (scoreHandle) scoreHandle.jumpToEnd();
+    remainingHandles.forEach(h => h.jumpToEnd());
+    fillEls.forEach((fillEl, i) => { fillEl.style.transition = "none"; fillEl.style.width = fillTargets[i]; });
+  }
 
-  window.setTimeout(() => {
-    starters.forEach(fn => fn());
+  if (dgPrefersReducedMotion()) {
+    jumpAllToFinal();
+    return;
+  }
+
+  const catcher = document.createElement("div");
+  catcher.className = "dg-choreo-tap-catcher";
+  modal.appendChild(catcher);
+
+  const timers = [];
+  let settled = false;
+  function settle() {
+    if (settled) return;
+    settled = true;
+    timers.forEach(t => window.clearTimeout(t));
+    catcher.remove();
+  }
+  function skipToFinal() {
+    if (settled) return;
+    jumpAllToFinal();
+    settle();
+  }
+  catcher.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    ev.preventDefault();
+    skipToFinal();
+  });
+
+  if (scoreHandle) scoreHandle.start(1000);
+  timers.push(window.setTimeout(() => {
+    if (rank === "S") dgDiamondBurst(stamp, "--fame", 10, 6, 155);
+    else if (rank === "A") dgDiamondBurst(stamp, "--vio", 6, 0, 0);
+  }, 1270));
+  timers.push(window.setTimeout(() => {
+    remainingHandles.forEach(h => h.start(1170));
     fillEls.forEach((fillEl, i) => {
-      fillEl.style.transition = "width 700ms cubic-bezier(.2,.9,.1,1)";
+      fillEl.style.transition = "width 1300ms cubic-bezier(.2,.9,.1,1)";
       requestAnimationFrame(() => { fillEl.style.width = fillTargets[i]; });
     });
-  }, 240);
+  }, 1670));
+  timers.push(window.setTimeout(settle, 2970));
 }
 const dgShowLiveResultAfterProgressOriginal = showLiveResultAfterProgress;
 showLiveResultAfterProgress = function () {
@@ -8545,22 +8601,30 @@ function dgEaseOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
 function dgNow() {
   return (typeof performance !== "undefined" && typeof performance.now === "function") ? performance.now() : Date.now();
 }
+/* 戻り値のtoken.cancelled=trueをセットすると次フレーム以降のonUpdateを停止する。
+   タップ早送りで値を最終値へ直接セットした直後も、既に開始済みのrAFループが次フレームで
+   中間値を上書きしてしまう不具合を防止するため（fix4で発見・dgCountUp全利用箇所に影響） */
 function dgCountUp(from, to, durationMs, onUpdate, onDone) {
+  const token = { cancelled: false };
   if (dgPrefersReducedMotion() || typeof requestAnimationFrame !== "function") {
     onUpdate(to);
     if (onDone) onDone();
-    return;
+    return token;
   }
   const start = dgNow();
   function step(now) {
+    if (token.cancelled) return;
     if (typeof now !== "number") now = dgNow();
-    const t = Math.min(1, (now - start) / durationMs);
+    /* rAFのnowはdgNow()呼び出し時点よりわずかに早い値を返すことがあり、tが一瞬負になり
+       イージング後に負の中間値が出る不具合を防止（fix4で発見、dgCountUp全利用箇所に影響） */
+    const t = Math.min(1, Math.max(0, (now - start) / durationMs));
     const eased = dgEaseOutCubic(t);
     onUpdate(from + (to - from) * eased);
     if (t < 1) requestAnimationFrame(step);
     else if (onDone) onDone();
   }
   requestAnimationFrame(step);
+  return token;
 }
 function dgGetOrCreateOverlayEl(id, className) {
   if (typeof document === "undefined" || !document.body) return null;
