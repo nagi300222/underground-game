@@ -1,0 +1,231 @@
+#!/usr/bin/env python3
+"""
+縦到達性監査 (vertical reachability audit) — 恒久監査ツール（SKIN_ORDER_v4 fix3で新設）
+
+目的:
+  動的に成長するスクリーン/オーバーレイで、主要アクションボタンが
+  375x667ビューポートにおいて (a) 静止状態で可視、または (b) スクロール
+  （内部スクロール領域・ページ全体スクロールいずれでも可）のみで到達可能で
+  あることを、実ブラウザ描画(Playwright)で検証する。
+
+  fix3の実描画診断で確定した実際の障害パターンは「固定/上限高さのコンテナに
+  overflow:hidden が掛かり、かつスクロール手段が一切無いため、はみ出した
+  ボタンが不可視のまま到達不能になる」というもの（.live-progress-modal、
+  v0.3.6由来のoverflow:hidden上書き）。本監査はこのパターンを一般化し、
+  「素朴に可視 → NG時はscrollIntoView()を試す → それでも不可視ならFAIL」
+  という判定で、あらゆる対象画面に同一基準を適用する。
+  scrollIntoView()はブラウザが最も近いスクロール可能な祖先（内部スクロール
+  領域でもbody/documentでも）を自動的に解決するため、「内部スクロール」と
+  「ページ全体スクロール」のどちらでも正当な到達手段として扱われる
+  （例: セトリ編成画面は#appの通常フローで、body自体がスクロールする形で
+  #performLiveBtnに到達可能であることを確認済み — これはバグではない）。
+
+  対象: ライブ進行(idx=0の最小状態／idx=4の最大成長状態)・ライブ結果・
+  会話(ストーリーイベント)・携帯メッセージ一覧・セトリ編成(その他の成長画面)。
+
+実行方法:
+  python3 tools/audit/audit_vertical_reachability.py
+  (要: pip install playwright、および実行可能なChromiumビルド。
+   環境変数 AUDIT_CHROMIUM_PATH で実行ファイルパスを明示指定可能。
+   未指定時はPlaywright既定のChromiumを試み、失敗時のみ既知の
+   サンドボックスパスにフォールバックする。)
+
+終了コード: 全項目PASSで0、いずれかFAILで1。
+"""
+import json
+import os
+import subprocess
+import sys
+import time
+
+from playwright.sync_api import sync_playwright
+
+PORT = 8940
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+SETUP_BASE = """() => {
+    startNewGameInSlot(1);
+    state.introSeen = true; state.tutorialStage='done'; state.scheduleTutorialStage='done';
+    state.band.name='監査バンド'; state.view='home'; state.activePopup=null; state.popupQueue=[];
+    state.liveProgressModal = null; state.liveResultModal = null; state.pendingLiveResultModal = null;
+    state.activeStoryEvent = null; state.phoneSubView = null;
+    state.band.funds=250000; render();
+}"""
+
+RESET_OVERLAYS = """() => {
+    state.liveProgressModal = null; state.liveResultModal = null; state.pendingLiveResultModal = null;
+    state.activeStoryEvent = null; state.view = 'home'; state.phoneSubView = null; state.activeMailId = null;
+    render();
+}"""
+
+LIVE_PROGRESS_STEPS = """Array.from({length:5}, (_,i) => ({
+    slot:i+1, songTitle:'デモ曲'+(i+1),
+    line: (i+1)+'曲目『デモ曲'+(i+1)+'』が客席に刺さった。かなり長めの結果説明文をここに追加してテストします。',
+    icon:'\\u25b2\\ufe0e', event:'盛り上がった。詳細な補足説明もここに追加してテストします。', impact:'good'
+}))"""
+
+TARGETS = [
+    {
+        "name": "live_progress_idx0（進行開始・最小コンテンツ）",
+        "setup": f"""() => {{
+            state.liveProgressModal = {{ title:'路地裏スタジオ', rank:'B', total:620,
+                steps: {LIVE_PROGRESS_STEPS}, index: 0, complete: false,
+                venueName:'ライブハウスUNDER', heat: 140 }};
+            render();
+        }}""",
+        "selector": ".liveProgressNextBtn",
+    },
+    {
+        "name": "live_progress_idx4（進行完了・最大成長）",
+        "setup": f"""() => {{
+            state.liveProgressModal = {{ title:'路地裏スタジオ', rank:'B', total:620,
+                steps: {LIVE_PROGRESS_STEPS}, index: 4, complete: true,
+                venueName:'ライブハウスUNDER', heat: 140 }};
+            render();
+        }}""",
+        "selector": ".liveProgressNextBtn",
+    },
+    {
+        "name": "live_result（ライブ結果）",
+        "setup": """() => {
+            state.liveResultModal = { rank:'S', title:'路地裏スタジオ', venue:'UNDER', total:940,
+                performance:88, expression:82, heat:91, strategy:75, stability:80,
+                attendees:150, ownAudience:90, partnerAudience:60,
+                profit:30000, costLabel:'費用', costValue:5000,
+                gains:{funds:30000, fans:42, fame:18, industry:9, core:3},
+                songs:['曲1','曲2','曲3','曲4','曲5'], adlib:'なし', setlistBonusText:'なし', repeatText:'なし', merchSummary:'なし' };
+            render();
+        }""",
+        "selector": ".liveResultCloseBtn",
+    },
+    {
+        "name": "conversation（会話／ストーリーイベント最深ステップ）",
+        "setup": """() => {
+            state.activeStoryEvent = { id: "first_afterparty_triple_arrows", step: 5, result: false,
+                rewardsApplied: true, context: {fatigueGain: 10}, returnView: "home" };
+            render();
+        }""",
+        "selector": "#storyNextBtn",
+    },
+    {
+        "name": "phone_mail_list（携帯メッセージ一覧・多件数）",
+        "setup": """() => {
+            state.view = "phone"; state.phoneSubView = "mail"; state.activeMailId = null;
+            state.phoneMails = (state.phoneMails||[]).concat(Array.from({length:40}, (_,i) => ({
+                id:"auditMail"+i, subject:"件名"+i, body:"本文", sender:"通知", read:false, turn:1
+            })));
+            render();
+        }""",
+        "selector": '.phoneModeBtn[data-phone-mode="menu"]',
+    },
+    {
+        "name": "setlist_builder（セトリ編成・最終ステップ／その他の成長画面）",
+        "setup": """() => {
+            if (typeof refreshLiveSchedule === "function") refreshLiveSchedule();
+            const turn = (state.liveSchedule && state.liveSchedule[0]) || state.turn;
+            state.turn = turn;
+            state.livePrepStep = 5;
+            if (typeof ensureLivePrepSetlist === "function") ensureLivePrepSetlist();
+            render();
+        }""",
+        "selector": "#performLiveBtn",
+    },
+]
+
+
+def resolve_executable_path():
+    env_path = os.environ.get("AUDIT_CHROMIUM_PATH")
+    if env_path and os.path.exists(env_path):
+        return env_path
+    fallback = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
+    if os.path.exists(fallback):
+        return fallback
+    return None
+
+
+def check_target(page, target):
+    page.evaluate(RESET_OVERLAYS)
+    page.wait_for_timeout(80)
+    page.evaluate(target["setup"])
+    page.wait_for_timeout(150)
+
+    found = page.evaluate(
+        "(sel) => !!document.querySelector(sel)", target["selector"]
+    )
+    if not found:
+        return {"name": target["name"], "pass": False, "reason": "selector not found: " + target["selector"]}
+
+    # サブピクセル丸め誤差の偽陰性を避けるための許容誤差(px)
+    EPS = 1.5
+
+    rect_before = page.evaluate(
+        """(sel) => { const r = document.querySelector(sel).getBoundingClientRect();
+            return {top:r.top, bottom:r.bottom, vh:window.innerHeight}; }""",
+        target["selector"],
+    )
+    visible_at_rest = -EPS <= rect_before["top"] and rect_before["bottom"] <= rect_before["vh"] + EPS
+
+    if visible_at_rest:
+        return {
+            "name": target["name"], "pass": True, "mode": "visible_at_rest",
+            "btnTop": rect_before["top"], "btnBottom": rect_before["bottom"],
+        }
+
+    # 静止状態で不可視 -> scrollIntoView()でスクロール到達を試みる
+    # (内部スクロール領域／ページ全体スクロールのどちらでもブラウザが解決する)
+    page.evaluate(
+        "(sel) => document.querySelector(sel).scrollIntoView({block:'nearest'})",
+        target["selector"],
+    )
+    page.wait_for_timeout(150)
+    rect_after = page.evaluate(
+        """(sel) => { const r = document.querySelector(sel).getBoundingClientRect();
+            return {top:r.top, bottom:r.bottom, vh:window.innerHeight}; }""",
+        target["selector"],
+    )
+    reachable_by_scroll = -EPS <= rect_after["top"] and rect_after["bottom"] <= rect_after["vh"] + EPS
+
+    return {
+        "name": target["name"],
+        "pass": reachable_by_scroll,
+        "mode": "reachable_by_scroll" if reachable_by_scroll else "UNREACHABLE",
+        "btnTopAtRest": rect_before["top"], "btnBottomAtRest": rect_before["bottom"],
+        "btnTopAfterScroll": rect_after["top"], "btnBottomAfterScroll": rect_after["bottom"],
+    }
+
+
+def main():
+    srv = subprocess.Popen(
+        ["python3", "-m", "http.server", str(PORT)],
+        cwd=REPO_ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+    time.sleep(1.2)
+    results = []
+    try:
+        with sync_playwright() as p:
+            exe = resolve_executable_path()
+            browser = p.chromium.launch(executable_path=exe) if exe else p.chromium.launch()
+            page = browser.new_page(viewport={"width": 375, "height": 667}, has_touch=True)
+            page.goto(f"http://localhost:{PORT}/index.html")
+            page.wait_for_timeout(300)
+            page.evaluate(SETUP_BASE)
+            page.wait_for_timeout(200)
+
+            for target in TARGETS:
+                results.append(check_target(page, target))
+
+            browser.close()
+    finally:
+        srv.terminate()
+
+    print(json.dumps(results, indent=2, ensure_ascii=False))
+    failed = [r for r in results if not r["pass"]]
+    if failed:
+        print(f"\n[NG] {len(failed)} target(s) FAILED vertical reachability.", file=sys.stderr)
+        sys.exit(1)
+    print(f"\n[OK] all {len(results)} targets PASSED vertical reachability.")
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()

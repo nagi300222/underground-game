@@ -2839,3 +2839,45 @@ button .v043e-icon,
 html.dg-scroll-lock, body.dg-scroll-lock{overflow:hidden !important;overscroll-behavior:none;}
 /* 「次へ」等アクションはオーバーレイ内sticky bottom + セーフエリア対応 */
 .live-result-modal .result-actions{position:sticky !important;left:auto !important;right:auto !important;bottom:0 !important;margin:0 !important;padding:10px 0 calc(10px + env(safe-area-inset-bottom)) !important;background: var(--bg) !important;z-index:3;}
+
+/* ================================================================
+   fix3（P0継続）: ライブ進行画面（.live-progress-modal）の進行ボタン到達不能対策
+   実描画確定: 伸長で圏外化するのではなく、既存の`.realtime-live-modal{overflow:hidden}`
+   （v0.3.6追加分）により、進行開始直後(idx=0・最小コンテンツ)の時点で既にボタンが
+   max-height(88vh)を超えてクリップされ不可視だった（375x667実測 top≈774px）。
+   伸長はこの既存の不可視状態をさらに悪化させるのみ。
+   固定ヘッダ（ON STAGE/盛り上がり等）＋内部スクロール（セトリ・ログ領域）＋
+   sticky下部バー化の縦フレックス構成で解消。ライブ進行ロジック・タイムライン・
+   スキップ機能には無接触（本セレクタは.live-progress-modal.realtime-live-modalの
+   複合クラスのみを対象とし、.action-result-modal等の他モーダルには影響しない）。
+   ================================================================ */
+.live-progress-modal.realtime-live-modal{
+  display:flex;
+  flex-direction:column;
+  max-height:88vh;
+  max-height:88dvh;
+  overflow:hidden;
+}
+.live-progress-modal.realtime-live-modal .live-telop-list{
+  flex:1 1 auto;
+  min-height:56px;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
+}
+.live-progress-modal.realtime-live-modal .liveProgressNextBtn{
+  position:sticky;
+  bottom:0;
+  flex:0 0 auto;
+  margin-top:12px;
+  padding-bottom:calc(10px + env(safe-area-inset-bottom));
+  background: var(--panel);
+  z-index:2;
+}
+@media (max-height:700px){
+  .live-progress-modal.realtime-live-modal{padding:12px;}
+  .live-progress-modal.realtime-live-modal .live-onstage-bar{margin-bottom:6px;}
+  .live-progress-modal.realtime-live-modal .live-heat-block{margin:8px 0;}
+  .live-progress-modal.realtime-live-modal .live-current-telop{margin:8px 0;padding:10px;}
+}
