@@ -14497,14 +14497,24 @@ bindEvents = function bindEvents_v042() {
    ここでその現在の束縛をさらに再代入でラップする（wrap-by-reassignment、方針v2.0.2標準）。
    render本体・PR-Eの演出フック本体のどちらにも一切触れない。state.liveResultModalの有無のみで
    html/bodyへロック用classを着脱し、結果ロジック・コレオグラフィのタイムラインには無接触
-   （SKIN_ORDER_v4 fix2） */
+   （SKIN_ORDER_v4 fix2）
+   --- fix3（P0継続）: 同ラップ内でshouldLockにliveProgressModalを追加（新規ラップ層は作らず、
+   既存body-lockヘルパの適用範囲を拡張）。加えてライブ進行画面の内部スクロール領域（.live-telop-list）を
+   現在ステップへ自動追従させる処理を追加。どちらも進行ロジック・スキップ機能・タイムラインには無接触
+   （SKIN_ORDER_v4 fix3） */
 const dgRenderBeforeFix2 = render;
 render = function () {
   dgRenderBeforeFix2();
   if (typeof document !== "undefined" && document.documentElement) {
-    const shouldLock = !!state.liveResultModal;
+    const shouldLock = !!state.liveResultModal || !!state.liveProgressModal;
     document.documentElement.classList.toggle("dg-scroll-lock", shouldLock);
     if (document.body) document.body.classList.toggle("dg-scroll-lock", shouldLock);
+    if (state.liveProgressModal) {
+      const currentStep = document.querySelector(".live-progress-modal .live-telop-list .setlist-step.current");
+      if (currentStep && typeof currentStep.scrollIntoView === "function") {
+        currentStep.scrollIntoView({ block: "nearest" });
+      }
+    }
   }
 };
 
