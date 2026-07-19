@@ -37,6 +37,13 @@
   --ok: var(--ink);
   --good: var(--ink);
   --bad: var(--ink);
+  /* 暫定22色パレット: バンドDBに色データが未定義のため新設（SKIN_ORDER_v4 PR-G #1・#3、メール差出人/会話話者の識別タグに使用）。ACC/VIO/FAN/FAME/MONEY/FTGの色相帯は除外し、意味の混同を防止。採否は発注者判定 */
+  --tag-c0: #ccd256; --tag-c1: #bbd256; --tag-c2: #abd256; --tag-c3: #9ad256;
+  --tag-c4: #87d256; --tag-c5: #77d256; --tag-c6: #66d256; --tag-c7: #56d256;
+  --tag-c8: #56d268; --tag-c9: #56d2c1; --tag-c10: #56d2d2; --tag-c11: #56bfd2;
+  --tag-c12: #56afd2; --tag-c13: #569ed2; --tag-c14: #568ed2; --tag-c15: #567bd2;
+  --tag-c16: #566ad2; --tag-c17: #565ad2; --tag-c18: #6256d2; --tag-c19: #7556d2;
+  --tag-c20: #8556d2; --tag-c21: #d256bd;
 }
 * {box-sizing: border-box;}
 body {margin: 0;background: var(--bg);color: var(--text);font-family: var(--font-display), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;line-height: 1.55;}
@@ -811,6 +818,27 @@ button.stage-slot.selected {outline: 2px solid var(--accent);background: var(--b
 .live-icons span {color: var(--muted);font-size:.86rem;}
 .live-telop-list {display:grid;gap:7px;margin:12px 0;}
 .live-telop-list p {margin:0;border-left: 4px solid var(--ink);background: var(--bg);border-radius: 0;padding:8px 10px;color: var(--muted);}
+/* ON STAGE帯: 赤ドットは環境表示（意思決定数値ではない）のため点滅可、reduced-motionで停止（SKIN_ORDER_v4 PR-G #2） */
+.live-onstage-bar{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.live-onstage-dot{width:8px;height:8px;border-radius:999px;background: var(--red);flex:0 0 auto;animation: liveOnstagePulse 1.1s ease-in-out infinite;}
+@keyframes liveOnstagePulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.35;transform:scale(.7);}}
+@media (prefers-reduced-motion: reduce){.live-onstage-dot{animation:none;}}
+.live-onstage-bar b{font-family: var(--font-display);font-size:11px;letter-spacing:.18em;color: var(--ink);text-transform:uppercase;}
+.live-venue-plate{margin-left:auto;font-style:normal;font-size:11px;color: var(--dim);background: var(--panel);border:1px solid var(--rule);padding:4px 10px;clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));}
+/* 盛り上がりVU＋大数字＋観客ピクト: heatは終演確定値のためpctでスケールした表示専用派生。点灯=ファン色/消灯=LINE色（SKIN_ORDER_v4 PR-G #2） */
+.live-heat-block{margin:12px 0;display:grid;gap:7px;}
+.live-heat-vu{height:14px;background: var(--bg);border:2px solid var(--ink);overflow:hidden;position:relative;}
+.live-heat-vu-fill{height:100%;background: repeating-linear-gradient(90deg, var(--fan) 0 5px, transparent 5px 7px);}
+.live-heat-number{font-family: var(--font-anton), var(--font-display);font-variant-numeric:tabular-nums;font-size:34px;line-height:1;color: var(--fan);}
+.live-heat-audience{display:flex;gap:6px;}
+.live-audience-pict{width:22px;height:22px;color: var(--line);}
+.live-audience-pict svg{width:100%;height:100%;}
+.live-audience-pict.lit{color: var(--fan);}
+/* セトリ3状態: 消化=DIM+打ち消し線／現在=PANEL帯+▌+橙太字／未演奏=曲名のみINK表示（結果文は非表示のまま先読み防止。SKIN_ORDER_v4 PR-G #2） */
+.live-telop-list .setlist-step.played{color: var(--dim);text-decoration: line-through;opacity:.75;}
+.live-telop-list .setlist-step.current{background: var(--panel);border-left-color: var(--acc);color: var(--acc);font-weight:700;position:relative;padding-left:18px;}
+.live-telop-list .setlist-step.current::before{content:"▌";position:absolute;left:6px;top:50%;transform:translateY(-50%);color: var(--acc);}
+.live-telop-list .setlist-step.upcoming{color: var(--ink);border-left-color: var(--rule);}
 .event-modal.rare, .event-modal .rare {border-color: var(--ink);}
 .event-modal.rare .modal-icon {background: var(--bg);}
 .band-name-modal .wide-input {width:100%;margin-top:10px;font-size:1rem;padding:12px;border-radius: 0;border: 1px solid var(--ink);background: var(--bg);color: var(--text);}
@@ -991,7 +1019,7 @@ button:focus-visible, select:focus-visible, input:focus-visible {outline: 2px so
 button.stage-slot.selected {outline: 2px solid var(--ink) !important;background: var(--bg) !important;}
 
 .title-screen {min-height: 100vh;display: grid;place-items: center;padding: 20px;background: var(--bg);}
-.title-card {width: min(560px, 94vw);border: 1px solid var(--ink);border-radius: 0;padding: 24px;background: var(--bg);box-shadow: none;display: grid;gap: 12px;}
+.title-card {width: min(560px, 94vw);border: 1px solid var(--ink);border-radius: 0;padding: 24px;background: var(--panel);box-shadow: none;display: grid;gap: 12px;clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));}
 .title-card.wide {width: min(860px, 96vw);}
 .title-card h1 {margin: 0;font-size: clamp(2rem, 6vw, 4rem);line-height: 1.04;}
 .title-card p {margin: 0;color: var(--muted);}
@@ -999,7 +1027,8 @@ button.stage-slot.selected {outline: 2px solid var(--ink) !important;background:
 .big-action.secondary {background: var(--bg);}
 .slot-grid {display:grid;grid-template-columns: repeat(2, minmax(0,1fr));gap:12px;margin-top:10px;}
 .slot-grid.compact {grid-template-columns: repeat(2, minmax(0,1fr));}
-.slot-select-card, .slot-card {border: 1px solid var(--ink);border-radius: 0;padding: 12px;background: var(--bg);display:grid;gap:8px;}
+.slot-select-card, .slot-card {border: 1px solid var(--ink);border-radius: 0;padding: 12px;background: var(--panel-2);display:grid;gap:8px;}
+.slot-select-card {clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));}
 .slot-card {padding: 0;border: 0;background: transparent;}
 .slot-card b, .slot-card span, .slot-card small {display:block;}
 .slot-card span {font-weight:800;color: var(--text);}
@@ -1289,7 +1318,26 @@ button:focus:not(:focus-visible), input:focus:not(:focus-visible), select:focus:
 .story-type-bass span:before{border-radius: 0;box-shadow: none;}.story-type-bass span:after{content:"";position:absolute;left:-30%;bottom:23%;width:52%;height:10%;background: var(--bg);transform:rotate(25deg);border-radius: 0;}
 .story-type-long span:before{height:37%;top:-30%;border-radius: 0;box-shadow: none;}.story-type-short span:before{width:66%;left:17%;border-radius: 0;}.story-type-member span:before{box-shadow: none;}
 .story-dialogue{position:absolute;left:16px;right:16px;bottom:18px;z-index:4;background: var(--bg);border: 1px solid var(--ink);border-radius: 0;padding:15px 15px 12px;box-shadow: none;}
-.story-dialogue.bubble{border-radius: 0;}.story-name{display:inline-block;margin-bottom:8px;padding:4px 10px;border-radius: 0;background: var(--bg);color: var(--ink);font-weight:700;font-size:13px;}.story-text{min-height:58px;font-size:17px;line-height:1.7;color: var(--ink);}.story-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px;}.story-result-card{position:absolute;z-index:5;left:24px;right:24px;bottom:28px;background: var(--bg);border: 1px solid var(--ink);border-radius: 0;padding:18px;box-shadow: none;}.story-result-card h2{margin:0 0 4px;}.story-result-card h3{margin:0 0 12px;color: var(--ink);}.story-result-list{display:grid;gap:8px;margin:12px 0 16px;}.story-result-list div{padding:9px 10px;border-radius: 0;background: var(--bg);}
+.story-dialogue.bubble{border-radius: 0;}.story-name{display:inline-flex;align-items:center;position:relative;margin-bottom:8px;padding:4px 10px 4px 13px;border-radius: 0;background: var(--panel);color: var(--ink);font-weight:700;font-size:13px;clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));}.story-text{min-height:58px;font-size:17px;line-height:1.7;color: var(--ink);}.story-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px;}.story-result-card{position:absolute;z-index:5;left:24px;right:24px;bottom:28px;background: var(--bg);border: 1px solid var(--ink);border-radius: 0;padding:18px;box-shadow: none;}.story-result-card h2{margin:0 0 4px;}.story-result-card h3{margin:0 0 12px;color: var(--ink);}.story-result-list{display:grid;gap:8px;margin:12px 0 16px;}.story-result-list div{padding:9px 10px;border-radius: 0;background: var(--bg);}
+/* 話者プレート: バンド色帯3px（暫定パレット流用）＋角切りタグ。本文はINK維持（SKIN_ORDER_v4 PR-G #3） */
+.story-name::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background: var(--dim);}
+.story-name.tag-color-c0::before{background: var(--tag-c0);} .story-name.tag-color-c1::before{background: var(--tag-c1);}
+.story-name.tag-color-c2::before{background: var(--tag-c2);} .story-name.tag-color-c3::before{background: var(--tag-c3);}
+.story-name.tag-color-c4::before{background: var(--tag-c4);} .story-name.tag-color-c5::before{background: var(--tag-c5);}
+.story-name.tag-color-c6::before{background: var(--tag-c6);} .story-name.tag-color-c7::before{background: var(--tag-c7);}
+.story-name.tag-color-c8::before{background: var(--tag-c8);} .story-name.tag-color-c9::before{background: var(--tag-c9);}
+.story-name.tag-color-c10::before{background: var(--tag-c10);} .story-name.tag-color-c11::before{background: var(--tag-c11);}
+.story-name.tag-color-c12::before{background: var(--tag-c12);} .story-name.tag-color-c13::before{background: var(--tag-c13);}
+.story-name.tag-color-c14::before{background: var(--tag-c14);} .story-name.tag-color-c15::before{background: var(--tag-c15);}
+.story-name.tag-color-c16::before{background: var(--tag-c16);} .story-name.tag-color-c17::before{background: var(--tag-c17);}
+.story-name.tag-color-c18::before{background: var(--tag-c18);} .story-name.tag-color-c19::before{background: var(--tag-c19);}
+.story-name.tag-color-c20::before{background: var(--tag-c20);} .story-name.tag-color-c21::before{background: var(--tag-c21);}
+/* 選択肢/進行ボタン: clip-pathで平行四辺形（文字水平・44px確保）。300msゲート機構(#storyNextBtn等)には無干渉（SKIN_ORDER_v4 PR-G #3） */
+.story-actions button{position:relative;isolation:isolate;background:transparent;border:none;box-shadow:none;min-height:44px;padding:10px 18px;}
+.story-actions button::before{content:"";position:absolute;inset:0;z-index:-1;background: var(--panel-2);border:1px solid var(--ink);clip-path: polygon(8% 0, 100% 0, 92% 100%, 0 100%);}
+.story-actions #storyNextBtn::before{background: var(--panel-2);border-color: var(--ink);}
+.afterpartyChoiceBtn{position:relative;isolation:isolate;background:transparent;border:none;box-shadow:none;min-height:44px;}
+.afterpartyChoiceBtn::before{content:"";position:absolute;inset:0;z-index:-1;background: var(--panel-2);border:1px solid var(--ink);clip-path: polygon(4% 0, 100% 0, 96% 100%, 0 100%);}
 .dev-panel{display:grid;gap:14px;}.dev-card .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;}.dev-card input,.dev-card select{width:100%;box-sizing:border-box;}.dev-quick-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;}.devStageBtn{border: 1px solid var(--ink);border-radius: 0;background: var(--bg);color: inherit;padding:12px;font-weight:700;}.home-menu-card .home-menu-grid .menu-dev{border-color: var(--ink);}
 
 /* ===== v0.3.62-fix1 ノベルイベント スマホ縦画面向け微調整 ===== */
@@ -1676,13 +1724,30 @@ button.danger{background: transparent;border-color: var(--ink);color: var(--ink)
 .phone-app-btn b{font-size:14px;}
 .phone-action-required{border-color: var(--ink);}
 .phone-action-required.ok{border-color: var(--v41-border);}
-.mail-row-enhanced{display:flex;align-items:center;gap:9px;background: var(--v41-panel-2);border: 1px solid var(--v41-border);border-radius: 0;box-shadow: none;text-align:left;}
-.mail-row-enhanced.unread{border-left: 3px solid var(--v41-red);}
+.mail-row-enhanced{display:flex;align-items:center;gap:9px;background: var(--panel-2);border: 1px solid var(--v41-border);border-radius: 0;box-shadow: none;text-align:left;position:relative;padding-left:11px;}
+/* 差出人固有色帯: バンドDBに色データが無いため送信者名から算出した表示用派生class（tag-color-cN、SKIN_ORDER_v4 PR-G #1） */
+.mail-row-enhanced::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background: var(--dim);}
+.mail-row-enhanced.tag-color-c0::before{background: var(--tag-c0);} .mail-row-enhanced.tag-color-c1::before{background: var(--tag-c1);}
+.mail-row-enhanced.tag-color-c2::before{background: var(--tag-c2);} .mail-row-enhanced.tag-color-c3::before{background: var(--tag-c3);}
+.mail-row-enhanced.tag-color-c4::before{background: var(--tag-c4);} .mail-row-enhanced.tag-color-c5::before{background: var(--tag-c5);}
+.mail-row-enhanced.tag-color-c6::before{background: var(--tag-c6);} .mail-row-enhanced.tag-color-c7::before{background: var(--tag-c7);}
+.mail-row-enhanced.tag-color-c8::before{background: var(--tag-c8);} .mail-row-enhanced.tag-color-c9::before{background: var(--tag-c9);}
+.mail-row-enhanced.tag-color-c10::before{background: var(--tag-c10);} .mail-row-enhanced.tag-color-c11::before{background: var(--tag-c11);}
+.mail-row-enhanced.tag-color-c12::before{background: var(--tag-c12);} .mail-row-enhanced.tag-color-c13::before{background: var(--tag-c13);}
+.mail-row-enhanced.tag-color-c14::before{background: var(--tag-c14);} .mail-row-enhanced.tag-color-c15::before{background: var(--tag-c15);}
+.mail-row-enhanced.tag-color-c16::before{background: var(--tag-c16);} .mail-row-enhanced.tag-color-c17::before{background: var(--tag-c17);}
+.mail-row-enhanced.tag-color-c18::before{background: var(--tag-c18);} .mail-row-enhanced.tag-color-c19::before{background: var(--tag-c19);}
+.mail-row-enhanced.tag-color-c20::before{background: var(--tag-c20);} .mail-row-enhanced.tag-color-c21::before{background: var(--tag-c21);}
+/* 未読=PANEL浮かせ＋右下8px赤ドット（バッジ鉄則のRED小円ベタ塗り例外を踏襲・SKIN_ORDER_v4 PR-G #1） */
+.mail-row-enhanced.unread{background: var(--panel);}
+.mail-row-enhanced.unread::after{content:"";position:absolute;right:6px;bottom:6px;width:8px;height:8px;border-radius:999px;background: var(--red);}
 .mail-row-enhanced.read{opacity:.72;}
 .mail-sender-icon{font-size:18px;}
 .mail-row-main{flex:1;min-width:0;}
-.mail-row-main b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mail-row-main b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family: var(--font-display);font-weight:700;}
 .mail-kind-chip{flex:0 0 auto;font-size:10px;padding:2px 6px;border: 1px solid var(--v41-border);border-radius: 0;color: var(--v41-muted);transform:rotate(-2deg);background: var(--bg);}
+/* 時刻表示: ゲーム内に時刻機構が無いため既存のターン番号(em)を代用（等幅小・DIM。SKIN_ORDER_v4 PR-G #1） */
+.mail-row-enhanced em{flex:0 0 auto;font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;font-size:10px;font-style:normal;color: var(--dim);white-space:nowrap;}
 /* --- バンド図鑑：フライヤー保管庫 --- */
 .bandbook-list{gap:8px;}
 .bandbook-row{background: var(--v41-paper);color: var(--v41-paper-ink);border: 1px solid var(--v41-paper-deep);border-radius: 0;box-shadow: none;position:relative;}
@@ -2170,6 +2235,10 @@ body:has(.v042-phone-backdrop){overflow-x:hidden;}
 .v042-tab.active{background: var(--bg);color: var(--ink);}
 .v042-phone-backdrop{position:fixed;inset:0;z-index:80;background: rgba(11, 11, 16, 0.72);display:grid;place-items:center;padding:18px 10px calc(80px + env(safe-area-inset-bottom));}
 .v042-phone-shell{width:min(88vw,370px);height:min(82vh,760px);border-radius: 0;background: var(--bg);border: 5px solid var(--ink);box-shadow: none;padding:28px 12px 16px;position:relative;}
+/* デバイスクローム: 時刻はゲーム内に時刻機構が存在しないため固定演出値（新規の時刻機構は作らない・SKIN_ORDER_v4 PR-G #1） */
+.v042-phone-shell::before{content:"21:04";position:absolute;top:6px;left:16px;font-family: var(--font-display);font-size:10px;font-weight:600;letter-spacing:.06em;color: var(--dim);z-index:1;}
+/* デバイスクローム: 電波（上昇4バー・最上段のみ枠線）＋電池（作図規則準拠・DIM固定色のSVG背景） */
+.v042-phone-shell::after{content:"";position:absolute;top:8px;right:64px;width:50px;height:10px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 16'%3E%3Crect x='0' y='12' width='4' height='4' fill='%239a9aa8'/%3E%3Crect x='6' y='9' width='4' height='7' fill='%239a9aa8'/%3E%3Crect x='12' y='6' width='4' height='10' fill='%239a9aa8'/%3E%3Crect x='18' y='3' width='4' height='13' fill='none' stroke='%239a9aa8' stroke-width='2'/%3E%3Crect x='34' y='3' width='22' height='10' fill='none' stroke='%239a9aa8' stroke-width='2'/%3E%3Crect x='57' y='6' width='3' height='4' fill='%239a9aa8'/%3E%3Crect x='37' y='6' width='11' height='4' fill='%239a9aa8'/%3E%3C/svg%3E");background-repeat:no-repeat;background-size:contain;background-position:right center;z-index:1;}
 .v042-phone-speaker{position:absolute;top:13px;left:50%;transform:translateX(-50%);width:72px;height:6px;border-radius: 0;background: var(--bg);}
 .v042-phone-close{position:absolute;top:10px;right:12px;width:30px;height:30px;border-radius: 0;border: 1px solid var(--ink);background: var(--bg);color: var(--ink);font-weight:900;}
 .v042-phone-screen{height:100%;overflow:auto;border-radius: 0;background: var(--bg);color: var(--ink);padding:12px;box-sizing:border-box;}
@@ -2205,6 +2274,12 @@ body:has(.v042-phone-backdrop){overflow-x:hidden;}
 .v042-livehouse-bg b{font-size:34px;letter-spacing:0;}
 .v042-novel-poster{background: var(--bg);color: var(--ink);max-width:280px;width:72vw;justify-self:center;min-height:48vh;transform:rotate(-2deg);}
 .v042-novel-poster b{font-size:42px;line-height:.9;}
+/* UNDER FES: 唯一の白反転例外画面（黒地用FAME #ffc21e は不使用、白地専用金を新設）。SKIN_ORDER_v4 PR-G #4 */
+.v042-novel-poster.opening-poster{background:#f4f1ea;border-color:#111;position:relative;}
+.v042-novel-poster.opening-poster span{color:#7f5e12;font-weight:700;}
+.v042-novel-poster.opening-poster b{color:#111;position:relative;padding-bottom:14px;}
+.v042-novel-poster.opening-poster b::after{content:"";position:absolute;left:10%;right:10%;bottom:0;height:3px;background:#111;transform:skewY(-1.5deg);transform-origin:left center;}
+.v042-novel-poster.opening-poster small{color:#111;}
 .v042-novel-box,.v042-thought-pop{border-radius: 0;background: var(--bg);color: var(--ink);padding:14px;display:grid;gap:8px;box-shadow: none;}
 .v042-novel-box span{font-weight:900;color: var(--ink);}
 .v042-novel-box p{margin:0;font-size:16px;line-height:1.6;}

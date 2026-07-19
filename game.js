@@ -6327,12 +6327,13 @@ function renderStoryEventOverlay() {
   const actors = Array.isArray(scene.actors) && scene.actors.length ? scene.actors : (ev.actors || []);
   const activePortrait = scene.portrait || "";
   const speaker = formatStoryText(scene.speaker || "", ctx);
+  const speakerColorClass = `tag-color-c${bandColorIndexFromName(speaker || "？？？")}`;
   const body = formatStoryText(scene.text || "", ctx);
   return `<div class="story-backdrop"><div class="story-stage story-bg-${escapeHtml(ev.background || "livehouse")}">
     <div class="story-title-chip">${escapeHtml(ev.title || "イベント")}</div>
     <div class="story-actors">${actors.map(a => `<div class="story-silhouette story-pos-${escapeHtml(a.position || "center")} story-type-${escapeHtml(a.type || "member")} ${a.id === activePortrait ? "active" : ""}" title="${escapeHtml(a.name || "")}"><span></span></div>`).join("")}</div>
     <div class="story-dialogue ${scene.bubble ? "bubble" : ""}">
-      <div class="story-name">${escapeHtml(speaker || "？？？")}</div>
+      <div class="story-name ${speakerColorClass}">${escapeHtml(speaker || "？？？")}</div>
       <div class="story-text">${escapeHtml(body).replace(/\n/g,"<br>")}</div>
       <div class="story-actions"><button id="storySkipBtn" class="ghost-btn">スキップ</button><button id="storyNextBtn" class="big-action">${(active.step || 0) >= scenes.length - 1 ? "結果へ" : "次へ"}</button>${logButton}</div>
     </div>
@@ -7746,13 +7747,14 @@ function makeLiveProgressModal(result, setlist) {
     const mood = liveSongMood(song, slot, result.rank, result);
     return {
       slot,
+      songTitle: song.title || "",
       line: liveSongLine(song, slot, result.rank, result, repeat),
       icon: repeat ? repeat.icon : mood.icon,
       event: repeat ? repeat.text : mood.text,
       impact: repeat ? "repeat" : mood.kind
     };
   });
-  return { title: currentLiveName(), rank: result.rank, total: val(result.total), steps, index:0, complete:false };
+  return { title: currentLiveName(), rank: result.rank, total: val(result.total), steps, index:0, complete:false, venueName: result.venue?.name || "", heat: val(result.heat || 0) };
 }
 function repeatImpactForSlot(repeatInfo, slot) {
   const hit = (repeatInfo?.repeats || []).find(r => r.idx === slot - 1);
@@ -11146,13 +11148,27 @@ function renderLiveProgressOverlay() {
   const pct = steps.length ? Math.round((idx + 1) / steps.length * 100) : 100;
   const prevPct = steps.length ? Math.round(idx / steps.length * 100) : 0;
   const complete = !!l.complete;
+  // 盛り上がり表示: heatは終演後にのみ確定する値のため、進行度(pct)でスケールした表示専用派生値（既存のresultBar正規化定数2.2を流用。SKIN_ORDER_v4 PR-G #2）
+  const heatPct = clamp((l.heat || 0) / 2.2, 0, 100);
+  const heatDisplay = Math.round(heatPct * pct / 100);
+  const litAudience = Math.min(5, Math.ceil(heatDisplay / 20));
   return `<div class="modal-backdrop result-backdrop live-only-backdrop">
     <div class="live-progress-modal realtime-live-modal ${complete ? "live-complete" : ""}">
+      <div class="live-onstage-bar"><span class="live-onstage-dot" aria-hidden="true"></span><b>ON STAGE</b><em class="live-venue-plate">${escapeHtml(l.venueName || "ライブハウス")}</em></div>
       <div class="result-header"><span>${complete ? "LIVE COMPLETE" : "LIVE STAGE"}</span><b>${escapeHtml(l.title)}</b><em>${idx + 1}/${steps.length || 5}</em></div>
       <div class="live-progress-bar"><div class="live-progress-fill realtime" style="--from:${prevPct}%;--to:${pct}%;width:${pct}%"></div><span>${pct}%</span></div>
+      <div class="live-heat-block">
+        <div class="live-heat-vu"><div class="live-heat-vu-fill" style="width:${heatPct * pct / 100}%"></div></div>
+        <div class="live-heat-number">${heatDisplay}</div>
+        <div class="live-heat-audience">${Array.from({ length:5 }, (_, i) => `<span class="live-audience-pict ${i < litAudience ? "lit" : ""}">${v043eIcon("audience")}</span>`).join("")}</div>
+      </div>
       <div class="live-current-telop"><b>${escapeHtml(current.line)}</b>${complete ? `<small>ライブ完了。結果を見る準備ができた。</small>` : ""}</div>
       <div class="live-icons"><div><b>${escapeHtml(current.icon)}</b><span>${escapeHtml(current.event)}</span></div></div>
-      <div class="live-telop-list compact">${steps.slice(0, idx + 1).map((x, i) => `<p class="${i === idx ? "active" : ""} ${x.impact ? "impact-" + escapeHtml(x.impact) : ""}">${escapeHtml(x.line)} / ${escapeHtml(x.icon)} ${escapeHtml(x.event)}</p>`).join("")}</div>
+      <div class="live-telop-list compact">${steps.map((x, i) => {
+        if (i > idx) return `<p class="setlist-step upcoming">${x.slot}曲目『${escapeHtml(x.songTitle)}』</p>`;
+        const stepState = i === idx ? "current" : "played";
+        return `<p class="setlist-step ${stepState} ${i === idx ? "active" : ""} ${x.impact ? "impact-" + escapeHtml(x.impact) : ""}">${escapeHtml(x.line)} / ${escapeHtml(x.icon)} ${escapeHtml(x.event)}</p>`;
+      }).join("")}</div>
       <button class="liveProgressNextBtn ${complete ? "big-action" : "ghost-btn"} live-skip-btn">${complete ? "結果を見る" : "演出をスキップして結果へ"}</button>
     </div>
   </div>`;
@@ -13504,13 +13520,21 @@ function renderPhoneScreen() {
   </div>`;
 }
 
+function bandColorIndexFromName(name) {
+  const s = String(name || "");
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h % 22;
+}
 function renderMailRow(m) {
   const kind = m.kind || "info";
   const needsReply = isActionableMail(m);
   const preview = firstLine(m.body || "").slice(0, 58);
-  return `<button class="mail-row mailOpenBtn mail-row-enhanced gmail-row ${kind} ${m.read ? "read" : "unread"}" data-mail-id="${escapeHtml(m.id)}">
+  const senderLabel = m.sender || mailSenderForKind(kind);
+  const bandColorClass = `tag-color-c${bandColorIndexFromName(senderLabel)}`;
+  return `<button class="mail-row mailOpenBtn mail-row-enhanced gmail-row ${kind} ${m.read ? "read" : "unread"} ${bandColorClass}" data-mail-id="${escapeHtml(m.id)}">
     <span class="mail-sender-icon">${mailSenderIcon(kind)}</span>
-    <span class="mail-row-main"><b>${escapeHtml(m.sender || mailSenderForKind(kind))}</b><strong>${m.read ? "" : "● "}${escapeHtml(m.subject || "無題")}</strong><small>${escapeHtml(preview)}</small></span>
+    <span class="mail-row-main"><b>${escapeHtml(senderLabel)}</b><strong>${m.read ? "" : "● "}${escapeHtml(m.subject || "無題")}</strong><small>${escapeHtml(preview)}</small></span>
     <span class="mail-kind-chip">${needsReply ? "要返信" : mailKindLabel(kind)}</span>
     <em>${m.turn || "?"}T</em>
   </button>`;
