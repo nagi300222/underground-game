@@ -2790,9 +2790,12 @@ button .v043e-icon,
 .v043b-home .v042-songcraft span{display:grid;place-items:center;color: var(--bg);text-shadow:none;}
 .v043b-home .v042-songcraft b{color: var(--bg);text-shadow:none;text-transform:uppercase;letter-spacing:.05em;}
 /* 英サブラベル: ::beforeのcontent付与のみ、DOM非変更（SKIN_ORDER_v3 PR-D #7） */
-.v043b-home .v042-songcraft b::before{content:"SONGCRAFT";display:block;font-family: var(--font-display);font-size:8px;font-weight:600;letter-spacing:.14em;opacity:.7;margin-bottom:1px;}
+/* PR-I条件解消: opacity.7が実効コントラストを希釈（実測3.97:1<4.5:1）。1.0へ是正 */
+.v043b-home .v042-songcraft b::before{content:"SONGCRAFT";display:block;font-family: var(--font-display);font-size:8px;font-weight:600;letter-spacing:.14em;opacity:1;margin-bottom:1px;}
+/* PR-I条件解消: 要素opacity.72が実効コントラストを希釈していた実測発見（4.12:1<4.5:1）。
+   1.0へ是正し実測5.83:1を確保（発注者裁定: rgba(11,11,16,.75以上)かつ実測4.5:1以上） */
 .v043b-home .v042-songcraft small,
-.v043b-home .v042-songcraft em{color: var(--bg);opacity:.72;}
+.v043b-home .v042-songcraft em{color: var(--bg);opacity:1;}
 .v043b-home .v042-songcraft:disabled b,
 .v043b-home .v042-songcraft:disabled span,
 .v043b-home .v042-songcraft:disabled small,
