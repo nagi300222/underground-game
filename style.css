@@ -610,6 +610,42 @@ button.stage-slot.selected {outline: 2px solid var(--accent);background: var(--b
   .rank-burst{animation:none;}
 }
 .dg-burst-particle{position:absolute;top:50%;left:50%;pointer-events:none;z-index:5;clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);}
+/* --- fix4: RANKスタンプの再配置・特大化。旧来の.rank-burst（点数左の小型枠）は恒常的に非表示化し、
+   結果ヘッダ右の空きスペースへ絶対配置する特大版(.dg-rank-stamp-lg、JS生成)に置き換える。
+   叩き込みは1120ms開始（既存@keyframes rankBurstを流用、animation-delayのみ追加）。粒子バーストの
+   原点もここ（SKIN_ORDER_v4 fix4） --- */
+.live-result-modal .rank-burst{display:none;}
+.result-header{padding-right:calc(clamp(96px, 30vw, 150px) + 14px);}
+.dg-rank-stamp-lg{
+  position:absolute;
+  top:14px;
+  right:14px;
+  width:clamp(96px, 30vw, 150px);
+  height:clamp(96px, 30vw, 150px);
+  display:grid;
+  place-items:center;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-anton), var(--font-display);
+  font-size:clamp(2.4rem, 11vw, 4.6rem);
+  font-weight:1000;
+  box-shadow:none;
+  z-index:3;
+  opacity:0;
+  transform:rotate(-8deg) scale(1.6);
+  animation: rankBurst 260ms cubic-bezier(.2,.9,.1,1) 1120ms both;
+  pointer-events:none;
+}
+.rank-S .dg-rank-stamp-lg{color: var(--fame);}
+.rank-A .dg-rank-stamp-lg{color: var(--vio);}
+.rank-B .dg-rank-stamp-lg{color: var(--ink);}
+.rank-C .dg-rank-stamp-lg, .rank-D .dg-rank-stamp-lg, .rank-E .dg-rank-stamp-lg{color: var(--dim);}
+@media (prefers-reduced-motion: reduce){
+  .dg-rank-stamp-lg{animation:none;opacity:1;transform:rotate(-8deg) scale(1);}
+}
+/* タップ早送りキャッチャー: 演出中のみ存在するJS生成の透明レイヤー。演出完了/タップで自身を除去し、
+   以後は通常のボタン操作を妨げない（SKIN_ORDER_v4 fix4 #4） */
+.dg-choreo-tap-catcher{position:absolute;inset:0;z-index:10;background:transparent;}
 /* レターボックス（0ms・アニメーションなしの即時表示） */
 .result-backdrop:has(.live-result-modal)::before,
 .result-backdrop:has(.live-result-modal)::after{content:"";position:fixed;left:0;right:0;background:#000;z-index:1;pointer-events:none;}
@@ -1937,7 +1973,10 @@ small,.badge,.tabbar .tabBtn small,.menu-tile small{font-size:12px;line-height:1
 .live-result-modal::before{content:none !important;}
 .modal-backdrop{background: rgba(11, 11, 16, 0.82) !important;z-index:50;}
 .live-result-modal{display:grid;gap:10px;background: var(--bg) !important;border-color: var(--ink) !important;box-shadow: none;padding-bottom:126px !important;}
-.result-rank-line{display:grid;grid-template-columns:72px minmax(0,1fr);gap:10px;align-items:center;}
+/* fix4: .rank-burstは恒常的にdisplay:noneのため、旧来の72px列を残すと.result-scoreが
+   その狭い列へ引き込まれて文字が縦潰れする。1列構成へ変更（他2箇所のブレークポイント別
+   オーバーライドも同様に修正・SKIN_ORDER_v4 fix4） */
+.result-rank-line{display:grid;grid-template-columns:1fr;gap:10px;align-items:center;}
 .result-rank-line .rank-burst{position:static;top:auto;right:auto;width:64px;height:64px;}
 .result-rank-line .result-score{margin:0;text-align:left;display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 10px;align-items:center;}
 .result-rank-line .result-score b{font-size:2.4rem;}
@@ -2070,7 +2109,7 @@ small,.badge,.tabbar .tabBtn small,.menu-tile small{font-size:12px;line-height:1
 /* PR-H #2 gate2: 動的テキスト(会場名等)を含むためcut+4pxの恒久規則を厳密適用(16px) */
 .live-result-modal{width:min(94vw, 560px) !important;max-height:88vh !important;overflow-y:auto !important;gap:7px !important;padding:16px !important;padding-bottom:16px !important;}
 .live-result-modal .result-actions{position:static !important;left:auto !important;right:auto !important;bottom:auto !important;background: none !important;padding-top:4px !important;display:grid;gap:7px;}
-.result-rank-line{grid-template-columns:54px minmax(0,1fr) !important;gap:8px !important;}
+.result-rank-line{grid-template-columns:1fr !important;gap:8px !important;}
 .result-rank-line .rank-burst{width:50px !important;height:50px !important;font-size:28px !important;}
 .result-rank-line .result-score b{font-size:1.8rem !important;}
 .result-primary-gains,.result-secondary-gains{gap:5px !important;}
@@ -2145,7 +2184,7 @@ small,.badge,.tabbar .tabBtn small,.menu-tile small{font-size:12px;line-height:1
 .result-rank-line .result-score span,
 .result-rank-line .result-score small{min-width:0;white-space:normal !important;overflow-wrap:anywhere;}
 @media (max-width:340px){
-  .result-rank-line{grid-template-columns:48px minmax(0,1fr) !important;}
+  .result-rank-line{grid-template-columns:1fr !important;}
   .result-rank-line .result-score{grid-template-columns:minmax(0,1fr) !important;gap:2px !important;}
   .result-rank-line .result-score b{grid-row:auto !important;}
 }
