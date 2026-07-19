@@ -2810,3 +2810,32 @@ button .v043e-icon,
   .dg-saveload-stripe::after{animation:none;left:0;width:100%;}
   .dg-saveload.flash::before{animation:none;opacity:0;}
 }
+
+/* ================================================================
+   fix2 (P0): ライブ結果オーバーレイのスクロール不能対策
+   原因A: モバイル実効ビューポート高（アドレスバー分）での内容溢れにより
+   「次へ」が画面外へ押し出される。原因B: モーダル自身に
+   overscroll-behavior/-webkit-overflow-scrolling/touch-actionの指定が無く、
+   iOS Safari特有のスクロールチェーンで背面bodyへタッチが抜ける。
+   演出タイムライン（150ms/240ms/260ms等）・結果ロジックには無接触。
+   ================================================================ */
+/* A. 一画面化: dvh基準（vhフォールバック併記）、短尺ビューポートでの圧縮 */
+.result-backdrop{height:100vh;height:100dvh;}
+@media (max-height:700px){
+  .result-backdrop:has(.live-result-modal)::before,
+  .result-backdrop:has(.live-result-modal)::after{height:2.5vh;}
+  .result-rank-line .rank-burst{width:clamp(64px,17vh,92px) !important;height:clamp(64px,17vh,92px) !important;font-size:clamp(1.3rem,6vh,2rem) !important;}
+  .live-result-modal{gap:6px !important;padding:10px !important;padding-bottom:72px !important;}
+  .result-bars{gap:4px;margin:8px 0;}
+  .result-summary-grid,.result-secondary-gains{gap:5px;margin:8px 0;}
+  .result-summary-grid div,.result-secondary-gains div{padding:6px;}
+  .result-notes{margin:6px 0 8px;}
+  .result-notes p{margin:2px 0;}
+  .result-setlist{padding:7px;gap:3px;}
+}
+/* B. スクロール正常化: モーダル自身の内部スクロールを実iOS Safariでも機能させる */
+.live-result-modal{overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;}
+/* 表示中は背面スクロールをロック（render()ラップからstate.liveResultModalの有無で着脱） */
+html.dg-scroll-lock, body.dg-scroll-lock{overflow:hidden !important;overscroll-behavior:none;}
+/* 「次へ」等アクションはオーバーレイ内sticky bottom + セーフエリア対応 */
+.live-result-modal .result-actions{position:sticky !important;left:auto !important;right:auto !important;bottom:0 !important;margin:0 !important;padding:10px 0 calc(10px + env(safe-area-inset-bottom)) !important;background: var(--bg) !important;z-index:3;}
