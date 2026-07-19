@@ -14492,4 +14492,20 @@ bindEvents = function bindEvents_v042() {
   document.querySelectorAll(".phoneModeBtn").forEach(btn => btn.addEventListener("click", () => { state.phoneAccountEdit = null; }));
 };
 
+/* --- fix2 (P0): ライブ結果オーバーレイの背面スクロールロック ---
+   この時点で`render`は既にPR-Eの演出フックにより一度再代入済み（同名関数罠は既に解消済みの状態）。
+   ここでその現在の束縛をさらに再代入でラップする（wrap-by-reassignment、方針v2.0.2標準）。
+   render本体・PR-Eの演出フック本体のどちらにも一切触れない。state.liveResultModalの有無のみで
+   html/bodyへロック用classを着脱し、結果ロジック・コレオグラフィのタイムラインには無接触
+   （SKIN_ORDER_v4 fix2） */
+const dgRenderBeforeFix2 = render;
+render = function () {
+  dgRenderBeforeFix2();
+  if (typeof document !== "undefined" && document.documentElement) {
+    const shouldLock = !!state.liveResultModal;
+    document.documentElement.classList.toggle("dg-scroll-lock", shouldLock);
+    if (document.body) document.body.classList.toggle("dg-scroll-lock", shouldLock);
+  }
+};
+
 render();
