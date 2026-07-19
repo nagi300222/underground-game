@@ -1575,7 +1575,7 @@ function grantBandSkill(skillId, sourceBandId, reason = "", opts = {}) {
   promoteBandState(sourceBandId, "skill_unlocked");
   const notImpl = sk.effectImplemented ? "" : "\n※現バージョンでは獲得記録のみ（数値効果なし）。";
   log(`交流スキル獲得：${sk.name}${levelText}${reason ? `（${reason}）` : ""}`, "event");
-  if (!opts.silentPopup) showEventPopup("交流スキル獲得", `${sk.name}${levelText}\n${sk.description}${notImpl}`, "rare", "◆︎");
+  if (!opts.silentPopup) showEventPopup("交流スキル獲得", `${sk.name}${levelText}\n${sk.description}${notImpl}`, "rare", v043eIcon("spark"));
   return true;
 }
 
@@ -1764,12 +1764,12 @@ function processBandStoryEvents(phase) {
 }
 
 const BAND_EVENT_TYPE_META = {
-  after_party: { title: "打ち上げ交流", icon: "○︎" },
-  mail_invite: { title: "招待メール", icon: "✉︎" },
-  skill_unlock: { title: "交流イベント", icon: "●︎" },
-  encounter: { title: "遭遇", icon: "●︎" },
-  sns_discover: { title: "バンド情報", icon: "▶︎" },
-  battle: { title: "対バン", icon: "♪︎" }
+  after_party: { title: "打ち上げ交流", icon: "band" },
+  mail_invite: { title: "招待メール", icon: "mail" },
+  skill_unlock: { title: "交流イベント", icon: "band" },
+  encounter: { title: "遭遇", icon: "band" },
+  sns_discover: { title: "バンド情報", icon: "book" },
+  battle: { title: "対バン", icon: "song" }
 };
 
 // バンドイベント→︎ノベルシーンの対応。ここにあるイベントは通常ポップアップの代わりに会話イベントで見せる。
@@ -1825,9 +1825,9 @@ function applyBandEventEffects(ev, opts = {}) {
     };
     const played = storyWillPlay ? startStoryEvent(sceneId, { silent: true, context: storyContext }) : false;
     if (!played) {
-      const meta = BAND_EVENT_TYPE_META[ev.type] || { title: "バンドイベント", icon: "♪︎" };
+      const meta = BAND_EVENT_TYPE_META[ev.type] || { title: "バンドイベント", icon: "song" };
       const bandName = bandById(ev.bandId)?.name || "";
-      showEventPopup(meta.title, `${fx.addLog || bandName}\n（バンド図鑑が更新された）`, ev.unlockSkillId ? "rare" : "event", meta.icon);
+      showEventPopup(meta.title, `${fx.addLog || bandName}\n（バンド図鑑が更新された）`, ev.unlockSkillId ? "rare" : "event", v043eIcon(meta.icon));
     }
   }
   checkCommonSkillAcquisition();
@@ -1913,7 +1913,7 @@ function recordBandBattlesAfterLive(ev, r) {
     startStoryEvent("pachi_pachi_first_live", { silent: true, context: { rank: r.rank } });
   }
   if (newlyRegistered.length) {
-    showEventPopup("バンド図鑑 更新", `図鑑に登録：${newlyRegistered.join(" / ")}\n交流値も少し上がった。詳細は携帯の「図鑑」から。`, "event", "▶︎");
+    showEventPopup("バンド図鑑 更新", `図鑑に登録：${newlyRegistered.join(" / ")}\n交流値も少し上がった。詳細は携帯の「図鑑」から。`, "event", v043eIcon("book"));
   }
   checkCommonSkillAcquisition();
 }
@@ -5623,7 +5623,7 @@ function unlockSkill(id, reason="") {
   const skill = skillById(id);
   if (!skill) return false;
   state.playerSkills.push(id);
-  showEventPopup("SKILL UNLOCKED!!", `${skill.name}を覚えた！\n${skill.desc}${reason ? "\nきっかけ：" + reason : ""}`, skill.rarity === "レア" ? "rare" : "event", skill.rarity === "レア" ? "▪︎" : "▪︎");
+  showEventPopup("SKILL UNLOCKED!!", `${skill.name}を覚えた！\n${skill.desc}${reason ? "\nきっかけ：" + reason : ""}`, skill.rarity === "レア" ? "rare" : "event", v043eIcon("spark"));
   log(`スキル獲得：${skill.name}。${skill.desc}`);
   return true;
 }
@@ -6437,13 +6437,13 @@ function devApplyBalanceProfile(profileId="grand_border") {
   });
   scheduleNextLive();
   state.view = "dev";
-  state.activePopup = { title:`DEV：${profile.label}`, body:formatGrandConditionSnapshot(), type:"event", icon:"▲︎" };
+  state.activePopup = { title:`DEV：${profile.label}`, body:formatGrandConditionSnapshot(), type:"event", icon:v043eIcon("chart") };
   log(`DEV：${profile.label}の仮数値を反映した。`, "event");
   render();
 }
 function devShowGrandCheck() {
   if (!devModeOn()) return;
-  state.activePopup = { title:"DEV：GRAND条件チェック", body:formatGrandConditionSnapshot(), type:grandConditionSnapshot().ok ? "rare" : "warn", icon:"✓︎" };
+  state.activePopup = { title:"DEV：GRAND条件チェック", body:formatGrandConditionSnapshot(), type:grandConditionSnapshot().ok ? "rare" : "warn", icon:v043eIcon("check") };
   render();
 }
 function devPrepareBandEventSeed() {
@@ -6477,7 +6477,7 @@ function devPrepareBandEventSeed() {
   bb.seenEvents.event_kaede_acoustic_encounter = bb.seenEvents.event_kaede_acoustic_encounter || 27;
   bb.seenEvents.event_lact_name_drop = bb.seenEvents.event_lact_name_drop || 40;
   bb.lastBattle = { bandIds:["magnet_wolf"], bandId:"magnet_wolf", result:"success", rank:"A", total:78, turn:state.turn };
-  state.activePopup = { title:"DEV：主要バンドイベント土台", body:"優先8組の図鑑登録・前提フラグ・対バン回数を仮セットしました。\nDEVのノベルイベント再生、またはターン開始/ライブ後イベントの発火確認に使えます。", type:"event", icon:"♪︎" };
+  state.activePopup = { title:"DEV：主要バンドイベント土台", body:"優先8組の図鑑登録・前提フラグ・対バン回数を仮セットしました。\nDEVのノベルイベント再生、またはターン開始/ライブ後イベントの発火確認に使えます。", type:"event", icon:v043eIcon("spark") };
   log("DEV：主要バンドイベント確認用の前提値をセットした。", "event");
   render();
 }
@@ -6577,42 +6577,51 @@ let v043dUiRuntime = {
 };
 
 const v043eIconPaths = {
-  home: `<path d="M3 11.5 12 4l9 7.5"></path><path d="M5.5 10.5V20h13v-9.5"></path><path d="M9.5 20v-6h5v6"></path>`,
-  calendar: `<rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M8 3v4M16 3v4M4 10h16"></path>`,
-  band: `<circle cx="8" cy="8" r="3"></circle><circle cx="16" cy="9" r="2.5"></circle><path d="M3.5 20c.8-4 7.2-4 9 0"></path><path d="M13 19c.8-2.6 5.2-2.8 7 0"></path>`,
-  phone: `<rect x="7" y="3" width="10" height="18" rx="2"></rect><path d="M11 18h2"></path>`,
-  more: `<circle cx="5" cy="12" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="19" cy="12" r="1.4"></circle>`,
-  practice: `<path d="M6 7v10M18 7v10M3 10v4M21 10v4M6 12h12"></path>`,
-  rest: `<path d="M16.5 18.5A7 7 0 0 1 9 7a7.5 7.5 0 1 0 7.5 11.5Z"></path>`,
-  parttime: `<rect x="4" y="7" width="16" height="11" rx="2"></rect><path d="M8 7V5h8v2M4 12h16M12 10v5"></path>`,
-  recruit: `<circle cx="9" cy="8" r="3"></circle><path d="M3.5 20c1-4 8-4 10 0"></path><path d="M17 8v6M14 11h6"></path>`,
-  promo: `<path d="M4 13h3l9 4V7l-9 4H4v2Z"></path><path d="M7 13l1.5 5"></path><path d="M18.5 9.5 21 8M18.5 14.5 21 16"></path>`,
-  talk: `<path d="M5 6h14v9H9l-4 4V6Z"></path><path d="M8 9h8M8 12h5"></path>`,
-  song: `<path d="M9 18V6l9-2v12"></path><circle cx="6" cy="18" r="3"></circle><circle cx="15" cy="16" r="3"></circle>`,
-  mail: `<rect x="4" y="6" width="16" height="12" rx="2"></rect><path d="m4 8 8 6 8-6"></path>`,
-  shop: `<path d="M6 9h12l-1 11H7L6 9Z"></path><path d="M9 9a3 3 0 0 1 6 0"></path>`,
-  sns: `<path d="M5 5h14v10H8l-3 4V5Z"></path><path d="M9 9h6M9 12h4"></path>`,
-  book: `<path d="M5 4h10a4 4 0 0 1 4 4v12H9a4 4 0 0 0-4-4V4Z"></path><path d="M5 4v12"></path>`,
-  settings: `<circle cx="12" cy="12" r="3"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"></path>`,
-  microphone: `<rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"></path>`,
-  clock: `<circle cx="12" cy="12" r="8"></circle><path d="M12 7v5l3 2"></path>`,
-  ticket: `<path d="M4 8a2 2 0 0 0 0 4v4h16v-4a2 2 0 0 0 0-4V4H4v4Z"></path><path d="M9 5v14"></path>`,
-  money: `<rect x="4" y="7" width="16" height="10" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M7 10v4M17 10v4"></path>`,
-  fatigue: `<path d="M5 12h4l2-5 3 10 2-5h3"></path><path d="M4 19h16"></path>`,
-  fame: `<path d="m12 3 2.7 5.5 6 .9-4.4 4.2 1 6-5.3-2.8-5.3 2.8 1-6-4.4-4.2 6-.9L12 3Z"></path>`,
-  audience: `<circle cx="8" cy="8" r="2.5"></circle><circle cx="16" cy="8" r="2.5"></circle><circle cx="12" cy="14" r="2.5"></circle><path d="M3.5 20c.8-3 5-3.2 7-1M13.5 19c2-2.2 6.2-2 7 1"></path>`,
-  industry: `<rect x="4" y="8" width="16" height="11" rx="2"></rect><path d="M9 8V5h6v3M4 13h16M12 11v4"></path>`,
-  back: `<path d="M15 6 9 12l6 6"></path>`,
-  close: `<path d="M6 6l12 12M18 6 6 18"></path>`,
-  check: `<path d="m5 12 4 4L19 6"></path>`,
-  warning: `<path d="M12 4 3.5 19h17L12 4Z"></path><path d="M12 9v4M12 16h.01"></path>`,
-  log: `<path d="M6 4h12v16H6z"></path><path d="M9 8h6M9 12h6M9 16h4"></path>`
+  /* SKIN_ORDER_v2 付録B 確定9種（そのまま使用） */
+  home: `<path d="M4.5 12 L12 4.5 L19.5 12"></path><path d="M6.8 12.8 V19.5 H17.2 V12.8"></path><path d="M9.6 19.5 V14.8 H14.4 V19.5 M9.6 16.4 H14.4 M9.6 18 H14.4"></path>`,
+  practice: `<path d="M10 6 H20 V19 H4 V6 H8"></path><path d="M4 9.5 H20"></path><circle cx="7" cy="7.8" r="1" fill="currentColor" stroke="none"></circle><circle cx="10.5" cy="7.8" r="1" fill="currentColor" stroke="none"></circle><circle cx="17" cy="7.8" r="1" fill="currentColor" stroke="none"></circle><circle cx="12" cy="14.2" r="3.6"></circle><path d="M9.9 12.1 L14.1 16.3 M14.1 12.1 L9.9 16.3"></path>`,
+  song: `<path d="M8.5 6.5 V15.5 M16.5 6.5 V14 M8.5 6.5 H16.5 M8.5 8.7 H16.5"></path><rect x="5.8" y="14.3" width="2.8" height="2.8" transform="rotate(45 7.2 15.7)" fill="currentColor" stroke="none"></rect><rect x="13.8" y="12.8" width="2.8" height="2.8" transform="rotate(45 15.2 14.2)" fill="currentColor" stroke="none"></rect>`,
+  audience: `<circle cx="6.5" cy="10.2" r="1.9"></circle><circle cx="12" cy="8.8" r="1.9"></circle><circle cx="17.5" cy="10.2" r="1.9"></circle><path d="M5 12.4 L2.9 10.3 M19 12.4 L21.1 10.3 M10.6 10.6 L8.9 8.9 M13.4 10.6 L15.1 8.9 M6.5 12.4 V17 M12 11 V17 M17.5 12.4 V17 M3.5 17 H20.5"></path>`,
+  money: `<circle cx="12" cy="12" r="8" stroke-dasharray="43 7.3" transform="rotate(-60 12 12)"></circle><path d="M8.7 8.2 L12 12.2 M15.3 8.2 L12 12.2 M12 12.2 V16.8 M9.2 14.4 H14.8"></path>`,
+  fatigue: `<path d="M9 7.5 H18.5 V16.5 H4.5 V7.5 H7"></path><path d="M20.5 10.5 V13.5"></path><rect x="6.6" y="10" width="2.6" height="4" fill="currentColor" stroke="none"></rect>`,
+  mail: `<path d="M10 7 H20 V18 H4 V7 H8"></path><path d="M4 7 L12 15 L20 7"></path>`,
+  log: `<path d="M9.5 5.5 H20 V18.5 H4 V5.5 H7.5"></path><path d="M6 8.8 H18"></path><circle cx="9" cy="12.8" r="2.1"></circle><circle cx="15" cy="12.8" r="2.1"></circle><path d="M11.1 12.8 H12.9"></path><path d="M8 18.5 L9.4 16.2 H14.6 L16 18.5"></path>`,
+  live: `<circle cx="15.5" cy="8" r="4" stroke-dasharray="21.5 3.6" transform="rotate(-45 15.5 8)"></circle><path d="M13.3 5.8 L17.7 10.2 M17.7 5.8 L13.3 10.2"></path><path d="M12.4 10.4 L6.6 16.2 M14.9 12.9 L9.1 18.7 M6.6 16.2 L9.1 18.7"></path>`,
+  /* 付録Aの作図規則で新規追加（発注者判定対象） */
+  calendar: `<rect x="4" y="5" width="16" height="15"></rect><path d="M8 3 V7 M16 3 V7 M4 10 H20"></path>`,
+  band: `<circle cx="8" cy="8" r="3"></circle><circle cx="16" cy="9" r="2.5"></circle><path d="M3.5 20 L4.5 16 H11.5 L12.5 20"></path><path d="M13 19 L13.8 16 H19.2 L20 19"></path>`,
+  more: `<circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"></circle><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"></circle><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"></circle>`,
+  rest: `<circle cx="12" cy="12" r="8"></circle><circle cx="16" cy="9" r="7.5" fill="var(--bg)" stroke="none"></circle>`,
+  parttime: `<rect x="4" y="7" width="16" height="11"></rect><path d="M8 7 V5 H16 V7 M4 12 H20 M12 10 V15"></path>`,
+  recruit: `<circle cx="9" cy="8" r="3"></circle><path d="M3.5 20 L4.5 16 H13.5 L14.5 20"></path><path d="M17 8 V14 M14 11 H20"></path>`,
+  promo: `<path d="M4 13 H7 L16 17 V7 L7 11 H4 V13 Z"></path><path d="M7 13 L8.5 18"></path><path d="M18.5 9.5 L21 8 M18.5 14.5 L21 16"></path>`,
+  talk: `<path d="M5 6 H19 V15 H9 L5 19 V6 Z"></path><path d="M8 9.5 H16 M8 12.5 H13"></path>`,
+  shop: `<path d="M6 9 H18 L17 20 H7 L6 9 Z"></path><path d="M9 9 V6 H15 V9"></path>`,
+  sns: `<path d="M5 5 H19 V15 H8 L5 19 V5 Z"></path><path d="M9 9 H15 M9 12 H13"></path>`,
+  book: `<path d="M5 4 H15 V16 H9 V20 L5 16 Z"></path><path d="M5 4 L15 4"></path>`,
+  settings: `<circle cx="12" cy="12" r="3"></circle><path d="M12 3 V6 M12 18 V21 M3 12 H6 M18 12 H21 M5.6 5.6 L7.7 7.7 M16.3 16.3 L18.4 18.4 M18.4 5.6 L16.3 7.7 M7.7 16.3 L5.6 18.4"></path>`,
+  clock: `<circle cx="12" cy="12" r="8"></circle><path d="M12 7 V12 L15 14"></path>`,
+  ticket: `<rect x="4" y="5" width="16" height="14"></rect><circle cx="4" cy="9" r="2" fill="var(--bg)" stroke="none"></circle><circle cx="4" cy="16" r="2" fill="var(--bg)" stroke="none"></circle><path d="M9 5 V19"></path>`,
+  fame: `<path d="M12 3 L14.7 8.5 L20.7 9.4 L16.3 13.6 L17.3 19.6 L12 16.8 L6.7 19.6 L7.7 13.6 L3.3 9.4 L9.3 8.5 Z"></path>`,
+  industry: `<rect x="4" y="8" width="16" height="11"></rect><path d="M9 8 V5 H15 V8 M4 13 H20 M12 11 V15"></path>`,
+  back: `<path d="M15 6 L9 12 L15 18"></path>`,
+  close: `<path d="M6 6 L18 18 M18 6 L6 18"></path>`,
+  check: `<path d="M5 12 L9 16 L19 6"></path>`,
+  warning: `<path d="M12 4 L3.5 19 H20.5 Z"></path><path d="M12 9 V13 M12 16 H12.01"></path>`,
+  chat: `<path d="M5 5 H19 V15 H9 L5 19 V5 Z"></path><path d="M9 9 H15 M9 12 H13"></path>`,
+  spark: `<circle cx="12" cy="12" r="3.5"></circle><path d="M12 3 V6 M12 18 V21 M3 12 H6 M18 12 H21 M5.6 5.6 L7.7 7.7 M16.3 16.3 L18.4 18.4 M18.4 5.6 L16.3 7.7 M7.7 16.3 L5.6 18.4"></path>`,
+  chart: `<path d="M4 20 H20"></path><rect x="6" y="13" width="3" height="7"></rect><rect x="11" y="9" width="3" height="11"></rect><rect x="16" y="5" width="3" height="15"></rect>`,
+  tool: `<rect x="6" y="6" width="12" height="12"></rect><path d="M6 6 L11 11 M18 6 L13 11 M6 18 L11 13 M18 18 L13 13"></path>`,
+  point: `<path d="M6 12 H17 M12 6 L18 12 L12 18"></path>`,
+  moon: `<circle cx="12" cy="12" r="8"></circle><circle cx="16" cy="9" r="7.5" fill="var(--bg)" stroke="none"></circle>`,
+  cross: `<path d="M6 6 L18 18 M18 6 L6 18"></path>`,
+  drop: `<circle cx="12" cy="15" r="5"></circle><path d="M12 4 L16 11 M12 4 L8 11"></path>`
 };
 
 function v043eIcon(name, className="") {
-  const body = v043eIconPaths[name] || `<rect x="9" y="9" width="6" height="6" rx="1"></rect>`;
+  const body = v043eIconPaths[name] || `<rect x="9" y="9" width="6" height="6"></rect>`;
   const cls = className ? ` ${escapeHtml(className)}` : "";
-  return `<svg class="v043e-icon${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${body}</svg>`;
+  return `<svg class="v043e-icon${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true" focusable="false">${body}</svg>`;
 }
 
 function v043dConversationLogContextKey(kind, id="") {
@@ -7167,7 +7176,7 @@ function createInitialState() {
     saveNotice: "",
     activeSaveSlot: selectedSaveSlot || 1,
     saveSlotModal: null,
-    activePopup: { title:"はじめてのバンド活動", body:"曲を作って、メンバーを集めよう！\nまずは新しい曲のアイデアを作ろう。", type:"event", icon:"♪︎" },
+    activePopup: { title:"はじめてのバンド活動", body:"曲を作って、メンバーを集めよう！\nまずは新しい曲のアイデアを作ろう。", type:"event", icon:v043eIcon("song") },
     pendingNoSongcraftCommand: null,
     pendingBooking: null,
     pendingBoostSong: null,
@@ -7292,7 +7301,7 @@ function memberUpkeepCost() {
 function maybeExplainMemberCost() {
   if (state.memberCostExplained || bandSize() < 4) return;
   state.memberCostExplained = true;
-  showEventPopup("メンバーが増えた", "4人目が加わり、バンドとしての形が見えてきた。\n今後は最大人数や控えの制限はなく、加入した仲間は全員ライブ準備に出られる。\nただし人数が増えるほど維持費・交通費が増え、6人以上は1人ごとの出費が重くなる。", "event", "●︎");
+  showEventPopup("メンバーが増えた", "4人目が加わり、バンドとしての形が見えてきた。\n今後は最大人数や控えの制限はなく、加入した仲間は全員ライブ準備に出られる。\nただし人数が増えるほど維持費・交通費が増え、6人以上は1人ごとの出費が重くなる。", "event", v043eIcon("band"));
 }
 function allBandPeople() { return [state.player, ...state.members]; }
 function selectedMember() { return allBandPeople().find(m => m.id === state.selectedMemberId) || state.player; }
@@ -7336,7 +7345,7 @@ function firstDraftTutorialPopup() {
     title:"2ターン目：未完成曲を完成させよう",
     body:"1ターン目で作った曲はまだ未完成。\nこのターンは未完成曲だけを選び、作っていない作詞/作曲を進めて曲完成まで確認しよう。",
     type:"event",
-    icon:"▶︎"
+    icon:v043eIcon("book")
   };
 }
 function maybeShowFatigueIncreasePopup(before, after, reason) {
@@ -7372,7 +7381,7 @@ function nextPopupFromQueue() {
     title: "まとめて確認",
     body: batch.map(p => `【${p.title || "通知"}】\n${p.body || ""}`).join("\n\n"),
     type: batch.some(p => p.type === "warn" || p.type === "bad") ? "warn" : (batch.some(p => p.type === "rare") ? "rare" : "event"),
-    icon: "▪︎",
+    icon: v043eIcon("log"),
     ...(scrollSafe ? { layout:"scroll-safe", modalClass:"afterparty-result-safe-modal", scrollSafe:true } : {})
   };
 }
@@ -7427,7 +7436,7 @@ function focusPendingSongFinalize(showPopup=true) {
       body:`「${d.titleHint}」の作詞と作曲が揃っている。
 先に曲名とテーマを確認して、完成させよう。`,
       type:"song",
-      icon:"♪︎"
+      icon:v043eIcon("song")
     };
   }
   render();
@@ -7677,7 +7686,7 @@ function finishPendingTurnAdvance() {
   if (bandSystemOn()) processBandStoryEvents("turnStart");
   if (state.hangoverTurn === state.turn) {
     state.popupQueue = state.popupQueue || [];
-    state.popupQueue.push({ title:"二日酔い", body:"昨日の打ち上げが響いている。\nこのターンは休憩しかできない。", type:"warn", icon:"✕︎" });
+    state.popupQueue.push({ title:"二日酔い", body:"昨日の打ち上げが響いている。\nこのターンは休憩しかできない。", type:"warn", icon:v043eIcon("cross") });
   }
   if (state.turn === 2 && Array.isArray(state.pendingDrafts) && state.pendingDrafts.some(d => !(d.lyricsDone && d.musicDone))) {
     state.firstDraftTutorialDraftIds = state.pendingDrafts.filter(d => !(d.lyricsDone && d.musicDone)).map(d => d.id);
@@ -7937,7 +7946,7 @@ function maybePromoRecruitAfterCommand(command) {
     return null;
   }
   const applicant = addApplicantFromCandidates("宣伝効果");
-  if (applicant) showEventPopup("宣伝から加入希望！", `宣伝を見た ${applicant.name} から連絡が来た。\n募集結果と重複するため、同じターンに複数人が候補に来ることがある。`, "event", "▪︎");
+  if (applicant) showEventPopup("宣伝から加入希望！", `宣伝を見た ${applicant.name} から連絡が来た。\n募集結果と重複するため、同じターンに複数人が候補に来ることがある。`, "event", v043eIcon("recruit"));
   return applicant;
 }
 
@@ -8003,7 +8012,7 @@ function joinApplicantById(id) {
   log(`${applicant.name}が${applicant.joinStatus}として加入した。加入済みメンバーは全員バンド構成に入り、ライブ準備で担当を選べる。`);
   const joinStoryPlayed = novelEventsOn() && startStoryEvent("member_join_generic", { silent: true, context: memberJoinStoryContext(applicant) });
   if (!joinStoryPlayed) {
-    showEventPopup(applicant.joinStatus === "仮加入" ? "仮加入！" : "新メンバー加入！", `${applicant.name} がバンドに加わった！\n担当：${applicant.part}\n得意：${applicant.mainGenre}\n加入済みメンバーは全員ライブ準備に表示される。`, applicant.joinStatus === "仮加入" ? "event" : "rare", applicant.joinStatus === "仮加入" ? "●︎" : "★︎");
+    showEventPopup(applicant.joinStatus === "仮加入" ? "仮加入！" : "新メンバー加入！", `${applicant.name} がバンドに加わった！\n担当：${applicant.part}\n得意：${applicant.mainGenre}\n加入済みメンバーは全員ライブ準備に表示される。`, applicant.joinStatus === "仮加入" ? "event" : "rare", applicant.joinStatus === "仮加入" ? v043eIcon("band") : v043eIcon("fame"));
   }
   maybeExplainMemberCost();
   render();
@@ -8231,7 +8240,7 @@ function renderIntroScreen() {
   if (btn) btn.addEventListener("click", () => {
     state.introSeen = true;
     state.tutorialStage = "needSong";
-    state.activePopup = { title:"活動開始", body:"まずは、曲でも作るか……\n作詞・作曲から新曲制作を始めよう。", type:"event", icon:"♪︎" };
+    state.activePopup = { title:"活動開始", body:"まずは、曲でも作るか……\n作詞・作曲から新曲制作を始めよう。", type:"event", icon:v043eIcon("song") };
     saveGame(false);
     render();
   });
@@ -8262,7 +8271,7 @@ function maybeTriggerStoryEvents() {
       title:"UNDER FES情報入手",
       body:"あの人は、UNDERフェスの主催関係者だったらしい。\nフェス参加条件の目安が分かった。スケジュール帳で確認できるようになった。",
       type:"rare",
-      icon:"▶︎"
+      icon:v043eIcon("book")
     };
     return;
   }
@@ -8272,7 +8281,7 @@ function maybeTriggerStoryEvents() {
       title:"ライブ予定なし",
       body:"ライブの予定をいれないとな……\n7ターン後までに本番がない。スケジュール帳で出演できるライブを探そう。",
       type:"warn",
-      icon:"■︎"
+      icon:v043eIcon("calendar")
     };
   }
 }
@@ -8291,7 +8300,7 @@ function songcraftMaxPerTurn() { let max = 1; if ((state.liveCount || 0) >= 1) m
 function songcraftRemainingThisTurn() { state.songcraftUsedCountThisTurn = Number(state.songcraftUsedCountThisTurn || 0); return Math.max(0, songcraftMaxPerTurn() - state.songcraftUsedCountThisTurn); }
 function songcraftCountLabel() { return `曲作り ${songcraftRemainingThisTurn()}/${songcraftMaxPerTurn()}`; }
 function tutorialRequiredCommandForTurn() { if ((state.liveCount || 0) > 0) return null; if (state.turn === 1) return "recruit"; if (state.turn === 2) return "practice"; if (state.turn === 3) return "promo"; if (state.turn === 4) return "rest"; return null; }
-function tutorialCommandMessage(command) { const need = tutorialRequiredCommandForTurn(); if (!need || need === command) return null; const labels = { recruit:"メンバー募集", practice:"練習", promo:"宣伝", rest:"休憩" }; const bodies = { recruit:"待ってるだけじゃメンバーは集まらない。まずは募集をしてみよう。", practice:"曲を演奏する力もライブ評価に影響する。今日は練習してみよう。", promo:"ライブに出るなら、少しでも名前を知ってもらおう。今日は宣伝してみよう。", rest:"疲労が高いとライブで力を出し切れない。ライブに備えて休もう。" }; return { title:`今は${labels[need]}を試そう`, body:bodies[need], type:"guide", icon:"▶︎" }; }
+function tutorialCommandMessage(command) { const need = tutorialRequiredCommandForTurn(); if (!need || need === command) return null; const labels = { recruit:"メンバー募集", practice:"練習", promo:"宣伝", rest:"休憩" }; const bodies = { recruit:"待ってるだけじゃメンバーは集まらない。まずは募集をしてみよう。", practice:"曲を演奏する力もライブ評価に影響する。今日は練習してみよう。", promo:"ライブに出るなら、少しでも名前を知ってもらおう。今日は宣伝してみよう。", rest:"疲労が高いとライブで力を出し切れない。ライブに備えて休もう。" }; return { title:`今は${labels[need]}を試そう`, body:bodies[need], type:"guide", icon:v043eIcon("book") }; }
 function completeSongcraftTutorial() {
   const wasNeedSongTutorial = state.tutorialStage === "needSong";
   state.songcraftUsedCountThisTurn = Number(state.songcraftUsedCountThisTurn || 0) + 1;
@@ -8310,7 +8319,7 @@ function completeSongcraftTutorial() {
 
 function showTutorialBlocked(kind) {
   if (state.hangoverTurn === state.turn && kind !== "command") {
-    state.activePopup = { title:"二日酔い", body:"このターンは休憩しかできない。\n曲作りやライブ予約は、休んでからにしよう。", type:"warn", icon:"✕︎" };
+    state.activePopup = { title:"二日酔い", body:"このターンは休憩しかできない。\n曲作りやライブ予約は、休んでからにしよう。", type:"warn", icon:v043eIcon("cross") };
     render();
     return true;
   }
@@ -8329,7 +8338,7 @@ function showTutorialBlocked(kind) {
     // v0.3.0ではここで song もブロックしてしまい、
     // 曲作りポップアップ後に先へ進めない状態になっていた。
     if (kind === "song") return false;
-    state.activePopup = { title:"まずは曲作り", body:"最初は作詞・作曲から始めよう。\nホームの「作詞・作曲」だけが使える。", type:"event", icon:"♪︎" };
+    state.activePopup = { title:"まずは曲作り", body:"最初は作詞・作曲から始めよう。\nホームの「作詞・作曲」だけが使える。", type:"event", icon:v043eIcon("song") };
     render();
     return true;
   }
@@ -8915,17 +8924,17 @@ function renderGoalPulseCard() {
 // v0.3.72: ホーム上部「次にやること」ガイド
 function nextActionSuggestion() {
   const t = state.turn || 1;
-  if (isLiveTurn()) return { icon:"♪︎", text:"今日はライブ本番。準備チェックを確認して本番へ。", view:null };
-  if (typeof hasPendingSongFinalize === "function" && hasPendingSongFinalize()) return { icon:"♪︎", text:"未完成の曲がある。曲作りから仕上げよう（ターンは進まない）。", view:"songs" };
-  if ((state.band.fatigue || 0) >= 70) return { icon:"▼︎", text:`疲労${Math.round(state.band.fatigue)}%。休憩で整えるのが安全。`, view:"command" };
+  if (isLiveTurn()) return { icon:v043eIcon("live"), text:"今日はライブ本番。準備チェックを確認して本番へ。", view:null };
+  if (typeof hasPendingSongFinalize === "function" && hasPendingSongFinalize()) return { icon:v043eIcon("song"), text:"未完成の曲がある。曲作りから仕上げよう（ターンは進まない）。", view:"songs" };
+  if ((state.band.fatigue || 0) >= 70) return { icon:v043eIcon("fatigue"), text:`疲労${Math.round(state.band.fatigue)}%。休憩で整えるのが安全。`, view:"command" };
   if (t >= 47 && !grandConditionSnapshot().ok) {
     const ng = grandConditionSnapshot().rows.find(r => !r.ok);
-    return { icon:"■︎", text:`GRANDまであと少し。未達：${ng ? ng.label : "条件"}を優先。`, view:"schedule" };
+    return { icon:v043eIcon("calendar"), text:`GRANDまであと少し。未達：${ng ? ng.label : "条件"}を優先。`, view:"schedule" };
   }
-  if (t >= 26 && t < 30) return { icon:"▲︎", text:"30T UNDER FESが近い。条件と疲労、セトリを確認。", view:"schedule" };
-  if (typeof shouldWarnNoLivePlan === "function" && shouldWarnNoLivePlan()) return { icon:"■︎", text:"7ターン先まで本番がない。予定表でライブを入れよう。", view:"schedule" };
+  if (t >= 26 && t < 30) return { icon:v043eIcon("chart"), text:"30T UNDER FESが近い。条件と疲労、セトリを確認。", view:"schedule" };
+  if (typeof shouldWarnNoLivePlan === "function" && shouldWarnNoLivePlan()) return { icon:v043eIcon("calendar"), text:"7ターン先まで本番がない。予定表でライブを入れよう。", view:"schedule" };
   if ((state.songs || []).filter(s => !s.isCover).length < 7 && t >= 20) return { icon:"✍︎", text:`オリジナル曲${(state.songs||[]).filter(s=>!s.isCover).length}/7。GRANDに向けて曲を増やそう。`, view:"songs" };
-  return { icon:"♪︎", text:"今週どうする？ 練習・宣伝・募集は下のメニューから。", view:"command" };
+  return { icon:v043eIcon("spark"), text:"今週どうする？ 練習・宣伝・募集は下のメニューから。", view:"command" };
 }
 function renderNextActionPanel() {
   const s = nextActionSuggestion();
@@ -9419,9 +9428,9 @@ function confirmMailAction() {
       mail.payload.metName = applicant?.name || "";
     }
     if (applicant) {
-      showEventPopup("メンバー候補と会った", `${applicant.name}と会った。\nバンド情報の加入候補から、加入させるか選べます。`, "event", "●︎");
+      showEventPopup("メンバー候補と会った", `${applicant.name}と会った。\nバンド情報の加入候補から、加入させるか選べます。`, "event", v043eIcon("band"));
     } else {
-      showEventPopup("今回は会えなかった", "条件に合う候補が見つからなかった。\nライブや宣伝で知名度を上げると、新しい候補が来やすくなります。", "warn", "▪︎");
+      showEventPopup("今回は会えなかった", "条件に合う候補が見つからなかった。\nライブや宣伝で知名度を上げると、新しい候補が来やすくなります。", "warn", v043eIcon("recruit"));
     }
     render();
     return;
@@ -9432,19 +9441,19 @@ function cancelMailAction() { state.pendingMailAction = null; render(); }
 function renderMailActionConfirmOverlay() {
   const a = state.pendingMailAction || {};
   if (a.type === "first_live_reply") {
-    return v043aRenderConfirmationSheet({ icon:"✉︎", tone:"event", extraClass:"mail-action-modal", title:"T5 初ライブへの返事", bodyHtml:"<p>ライブハウスUNDERへ、初ライブに出演すると返事します。</p>", actionsClass:"confirm-wide", confirmId:"confirmMailActionBtn", confirmLabel:"出演すると返事する", cancelId:"cancelMailActionBtn", cancelLabel:"まだ返事しない" });
+    return v043aRenderConfirmationSheet({ icon:v043eIcon("mail"), tone:"event", extraClass:"mail-action-modal", title:"T5 初ライブへの返事", bodyHtml:"<p>ライブハウスUNDERへ、初ライブに出演すると返事します。</p>", actionsClass:"confirm-wide", confirmId:"confirmMailActionBtn", confirmLabel:"出演すると返事する", cancelId:"cancelMailActionBtn", cancelLabel:"まだ返事しない" });
   }
   if (a.type === "live_offer") {
     const offer = (state.liveOffers || []).find(o => o.id === a.offerId);
     if (!offer) { state.pendingMailAction = null; return ""; }
     const v = venueById(offer.venueId);
     const meta = liveTypeMeta(offer);
-    return v043aRenderConfirmationSheet({ icon:"✉︎", tone:"event", extraClass:"mail-action-modal", title:"ライブ参加の返信を送る？", bodyHtml:`<p>${offer.turn}T ${escapeHtml(meta.label)} / ${escapeHtml(v.name)}に参加します。\n予定表に追加しますか？</p><p>${escapeHtml(meta.feeLabel)}${eventBaseCost(offer, v).toLocaleString()}円</p>`, actionsClass:"confirm-wide", confirmId:"confirmMailActionBtn", confirmLabel:"返信して予定に追加", cancelId:"cancelMailActionBtn", cancelLabel:"戻る" });
+    return v043aRenderConfirmationSheet({ icon:v043eIcon("mail"), tone:"event", extraClass:"mail-action-modal", title:"ライブ参加の返信を送る？", bodyHtml:`<p>${offer.turn}T ${escapeHtml(meta.label)} / ${escapeHtml(v.name)}に参加します。\n予定表に追加しますか？</p><p>${escapeHtml(meta.feeLabel)}${eventBaseCost(offer, v).toLocaleString()}円</p>`, actionsClass:"confirm-wide", confirmId:"confirmMailActionBtn", confirmLabel:"返信して予定に追加", cancelId:"cancelMailActionBtn", cancelLabel:"戻る" });
   }
   if (a.type === "member") {
     const mail = (state.phoneMails || []).find(m => m.id === a.mailId);
     const who = mail?.payload?.applicantName || mail?.sender || "メンバー候補";
-    return v043aRenderConfirmationSheet({ icon:"●︎", tone:"event", extraClass:"mail-action-modal", title:"メンバー候補に返信する？", bodyHtml:`<p>メールを送ってきた${escapeHtml(who)}と会いますか？\n会うと加入候補として表示されます。</p>`, actionsClass:"confirm-wide", confirmId:"confirmMailActionBtn", confirmLabel:"返信して会う", cancelId:"cancelMailActionBtn", cancelLabel:"戻る" });
+    return v043aRenderConfirmationSheet({ icon:v043eIcon("band"), tone:"event", extraClass:"mail-action-modal", title:"メンバー候補に返信する？", bodyHtml:`<p>メールを送ってきた${escapeHtml(who)}と会いますか？\n会うと加入候補として表示されます。</p>`, actionsClass:"confirm-wide", confirmId:"confirmMailActionBtn", confirmLabel:"返信して会う", cancelId:"cancelMailActionBtn", cancelLabel:"戻る" });
   }
   state.pendingMailAction = null;
   return "";
@@ -9837,8 +9846,8 @@ function renderSongEditorStep(ed) {
   }
   if (ed.step === "menu") {
     return `<div class="choice-grid main-choice-grid">
-      ${choiceButton("<span>♪︎</span><b>曲作成</b>", "compose:menu", "", "新曲作成・未完成曲の続き")}
-      ${choiceButton("<span>♪︎</span><b>編曲</b>", "arrange:menu", state.songs.length ? "" : "disabled", "曲強化・曲編集")}
+      ${choiceButton(`<span>${v043eIcon("song")}</span><b>曲作成</b>`, "compose:menu", "", "新曲作成・未完成曲の続き")}
+      ${choiceButton(`<span>${v043eIcon("song")}</span><b>編曲</b>`, "arrange:menu", state.songs.length ? "" : "disabled", "曲強化・曲編集")}
     </div>`;
   }
   if (ed.step === "composeMenu") {
@@ -9848,8 +9857,8 @@ function renderSongEditorStep(ed) {
       return `<div class="editor-summary tutorial-box"><b>2ターン目：未完成曲を完成させよう</b><span>ホームから作詞・作曲を開き、1ターン目の未完成曲を選ぼう。作っていない作詞/作曲を進めると曲が完成します。</span></div><div class="choice-grid song-choice">${tutorialTargets.map(d=>choiceButton(`<b>${escapeHtml(d.titleHint)}</b>`, `draft:select:${d.id}`, "", draftProgressSmall(d))).join("")}</div>`;
     }
     return `<div class="choice-grid main-choice-grid">
-      ${choiceButton("<span>♪︎</span><b>新曲作成</b>", "new:start", "", "作詞か作曲から始める")}
-      ${state.pendingDrafts.map(d=>choiceButton(`<span>▶︎</span><b>${escapeHtml(d.titleHint)}</b>`, `draft:select:${d.id}`, "", draftProgressSmall(d))).join("")}
+      ${choiceButton(`<span>${v043eIcon("song")}</span><b>新曲作成</b>`, "new:start", "", "作詞か作曲から始める")}
+      ${state.pendingDrafts.map(d=>choiceButton(`<span>${v043eIcon("log")}</span><b>${escapeHtml(d.titleHint)}</b>`, `draft:select:${d.id}`, "", draftProgressSmall(d))).join("")}
       ${!hasDrafts ? `<div class="empty-panel">未完成曲はありません。</div>` : ""}
     </div>${editorBackButton()}`;
   }
@@ -9890,7 +9899,7 @@ function renderSongEditorStep(ed) {
     const themeOptions = availableThemes().map(t => `<option value="${escapeHtml(t)}" ${t === (ed.theme || d.theme) ? "selected" : ""}>${escapeHtml(t)}</option>`).join("");
     return `<div class="editor-form song-title-final"><div class="editor-summary tutorial-box"><b>曲完成前確認</b><span>作詞と作曲が揃った。ここで曲名とテーマを決めて完成させます。</span></div><label>曲名</label><div class="title-input-row"><input id="draftFinalTitle" value="${escapeHtml(ed.title || d.titleHint || "")}" placeholder="曲名" /><button class="songEditorChoiceBtn dice-title-btn" data-action="draft:titleRandom" title="ランダム生成">●︎</button></div><label>テーマ</label><select id="draftFinalTheme">${themeOptions}</select><div class="editor-summary mini"><b>制作内容</b><span>作詞${val(d.lyricsScore)}% / 作曲${val(d.musicScore)}% / ${escapeHtml(genreDisplay(d))} / ${escapeHtml(d.arrange || "")}</span><span>歌詞：${escapeHtml(d.keyword || "-")}</span></div><button class="songEditorNextBtn big-action" data-action="draft:finalize">この内容で完成させる</button>${editorBackButton()}</div>`;
   }
-  if (ed.step === "arrangeMenu") return `<div class="choice-grid main-choice-grid">${choiceButton("<span>▲︎</span><b>曲強化</b>", "boost:start", "", "完成曲を選んで強化する")}${choiceButton("<span>✏︎</span><b>曲編集</b>", "edit:start", "", "曲名・テーマ・ジャンル・アレンジ・歌詞を変更")}</div>${editorBackButton()}`;
+  if (ed.step === "arrangeMenu") return `<div class="choice-grid main-choice-grid">${choiceButton(`<span>${v043eIcon("chart")}</span><b>曲強化</b>`, "boost:start", "", "完成曲を選んで強化する")}${choiceButton("<span>✏︎</span><b>曲編集</b>", "edit:start", "", "曲名・テーマ・ジャンル・アレンジ・歌詞を変更")}</div>${editorBackButton()}`;
   if (ed.step === "boostSong") return `<div class="choice-grid song-choice">${state.songs.map(song=>choiceButton(`<b>${escapeHtml(song.title)}</b>`, `boost:song:${song.id}`, "", `${genreDisplay(song)} / 強化Lv${song.boostLevel || 0}`)).join("")}</div>${editorBackButton()}`;
   if (ed.step === "boostConfirm") {
     const song = state.songs.find(x=>x.id===ed.songId);
@@ -9977,7 +9986,7 @@ function handleSongEditorAction(action) {
   if (action === "compose:menu") { if (!canStartAnySongcraft(["lyrics","music"], 20, "曲作成")) { render(); return; } state.songEditor = { step:"composeMenu" }; render(); return; }
   if (action === "arrange:menu") { if (mustCompleteFirstDraftTutorial()) { state.songEditor = { step:"composeMenu" }; render(); return; } if (!canStartSongcraft("music", 10, "編曲/曲編集")) { render(); return; } state.songEditor = { step:"arrangeMenu" }; render(); return; }
   if (action === "new:start" && mustCompleteFirstDraftTutorial()) { showEventPopup("まず未完成曲を完成", `2ターン目は、1ターン目で作った未完成曲だけを選べる。
-作っていない作詞/作曲を選んで、曲が完成する流れを確認しよう。`, "event", "▶︎"); return; }
+作っていない作詞/作曲を選んで、曲が完成する流れを確認しよう。`, "event", v043eIcon("book")); return; }
   if (action === "new:start") { if (!canStartAnySongcraft(["lyrics","music"], 20, "新曲作成")) { render(); return; } state.songEditor = { step:"newType" }; render(); return; }
   if (action === "draft:start") { state.songEditor = { step:"draftSelect" }; render(); return; }
   if (action === "boost:start") { if (mustCompleteFirstDraftTutorial()) { state.songEditor = { step:"composeMenu" }; render(); return; } if (!canStartSongcraft("music", 10, "曲強化")) { render(); return; } state.songEditor = { step:"boostSong" }; render(); return; }
@@ -10988,7 +10997,7 @@ function renderActivePopupOverlay() {
 }
 
 function renderNoSongcraftConfirmOverlay() {
-  return v043aRenderConfirmationSheet({ icon:"♪︎", tone:"warn", title:"作詞作曲せずに進める？", bodyHtml:"<p>このターンは曲を作らずに終わります。よければ行動を実行します。</p>", actionsClass:"confirm-wide", confirmId:"confirmNoSongcraftBtn", confirmLabel:"このまま行動する", cancelId:"cancelNoSongcraftBtn", cancelLabel:"曲作りへ戻る" });
+  return v043aRenderConfirmationSheet({ icon:v043eIcon("song"), tone:"warn", title:"作詞作曲せずに進める？", bodyHtml:"<p>このターンは曲を作らずに終わります。よければ行動を実行します。</p>", actionsClass:"confirm-wide", confirmId:"confirmNoSongcraftBtn", confirmLabel:"このまま行動する", cancelId:"cancelNoSongcraftBtn", cancelLabel:"曲作りへ戻る" });
 }
 
 function renderPopupBars(bars=[]) {
@@ -11023,7 +11032,7 @@ function renderPurchaseConfirmOverlay() {
   const price = isGear ? equipmentUpgradeCost(gearId) : (prices[item] || 0);
   const title = isGear ? `${gear?.name || "機材"}を強化する？` : `${names[item] || "アイテム"}を購入する？`;
   const desc = isGear ? `現在Lv${equipmentLevel(gearId)} →︎ Lv${Math.min(5, equipmentLevel(gearId)+1)}。${gear?.desc || ""}` : "誤タップ防止のため、購入前に確認しています。";
-  return v043aRenderConfirmationSheet({ icon:"▼︎", tone:"event", title, bodyHtml:`<p>価格：${price.toLocaleString()}円</p><p>${escapeHtml(desc)}</p>`, confirmId:"confirmPurchaseBtn", confirmLabel:isGear ? "強化する" : "購入する", cancelId:"cancelPurchaseBtn", cancelLabel:"戻る" });
+  return v043aRenderConfirmationSheet({ icon:v043eIcon("money"), tone:"event", title, bodyHtml:`<p>価格：${price.toLocaleString()}円</p><p>${escapeHtml(desc)}</p>`, confirmId:"confirmPurchaseBtn", confirmLabel:isGear ? "強化する" : "購入する", cancelId:"cancelPurchaseBtn", cancelLabel:"戻る" });
 }
 function renderSaveSlotOverlay() {
   const mode = state.saveSlotModal;
@@ -11055,7 +11064,7 @@ function renderBookingConfirmOverlay() {
   const prep = estimatePrepScore();
   const shortage = Math.max(0, v.prepNeed - prep);
   const riskProfile = liveRiskProfile(v);
-  return v043aRenderConfirmationSheet({ icon:"■︎", tone:"event", extraClass:"booking-modal", title:`${b.turn}ターン目の${meta.short}を入れる？`, bodyHtml:`<p>${escapeHtml(v.name)} / キャパ${v.capacity} / ${escapeHtml(meta.feeLabel)}${eventBaseCost(ev, v).toLocaleString()}円</p><p>準備要求：${v.prepNeed} / 現在準備：${val(prep)}${shortage ? ` / 不足${val(shortage)}` : " / 準備OK"}</p><div class="quiet-guide-chips">${renderRiskBadges(riskProfile)}</div>${bands.length ? `<p>呼ぶ/共演候補：${bands.map(x=>escapeHtml(x.name)).join(" / ")}</p>` : ""}<p>${escapeHtml(meta.desc)}</p><p>予約後、残り2ターン以内は通常キャンセル不可。当日ドタキャンは各ライブ種別の表示費用＋損料が必要。</p>`, confirmId:"confirmBookingBtn", confirmLabel:"決定する", cancelId:"cancelBookingBtn", cancelLabel:"戻る" });
+  return v043aRenderConfirmationSheet({ icon:v043eIcon("calendar"), tone:"event", extraClass:"booking-modal", title:`${b.turn}ターン目の${meta.short}を入れる？`, bodyHtml:`<p>${escapeHtml(v.name)} / キャパ${v.capacity} / ${escapeHtml(meta.feeLabel)}${eventBaseCost(ev, v).toLocaleString()}円</p><p>準備要求：${v.prepNeed} / 現在準備：${val(prep)}${shortage ? ` / 不足${val(shortage)}` : " / 準備OK"}</p><div class="quiet-guide-chips">${renderRiskBadges(riskProfile)}</div>${bands.length ? `<p>呼ぶ/共演候補：${bands.map(x=>escapeHtml(x.name)).join(" / ")}</p>` : ""}<p>${escapeHtml(meta.desc)}</p><p>予約後、残り2ターン以内は通常キャンセル不可。当日ドタキャンは各ライブ種別の表示費用＋損料が必要。</p>`, confirmId:"confirmBookingBtn", confirmLabel:"決定する", cancelId:"cancelBookingBtn", cancelLabel:"戻る" });
 }
 function renderBoostSongConfirmOverlay() {
   const songId = state.pendingBoostSong;
@@ -11063,7 +11072,7 @@ function renderBoostSongConfirmOverlay() {
   if (!song) { state.pendingBoostSong = null; return ""; }
   const cost = plannedSongcraftFatigueCost("music", 10);
   const over = (state.band.fatigue || 0) + cost > 100;
-  return v043aRenderConfirmationSheet({ icon:"▲︎", tone:"event", title:"この曲を強化する？", bodyHtml:`<p>「${escapeHtml(song.title)}」 / ${escapeHtml(genreDisplay(song))}<br>現在：強化Lv${song.boostLevel || 0}<br>疲労+${cost}%</p><p>疲労を消費して、曲の強化Lvと演奏力を少し上げます。</p>${over ? `<p class="bad-text">疲労が100％を超えるため、今は強化できません。</p>` : ""}`, confirmId:"confirmBoostSongBtn", confirmLabel:"強化する", confirmAttrs:over ? "disabled" : "", cancelId:"cancelBoostSongBtn", cancelLabel:"戻る" });
+  return v043aRenderConfirmationSheet({ icon:v043eIcon("chart"), tone:"event", title:"この曲を強化する？", bodyHtml:`<p>「${escapeHtml(song.title)}」 / ${escapeHtml(genreDisplay(song))}<br>現在：強化Lv${song.boostLevel || 0}<br>疲労+${cost}%</p><p>疲労を消費して、曲の強化Lvと演奏力を少し上げます。</p>${over ? `<p class="bad-text">疲労が100％を超えるため、今は強化できません。</p>` : ""}`, confirmId:"confirmBoostSongBtn", confirmLabel:"強化する", confirmAttrs:over ? "disabled" : "", cancelId:"cancelBoostSongBtn", cancelLabel:"戻る" });
 }
 
 function renderAfterpartyOverlay() {
@@ -11262,7 +11271,7 @@ function bindEvents() {
     state.view = v;
     if (v === "schedule" && state.scheduleTutorialStage === "needSchedule") {
       state.scheduleTutorialStage = "done";
-      showEventPopup("スケジュール帳", "今後のライブの予定を組もう。\n出たいライブ候補をタップすると、会場費・キャパ・準備要求を確認して予約できる。", "event", "■︎");
+      showEventPopup("スケジュール帳", "今後のライブの予定を組もう。\n出たいライブ候補をタップすると、会場費・キャパ・準備要求を確認して予約できる。", "event", v043eIcon("calendar"));
     }
     render();
   }));
@@ -11355,7 +11364,7 @@ function bindEvents() {
   const renameBandBtn = document.getElementById("renameBandBtn");
   if (renameBandBtn) renameBandBtn.addEventListener("click", () => { state.renameBandNamePrompt = true; render(); });
   const confirmBandNameBtn = document.getElementById("confirmBandNameBtn");
-  if (confirmBandNameBtn) confirmBandNameBtn.addEventListener("click", () => { const name = (document.getElementById("bandNameInput")?.value || "").trim() || "名無しの地下バンド"; const renaming = !!state.renameBandNamePrompt; state.band.name = name; state.bandNamePrompt = false; state.renameBandNamePrompt = false; if (renaming) state.band.fame = clamp(Number(state.band.fame || 0) - 2, 0, 999); log(`バンド名を「${name}」に${renaming ? "変更" : "決定"}した。${renaming ? "認知度が少し下がった。" : ""}`); showEventPopup(renaming ? "バンド名変更" : "バンド名決定", `${renaming ? "新しい名前で活動し直す。" : "今日からこの名前でライブハウスに出る。"}\n${name}${renaming ? "\n認知度-2" : ""}`, "event", "◆︎"); if (state.pendingTurnAdvance) { if (!maybeFinishPendingTurnAdvanceAfterPopups()) render(); } else render(); });
+  if (confirmBandNameBtn) confirmBandNameBtn.addEventListener("click", () => { const name = (document.getElementById("bandNameInput")?.value || "").trim() || "名無しの地下バンド"; const renaming = !!state.renameBandNamePrompt; state.band.name = name; state.bandNamePrompt = false; state.renameBandNamePrompt = false; if (renaming) state.band.fame = clamp(Number(state.band.fame || 0) - 2, 0, 999); log(`バンド名を「${name}」に${renaming ? "変更" : "決定"}した。${renaming ? "認知度が少し下がった。" : ""}`); showEventPopup(renaming ? "バンド名変更" : "バンド名決定", `${renaming ? "新しい名前で活動し直す。" : "今日からこの名前でライブハウスに出る。"}\n${name}${renaming ? "\n認知度-2" : ""}`, "event", v043eIcon("band")); if (state.pendingTurnAdvance) { if (!maybeFinishPendingTurnAdvanceAfterPopups()) render(); } else render(); });
   const cancelBandNameBtn = document.getElementById("cancelBandNameBtn");
   if (cancelBandNameBtn) cancelBandNameBtn.addEventListener("click", () => { state.renameBandNamePrompt = false; render(); });
   const confirmNoSongcraftBtn = document.getElementById("confirmNoSongcraftBtn");
@@ -11584,7 +11593,7 @@ Triple Arrowsの刺激を受け、ステータスが上がった。
 
 主人公：
 「ふう、疲れが溜まってたら二日酔いだったな…」
-疲労+${fatigueGainNow}%`, type:"event", icon:"○︎" };
+疲労+${fatigueGainNow}%`, type:"event", icon:v043eIcon("band") };
       }
     } else {
       setRelationshipWithBand("paper_moon", relationshipWithBand("paper_moon") + 18);
@@ -11603,7 +11612,7 @@ Paper Moon Kids（仮）の刺激を受け、ステータスが上がった。
 
 主人公：
 「ふう、疲れが溜まってたら二日酔いだったな…」
-疲労+${Math.max(0, Math.round((state.band.fatigue || 0) - fatigueBefore))}%`, type:"event", icon:"○︎" };
+疲労+${Math.max(0, Math.round((state.band.fatigue || 0) - fatigueBefore))}%`, type:"event", icon:v043eIcon("band") };
     }
     schedulePendingTurnAdvance("afterparty");
     render();
@@ -11668,7 +11677,7 @@ function resolveAfterpartyChoice(choiceKey="listen") {
   if (songBoost) extraLines.push(`曲強化：「${songBoost.title}」演奏+${songBoost.gain}`);
   const resultBody = `${relText}\n選択：${choice.label}\nイベント：${payload.baseEvent?.title || scene.title} - ${payload.baseEvent?.text || "短い反省会をした。"}${statLines.length ? "\n" + statLines.join("\n") : ""}${extraLines.length ? "\n" + extraLines.join(" / ") : ""}${introText}\n疲労+${Math.round(state.band.fatigue-before)}%。二日酔い判定${Math.round(chance*100)}%${hungover ? " →︎ 発生" : " →︎ なし"}。`;
   state.popupQueue = state.popupQueue || [];
-  state.popupQueue.push({ title:"打ち上げ結果", body:resultBody, type:hungover ? "warn" : "event", icon:"○︎", layout:"scroll-safe", modalClass:"afterparty-result-safe-modal", scrollSafe:true });
+  state.popupQueue.push({ title:"打ち上げ結果", body:resultBody, type:hungover ? "warn" : "event", icon:v043eIcon("band"), layout:"scroll-safe", modalClass:"afterparty-result-safe-modal", scrollSafe:true });
   log(`打ち上げイベント：${payload.baseEvent?.title || scene.title} / ${choice.label}。${relText}${extraLines.length ? " / " + extraLines.join(" / ") : ""}${introText ? " / " + introText.trim() : ""} 疲労+${Math.round(state.band.fatigue-before)}%。`, hungover ? "warn" : "event");
   if (bandSystemOn()) {
     processBandStoryEvents("afterParty");
@@ -11791,7 +11800,7 @@ function handleCommandClick(command) {
   const guide = tutorialCommandMessage(command);
   if (guide) { state.activePopup = guide; render(); return; }
   if (state.hangoverTurn === state.turn && command !== "rest") {
-    state.activePopup = { title:"二日酔い", body:"このターンは休憩しかできない。\n休憩を選ぶと通常行動に戻ります。", type:"warn", icon:"✕︎" };
+    state.activePopup = { title:"二日酔い", body:"このターンは休憩しかできない。\n休憩を選ぶと通常行動に戻ります。", type:"warn", icon:v043eIcon("cross") };
     render();
     return;
   }
@@ -11871,13 +11880,13 @@ function trainingSummary(before, after) {
 }
 function commandMeta(command) {
   return {
-    practice:{ label:"練習", icon:"♪︎", body:"スタジオに音が鳴った。少しだけバンドが前に進んだ。" },
-    rest:{ label:"休憩", icon:"☕︎", body:"今日は休むことにした。身体が軽くなった。" },
-    parttime:{ label:"バイト", icon:"○︎", body:"音楽のために、今日は働いた。" },
-    recruit:{ label:"募集", icon:"▲︎", body:"掲示板とSNSにメンバー募集を出した。" },
-    promo:{ label:"宣伝", icon:"▪︎", body:"まだ小さいが、知らない誰かに届いている。" },
-    talk:{ label:"会話", icon:"◆︎", body:"少しだけ本音を話した。バンドの空気が変わった。" }
-  }[command] || { label:"行動", icon:"⚡︎", body:"今週の行動を終えた。" };
+    practice:{ label:"練習", icon:v043eIcon("practice"), body:"スタジオに音が鳴った。少しだけバンドが前に進んだ。" },
+    rest:{ label:"休憩", icon:v043eIcon("rest"), body:"今日は休むことにした。身体が軽くなった。" },
+    parttime:{ label:"バイト", icon:v043eIcon("parttime"), body:"音楽のために、今日は働いた。" },
+    recruit:{ label:"募集", icon:v043eIcon("recruit"), body:"掲示板とSNSにメンバー募集を出した。" },
+    promo:{ label:"宣伝", icon:v043eIcon("promo"), body:"まだ小さいが、知らない誰かに届いている。" },
+    talk:{ label:"会話", icon:v043eIcon("talk"), body:"少しだけ本音を話した。バンドの空気が変わった。" }
+  }[command] || { label:"行動", icon:v043eIcon("spark"), body:"今週の行動を終えた。" };
 }
 function avgActiveMemberStat(key) {
   const list = activeMembers();
@@ -12259,7 +12268,7 @@ function plannedSongcraftFatigueCost(type, baseCost) {
 }
 function canStartSongcraft(type, baseCost, label) {
   if (songcraftRemainingThisTurn() <= 0 && !mustCompleteFirstDraftTutorial()) {
-    showEventPopup("今週の曲作りは完了", `今日はもう曲作りを進めきった。\n${songcraftCountLabel()}。次のターンに続きを進めよう。`, "warn", "♪︎");
+    showEventPopup("今週の曲作りは完了", `今日はもう曲作りを進めきった。\n${songcraftCountLabel()}。次のターンに続きを進めよう。`, "warn", v043eIcon("song"));
     return false;
   }
   const cost = plannedSongcraftFatigueCost(type, baseCost);
@@ -12271,7 +12280,7 @@ function canStartSongcraft(type, baseCost, label) {
 }
 function canStartAnySongcraft(types, baseCost, label) {
   if (songcraftRemainingThisTurn() <= 0 && !mustCompleteFirstDraftTutorial()) {
-    showEventPopup("今週の曲作りは完了", `今日はもう曲作りを進めきった。\n${songcraftCountLabel()}。次のターンに続きを進めよう。`, "warn", "♪︎");
+    showEventPopup("今週の曲作りは完了", `今日はもう曲作りを進めきった。\n${songcraftCountLabel()}。次のターンに続きを進めよう。`, "warn", v043eIcon("song"));
     return false;
   }
   const list = Array.isArray(types) ? types : [types];
@@ -12321,7 +12330,7 @@ function applySongcraftFatigue(type, baseCost, member, label) {
     if (type === "music") member.stats.technique = clamp(member.stats.technique + 2, 1, 99);
   }
   if (r.free) { log(`${label}は${r.reason}で疲労なしで進められた。`, "rare"); showEventPopup("ひらめき制作！", `${label}は${r.reason}で疲労なしで進められた。
-今週はまだ余力が残っている。`, "rare", "☆︎"); }
+今週はまだ余力が残っている。`, "rare", v043eIcon("spark")); }
   else {
     log(`${label}で疲労+${r.cost}%。作詞Lv${craftLevel("lyrics")} / 作曲Lv${craftLevel("music")}。`, "song");
     maybeShowFatigueIncreasePopup(fatigueBeforeCraft, state.band.fatigue, `${label}で疲労がたまった。`);
@@ -12436,11 +12445,11 @@ function advanceDraft(d, type, member) {
     if ((d.arrange.includes("ドラム") || d.arrange.includes("DJ")) && !d.tags.includes("爆発力")) d.tags.push("爆発力");
     log(`${member.name}が「${d.titleHint}」の作曲を完成させた。完成度 ${val(score)}%。`, "song");
     if (score >= 75) showEventPopup("リフがハマった", `${member.name}が鳴らしたフレーズに、全員が少し前のめりになった。
-「${d.titleHint}」の作曲完成度 ${val(score)}%。`, "song", "♪︎");
+「${d.titleHint}」の作曲完成度 ${val(score)}%。`, "song", v043eIcon("song"));
   }
   if (d.lyricsDone && d.musicDone) {
     state.songEditor = { step:"draftFinalize", draftId:d.id, title:d.titleHint, theme:d.theme };
-    showEventPopup("曲完成前確認", `「${d.titleHint}」の作詞と作曲が揃った。\n曲名とテーマを確認して、完成させよう。`, "song", "♪︎");
+    showEventPopup("曲完成前確認", `「${d.titleHint}」の作詞と作曲が揃った。\n曲名とテーマを確認して、完成させよう。`, "song", v043eIcon("song"));
   } else {
     const next = d.lyricsDone ? "作曲" : "作詞";
     const done = d.lyricsDone ? "作詞" : "作曲";
@@ -12455,7 +12464,7 @@ ${done}完成度：${val(score)}%
 ジャンル：${genreDisplay(d)}
 ${bonus.length ? "ボーナス：" + bonus.join(" / ") + "\n" : ""}次は${next}をしよう！`;
     state.lastSongcraftResult = { title:`${done} 50％完成！`, body:halfBody, bars };
-    showEventPopup(`${done} 50％完成！`, halfBody, "song", d.lyricsDone ? "✍︎" : "♪︎", { bars });
+    showEventPopup(`${done} 50％完成！`, halfBody, "song", d.lyricsDone ? "✍︎" : v043eIcon("song"), { bars });
     // 曲作り枠は通常行動枠と別。50%完成ではターン進行しない。
   }
   return true;
@@ -12532,7 +12541,7 @@ function finishDraft(draftId) {
   }
   const discovery = registerGenreDiscovery(song.subGenre, song.title);
   if (discovery) {
-    showEventPopup(discovery.rare ? "RARE GENRE DISCOVERED!!" : "NEW GENRE DISCOVERED!!", `${discovery.rare ? "レア" : "新"}ジャンル「${discovery.genre}」を発見！\n「${song.title}」から生まれた新しい方向性。`, discovery.rare ? "rare" : "song", discovery.rare ? "★︎" : "☆︎");
+    showEventPopup(discovery.rare ? "RARE GENRE DISCOVERED!!" : "NEW GENRE DISCOVERED!!", `${discovery.rare ? "レア" : "新"}ジャンル「${discovery.genre}」を発見！\n「${song.title}」から生まれた新しい方向性。`, discovery.rare ? "rare" : "song", discovery.rare ? v043eIcon("fame") : v043eIcon("spark"));
   }
   const bonusLines = [];
   if (discovery?.rare) bonusLines.push(`レアジャンル発見：${genreDisplay(song)}`);
@@ -12596,7 +12605,7 @@ function boostSongSimple(songId) {
   state.lastSongcraftResult = { title:"曲強化完了", body:`「${s.title}」を強化した。
 強化Lv ${levelBefore} →︎ ${s.boostLevel}
 演奏+${val(gain)} / 歌詞・キャッチーも少しUP`, bars };
-  showEventPopup("曲強化完了", state.lastSongcraftResult.body, "song", "▲︎", { bars });
+  showEventPopup("曲強化完了", state.lastSongcraftResult.body, "song", v043eIcon("chart"), { bars });
   log(`「${s.title}」を曲強化。強化Lv${levelBefore}→︎${s.boostLevel}、演奏+${val(gain)}。`, "song");
   // 曲強化も曲作り枠。通常行動とは別なのでターン進行しない。
   return true;
@@ -12654,7 +12663,7 @@ function arrangeSongFromEditor(songId) {
   s.mannerism = Math.max(0, (s.mannerism || 0) - 5);
   s.standardPoints = (s.standardPoints || 0) + 1;
   const bars = ["catchy","tempo","recognition","lyrics","performance","trend"].map(k => ({ label: statSongLabel(k), value: val(s[k]||0) }));
-  showEventPopup("編曲完了", `「${s.title}」を編曲した。\n${statSongLabel(param)} +${baseGain}\nジャンル:${genreDisplay(old)} →︎ ${genreDisplay(s)}\nアレンジ:${arr}`, "song", "♪︎", { bars });
+  showEventPopup("編曲完了", `「${s.title}」を編曲した。\n${statSongLabel(param)} +${baseGain}\nジャンル:${genreDisplay(old)} →︎ ${genreDisplay(s)}\nアレンジ:${arr}`, "song", v043eIcon("song"), { bars });
   log(`「${s.title}」を編曲した。${statSongLabel(param)}+${baseGain}。`);
 }
 function statSongLabel(k) {
@@ -12708,13 +12717,13 @@ function performLive() {
   const liveTurn = state.turn;
   const ev = currentLiveEvent();
   if (!ev) {
-    state.activePopup = { title:"ライブ予定が見つからない", body:"このターンのライブ予定が見つからなかった。\nスケジュールを再確認します。", type:"warn", icon:"■︎" };
+    state.activePopup = { title:"ライブ予定が見つからない", body:"このターンのライブ予定が見つからなかった。\nスケジュールを再確認します。", type:"warn", icon:v043eIcon("calendar") };
     refreshLiveSchedule();
     render();
     return;
   }
   if (setlist.length < 5) {
-    state.activePopup = { title:"セトリ不足", body:"ライブには5曲必要です。\n曲数が足りない場合はコピー曲で補充します。", type:"warn", icon:"♪︎" };
+    state.activePopup = { title:"セトリ不足", body:"ライブには5曲必要です。\n曲数が足りない場合はコピー曲で補充します。", type:"warn", icon:v043eIcon("song") };
     state.livePrepSetlist = autoBuildSetlist();
     render();
     return;
@@ -12738,8 +12747,8 @@ function performLive() {
     state.playerExtraInstrumentsUnlocked = true;
     state.scheduleTutorialStage = "none";
     state.popupQueue = state.popupQueue || [];
-    state.popupQueue.push({ title:"新しい可能性", body:"主人公「ボーカル以外にも道があるかな……」\n主人公がボーカル以外の楽器も担当可能になった。", type:"event", icon:"♪︎" });
-    state.popupQueue.push({ title:"スケジュール解放", body:"次からは自分でライブ予定を組む。\nまずはスケジュール帳を開いて、出たいライブを探そう。", type:"event", icon:"■︎" });
+    state.popupQueue.push({ title:"新しい可能性", body:"主人公「ボーカル以外にも道があるかな……」\n主人公がボーカル以外の楽器も担当可能になった。", type:"event", icon:v043eIcon("band") });
+    state.popupQueue.push({ title:"スケジュール解放", body:"次からは自分でライブ予定を組む。\nまずはスケジュール帳を開いて、出たいライブを探そう。", type:"event", icon:v043eIcon("calendar") });
   }
   else if (state.turn < state.maxTurn && shouldPushFesShortagePopup(result)) {
     state.popupQueue = state.popupQueue || [];
@@ -13223,7 +13232,7 @@ function applyLiveResult(r, setlist, supports) {
   revealSubGenresAfterLive(r, setlist);
   if (!state.fesInfoKnown && (state.liveCount >= 1 || state.turn >= 12 || b.industry >= 15)) {
     state.fesInfoKnown = true;
-    showEventPopup("UNDER FES情報入手", "ライブハウス店長から、選考に必要な最低ラインを聞いた。\nスケジュール帳でフェス条件を確認できるようになった。", "event", "▶︎");
+    showEventPopup("UNDER FES情報入手", "ライブハウス店長から、選考に必要な最低ラインを聞いた。\nスケジュール帳でフェス条件を確認できるようになった。", "event", v043eIcon("book"));
   }
   activeMembers().filter(m => r.performers.includes(m.id)).forEach(m => growMemberAfterLive(m, r.rank, r.positions[m.id]));
   const exposureBands = invitedBandsForEvent(ev);
@@ -13333,7 +13342,7 @@ function growSongAfterLive(liveSong, rank, slot, coreEvent) {
   s.recognition = clamp(s.recognition + ({ S:8,A:6,B:4,C:2,D:1,E:0 }[rank] || 0) + (coreEvent ? 2 : 0), 0, 99);
   s.performance = clamp(s.performance + (rank === "E" ? 0 : 1), 0, 99);
   s.standardPoints = (s.standardPoints || 0) + 1 + (["S","A","B"].includes(rank) ? 1 : 0) + ((slot === 1 || slot === 5) && ["S","A","B"].includes(rank) ? 1 : 0);
-  if (s.standardPoints >= 5 && !hasTag(s,"定番")) { s.tags.push("定番"); s.mannerism = 0; log(`${s.title}がライブ定番曲になった。`); showEventPopup("STANDARD SONG!!", `「${s.title}」が定番曲になった！\nライブでの成功が積み重なり、マンネリ化しにくくなる。`, "rare", "★︎"); }
+  if (s.standardPoints >= 5 && !hasTag(s,"定番")) { s.tags.push("定番"); s.mannerism = 0; log(`${s.title}がライブ定番曲になった。`); showEventPopup("STANDARD SONG!!", `「${s.title}」が定番曲になった！\nライブでの成功が積み重なり、マンネリ化しにくくなる。`, "rare", v043eIcon("fame")); }
   if (hasTag(s, "定番")) s.mannerism = 0;
   if ((s.recognition >= 50 && s.standardPoints >= 5 && (s.lyrics >= 60 || s.catchy >= 60)) && !hasTag(s,"代表曲候補")) { s.tags.push("代表曲候補"); log(`${s.title}が代表曲候補になった。`); }
 }
@@ -13655,7 +13664,7 @@ function renderIntroScreen() {
     state.introSeen = true;
     state.openingStep = 8;
     state.tutorialStage = "needSong";
-    state.activePopup = { title:"活動開始", body:`タカナシ：\n「${name}か、覚えとくよ。」`, type:"event", icon:"♪︎" };
+    state.activePopup = { title:"活動開始", body:`タカナシ：\n「${name}か、覚えとくよ。」`, type:"event", icon:v043eIcon("band") };
     saveGame(false);
     render();
   });
@@ -14200,7 +14209,7 @@ function renderIntroScreen() {
     state.bandNamePrompt = false;
     state.openingStep = 10;
     state.tutorialStage = "needSong";
-    state.activePopup = { title:"活動開始", body:"まずは、曲でも作るか……\n作詞・作曲から新曲制作を始めよう。", type:"event", icon:"♪︎" };
+    state.activePopup = { title:"活動開始", body:"まずは、曲でも作るか……\n作詞・作曲から新曲制作を始めよう。", type:"event", icon:v043eIcon("song") };
     v043dResetConversationLog();
     saveGame(false);
     render();
