@@ -6997,6 +6997,36 @@ function restoreGame(slot=selectedSaveSlot) {
     render();
   }
 }
+/* --- セーブ/ロード演出: saveGame/restoreGameを再代入でラップ（前後呼び出し）。演出は事後の装飾のみで、
+   実際のセーブ/ロード処理自体は元の同期処理のまま完全に不変。autoSaveGame()は別関数でsaveGame()を
+   呼ばないため、manual===trueガードにより自動セーブでは発火しない（SKIN_ORDER_v4 PR-E #4） --- */
+function dgShowSaveLoadOverlay(label) {
+  if (dgPrefersReducedMotion()) return;
+  const el = dgGetOrCreateOverlayEl("dgSaveLoadOverlay", "dg-saveload");
+  if (!el) return;
+  el.innerHTML = `<div class="dg-saveload-label">${label}</div><div class="dg-saveload-stripe"></div>`;
+  el.classList.remove("run", "flash");
+  void el.offsetWidth;
+  el.classList.add("run");
+  window.setTimeout(() => {
+    el.classList.add("flash");
+    window.setTimeout(() => { el.classList.remove("run", "flash"); }, 160);
+  }, 420);
+}
+const dgSaveGameOriginal = saveGame;
+saveGame = function (manual, slot) {
+  const isManual = manual === true;
+  const result = dgSaveGameOriginal.apply(this, arguments);
+  if (isManual) dgShowSaveLoadOverlay("SAVING");
+  return result;
+};
+const dgRestoreGameOriginal = restoreGame;
+restoreGame = function (slot) {
+  const result = dgRestoreGameOriginal.apply(this, arguments);
+  dgShowSaveLoadOverlay("NOW LOADING");
+  return result;
+};
+
 function deleteSave(slot=selectedSaveSlot) {
   slot = clamp(Number(slot || selectedSaveSlot || 1), 1, SAVE_SLOT_COUNT);
   safeStorageRemove(saveKeyForSlot(slot));
@@ -7707,6 +7737,125 @@ function showLiveResultAfterProgress() {
   state.pendingLiveResultModal = null;
   render();
 }
+/* --- ライブ結果コレオグラフィ: showLiveResultAfterProgress()を再代入でラップ（前後呼び出し）。
+   render()で描画済みの最終値をDOMから読み取り、演出専用にJSで巻き戻してから数値アニメーションで
+   再生する方式のため、renderLiveResultOverlay()自体の出力（最終値のマークアップ）は無変更。
+   STUDY 10正典のタイムライン・イージング値に準拠（SKIN_ORDER_v4 PR-E #2） --- */
+function dgDiamondBurst(container, colorVar, wave1Count, wave2Count, wave2DelayMs) {
+  if (dgPrefersReducedMotion() || !container || typeof container.animate !== "function") return;
+  const cs = window.getComputedStyle ? window.getComputedStyle(container) : null;
+  if (cs && cs.position === "static") container.style.position = "relative";
+  function fireWave(count) {
+    for (let i = 0; i < count; i++) {
+      const angleDeg = (360 / 8) * (i % 8);
+      const angleRad = angleDeg * Math.PI / 180;
+      const distance = 46 + Math.random() * 40;
+      const size = 6 + Math.random() * 5;
+      const duration = 380 + Math.random() * 140;
+      const dx = Math.cos(angleRad) * distance;
+      const dy = Math.sin(angleRad) * distance;
+      const p = document.createElement("div");
+      p.className = "dg-burst-particle";
+      p.style.width = size + "px";
+      p.style.height = size + "px";
+      p.style.background = `var(${colorVar})`;
+      container.appendChild(p);
+      const anim = p.animate([
+        { transform: "translate(-50%,-50%) rotate(45deg) scale(1)", opacity: 1 },
+        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) rotate(45deg) scale(.4)`, opacity: 0 }
+      ], { duration, easing: "cubic-bezier(.2,.9,.1,1)", fill: "forwards" });
+      anim.onfinish = () => p.remove();
+    }
+  }
+  fireWave(wave1Count);
+  if (wave2Count > 0) window.setTimeout(() => fireWave(wave2Count), wave2DelayMs);
+}
+function dgParseNumberText(raw) {
+  const m = String(raw || "").match(/^([+-]?)(¥?)([\d,]+)(.*)$/);
+  if (!m) return null;
+  const numStr = m[3].replace(/,/g, "");
+  let target = parseInt(numStr, 10);
+  if (!Number.isFinite(target)) return null;
+  if (m[1] === "-") target = -target;
+  return { target, plus: m[1] === "+", currency: m[2], suffix: m[4] };
+}
+function dgFormatNumber(v, plus, suffix, currency) {
+  const rounded = Math.round(v);
+  const sign = rounded < 0 ? "-" : (plus ? "+" : "");
+  return `${sign}${currency || ""}${Math.abs(rounded).toLocaleString("ja-JP")}${suffix || ""}`;
+}
+/* 数値カウントアップ準備: 表示は即座に0へ巻き戻し、実際のカウント開始はdurationMs後まで遅延させる
+   ことで「最終値が一瞬見えてから0に戻る」ちらつきを防止する（SKIN_ORDER_v4 PR-E #2） */
+function dgPrepareNumberCountUp(el, durationMs) {
+  if (!el) return null;
+  const parsed = dgParseNumberText(el.textContent);
+  if (!parsed) return null;
+  el.style.fontVariantNumeric = "tabular-nums";
+  el.textContent = dgFormatNumber(0, parsed.plus, parsed.suffix, parsed.currency);
+  return () => dgCountUp(0, parsed.target, durationMs, (v) => { el.textContent = dgFormatNumber(v, parsed.plus, parsed.suffix, parsed.currency); });
+}
+/* --- ホーム帰還時のゲージ差分伸長: applyLiveResult()呼び出し直前に旧値を1行スナップショットし
+   （前後呼び出し）、render()側で「view=home への到達を初めて検知した回」にのみ消費・クリアする
+   ことで、打ち上げ/ポップアップ連鎖のどの経路を辿っても確実に一度だけ発火する。対象カードには
+   ゲージ（帯グラフ）が存在しないため、演出は数値のカウントアップで代替（SKIN_ORDER_v4 PR-E #3） */
+function dgAnimateHomeGaugeGrowth(snapshot) {
+  if (dgPrefersReducedMotion() || typeof document === "undefined" || !snapshot) return;
+  const grid = document.querySelector(".v042-status-grid");
+  if (!grid) return;
+  const valueEls = grid.querySelectorAll(".v042-status b");
+  const froms = [snapshot.funds, snapshot.fans, snapshot.fatigue, snapshot.fame, snapshot.audiencePower, snapshot.industry];
+  valueEls.forEach((el, i) => {
+    const fromVal = froms[i];
+    if (typeof fromVal !== "number" || !Number.isFinite(fromVal)) return;
+    const parsed = dgParseNumberText(el.textContent);
+    if (!parsed) return;
+    el.style.fontVariantNumeric = "tabular-nums";
+    el.textContent = dgFormatNumber(fromVal, parsed.plus, parsed.suffix, parsed.currency);
+    dgCountUp(fromVal, parsed.target, 700, (v) => { el.textContent = dgFormatNumber(v, parsed.plus, parsed.suffix, parsed.currency); });
+  });
+}
+function dgAnimateLiveResultReveal() {
+  if (dgPrefersReducedMotion()) return;
+  if (typeof document === "undefined" || typeof document.querySelector !== "function") return;
+  const modal = document.querySelector(".live-result-modal");
+  if (!modal) return;
+  const rankMatch = modal.className.match(/rank-(\S)/);
+  const rank = rankMatch ? rankMatch[1] : "C";
+
+  const starters = [];
+  modal.querySelectorAll(".result-score b, .result-primary-gains b, .result-secondary-gains b").forEach(el => {
+    const starter = dgPrepareNumberCountUp(el, 800);
+    if (starter) starters.push(starter);
+  });
+
+  // ゲージも即座に0%へ巻き戻し（ちらつき防止）、伸長開始は数値カウントアップと同じ240msに揃える
+  const fillEls = modal.querySelectorAll(".result-bars .fill");
+  const fillTargets = [];
+  fillEls.forEach(fillEl => {
+    fillTargets.push(fillEl.style.width);
+    fillEl.style.transition = "none";
+    fillEl.style.width = "0%";
+  });
+
+  window.setTimeout(() => {
+    const rankBurstEl = modal.querySelector(".rank-burst");
+    if (rankBurstEl && rank === "S") dgDiamondBurst(rankBurstEl, "--fame", 8, 6, 90);
+    else if (rankBurstEl && rank === "A") dgDiamondBurst(rankBurstEl, "--vio", 8, 0, 0);
+  }, 150);
+
+  window.setTimeout(() => {
+    starters.forEach(fn => fn());
+    fillEls.forEach((fillEl, i) => {
+      fillEl.style.transition = "width 700ms cubic-bezier(.2,.9,.1,1)";
+      requestAnimationFrame(() => { fillEl.style.width = fillTargets[i]; });
+    });
+  }, 240);
+}
+const dgShowLiveResultAfterProgressOriginal = showLiveResultAfterProgress;
+showLiveResultAfterProgress = function () {
+  dgShowLiveResultAfterProgressOriginal();
+  dgAnimateLiveResultReveal();
+};
 function scheduleLiveProgressTimer() {
   if (window.__liveProgressTimer) clearTimeout(window.__liveProgressTimer);
   const l = state.liveProgressModal;
@@ -8384,6 +8533,73 @@ function render() {
   scheduleTurnNoticeTimer();
   autoSaveGame();
 }
+
+/* ===== SKIN_ORDER_v4 PR-E: 演出フック（Sol級・動的レイヤー） =====
+   フックはすべて既存関数への「前後呼び出し」またはラップによる再代入で実現し、
+   render()等の本体は書き換えない（内部の状態処理・popupQueue drain・autoSave等の
+   同期的副作用を一切遅延させない設計。詳細はPR本文の罠手順証跡を参照）。 */
+function dgPrefersReducedMotion() {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+function dgEaseOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+function dgNow() {
+  return (typeof performance !== "undefined" && typeof performance.now === "function") ? performance.now() : Date.now();
+}
+function dgCountUp(from, to, durationMs, onUpdate, onDone) {
+  if (dgPrefersReducedMotion() || typeof requestAnimationFrame !== "function") {
+    onUpdate(to);
+    if (onDone) onDone();
+    return;
+  }
+  const start = dgNow();
+  function step(now) {
+    if (typeof now !== "number") now = dgNow();
+    const t = Math.min(1, (now - start) / durationMs);
+    const eased = dgEaseOutCubic(t);
+    onUpdate(from + (to - from) * eased);
+    if (t < 1) requestAnimationFrame(step);
+    else if (onDone) onDone();
+  }
+  requestAnimationFrame(step);
+}
+function dgGetOrCreateOverlayEl(id, className) {
+  if (typeof document === "undefined" || !document.body) return null;
+  let el = document.getElementById(id);
+  if (!el) {
+    el = document.createElement("div");
+    el.id = id;
+    el.className = className;
+    el.setAttribute("aria-hidden", "true");
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
+/* --- 斜めワイプ: render()を再代入でラップし、state.view変化のみ検知（他の208箇所のrender()呼び出しには無反応） --- */
+let dgLastRenderedView;
+function dgTriggerWipe() {
+  if (dgPrefersReducedMotion()) return;
+  const el = dgGetOrCreateOverlayEl("dgWipeOverlay", "dg-wipe");
+  if (!el) return;
+  el.classList.remove("run");
+  void el.offsetWidth;
+  el.classList.add("run");
+  window.setTimeout(() => { el.classList.remove("run"); }, 430);
+}
+const dgRenderOriginal = render;
+render = function () {
+  const prevView = dgLastRenderedView;
+  const nextView = state.view;
+  const isRealTransition = prevView !== undefined && prevView !== nextView && uiMode === "game" && state.introSeen && !state.ended;
+  dgRenderOriginal();
+  dgLastRenderedView = state.view;
+  if (isRealTransition) dgTriggerWipe();
+  if (state.__dgGaugeGrowthSnapshot && state.view === "home" && uiMode === "game" && state.introSeen && !state.ended && !v043aHasPriorityOverlay()) {
+    const snapshot = state.__dgGaugeGrowthSnapshot;
+    state.__dgGaugeGrowthSnapshot = null;
+    dgAnimateHomeGaugeGrowth(snapshot);
+  }
+};
 
 let v043aUiRuntime = createV043aUiRuntimeState();
 
@@ -12750,6 +12966,7 @@ function performLive() {
   result.liveEventId = ev?.id || "";
   result.setlistIds = setlist.map(s => s.id);
   state.deferPopupsUntilAfterLive = true;
+  state.__dgGaugeGrowthSnapshot = { funds: state.band.funds, fans: state.band.fans, fatigue: state.band.fatigue, fame: state.band.fame, audiencePower: displayAudiencePower(state.band), industry: state.band.industry };
   applyLiveResult(result, setlist, supports, merch);
   state.pendingLiveResultModal = makeLiveResultModal(result, setlist);
   state.liveProgressModal = makeLiveProgressModal(result, setlist);

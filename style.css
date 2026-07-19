@@ -594,11 +594,23 @@ button.stage-slot.selected {outline: 2px solid var(--accent);background: var(--b
 .result-header span {color: var(--accent);letter-spacing: .18em;font-size: .72rem;font-weight: 800;font-family: var(--font-display);text-transform:uppercase;}
 .result-header b {font-size: 1.15rem;}
 .result-header em {color: var(--muted);font-style: normal;}
-.rank-burst {position: absolute;top: 12px;right: 16px;width: 64px;height: 64px;display:grid;place-items:center;border-radius: 0;background: var(--bg);color: var(--ink);font-size: 2rem;font-weight: 1000;box-shadow: none;animation: rankBurst .38s cubic-bezier(.2,1.2,.35,1) both;font-family: var(--font-anton), var(--font-display);}
+.rank-burst {position: absolute;top: 12px;right: 16px;width: 64px;height: 64px;display:grid;place-items:center;border-radius: 0;background: var(--bg);color: var(--ink);font-size: 2rem;font-weight: 1000;box-shadow: none;animation: rankBurst 260ms cubic-bezier(.2,.9,.1,1) both;font-family: var(--font-anton), var(--font-display);}
+/* RANKスタンプ叩き込み（STUDY 10正典）: 傾きは着地モーションのみに限定し、最終静止フレームはrotate(0)
+   （意思決定数値は傾けない、の絶対規則を遵守。SKIN_ORDER_v4 PR-E #2） */
 @keyframes rankBurst {
-  from {opacity:0;transform: scale(.35) rotate(-12deg);}
-  to {opacity:1;transform: scale(1) rotate(0);}
+  0% {opacity:0;transform: rotate(-8deg) scale(1.6);}
+  60% {opacity:1;transform: rotate(-8deg) scale(.96);}
+  100% {opacity:1;transform: rotate(0deg) scale(1);}
 }
+@media (prefers-reduced-motion: reduce){
+  .rank-burst{animation:none;}
+}
+.dg-burst-particle{position:absolute;top:50%;left:50%;pointer-events:none;z-index:5;clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);}
+/* レターボックス（0ms・アニメーションなしの即時表示） */
+.result-backdrop:has(.live-result-modal)::before,
+.result-backdrop:has(.live-result-modal)::after{content:"";position:fixed;left:0;right:0;background:#000;z-index:1;pointer-events:none;}
+.result-backdrop:has(.live-result-modal)::before{top:0;height:5vh;}
+.result-backdrop:has(.live-result-modal)::after{bottom:0;height:5vh;}
 .result-score {display:flex;align-items:flex-end;gap:6px;margin: 8px 0 12px;}
 .result-score b {font-size: 3.1rem;line-height: .92;font-family: var(--font-anton), var(--font-display);font-variant-numeric:tabular-nums;}
 .result-score span {color: var(--muted);margin-bottom: 7px;}
@@ -2762,3 +2774,38 @@ button .v043e-icon,
 .schedule-screen .liveCandidateBtn.schedule-event.candidate .candidate-risk .badge,
 .schedule-screen-split .liveCandidateBtn.schedule-event.candidate .candidate-risk .badge{color: var(--ink);}
 .v043c-schedule-tabs button.active{background: var(--bg);color: var(--ink);}
+
+/* ================================================================
+   SKIN_ORDER_v4 PR-E: 演出（Sol級・動的レイヤー）
+   game.js側は既存関数への前後呼び出し／再代入ラップのみで実現。
+   ================================================================ */
+/* --- 斜めワイプ（画面遷移演出） --- */
+.dg-wipe{position:fixed;inset:-20% -40%;background: var(--bg);transform:skewX(-10deg) translateX(-130%);pointer-events:none;z-index:9999;}
+.dg-wipe.run{animation: dg-wipe 420ms cubic-bezier(.2,.9,.1,1) both;pointer-events:auto;}
+@keyframes dg-wipe{
+  0%{transform:skewX(-10deg) translateX(-130%)}
+  45%{transform:skewX(-10deg) translateX(0)}
+  100%{transform:skewX(-10deg) translateX(130%)}
+}
+@media (prefers-reduced-motion: reduce){
+  .dg-wipe.run{animation:none;display:none;}
+}
+/* --- セーブ/ロード演出 --- */
+.dg-saveload{position:fixed;inset:0;z-index:9998;background:#000;display:none;align-items:center;justify-content:center;flex-direction:column;gap:18px;pointer-events:none;}
+.dg-saveload.run{display:flex;pointer-events:auto;}
+.dg-saveload-label{font-family: var(--font-display);font-size:14px;letter-spacing:.28em;color: var(--ink);text-transform:uppercase;}
+.dg-saveload-stripe{width:min(220px,60vw);height:3px;background: var(--rule);position:relative;overflow:hidden;}
+.dg-saveload-stripe::after{content:"";position:absolute;top:0;left:-40%;width:40%;height:100%;background: var(--acc);animation: dg-saveload-sweep 420ms linear both;}
+@keyframes dg-saveload-sweep{
+  0%{left:-40%;}
+  100%{left:100%;}
+}
+.dg-saveload.flash::before{content:"";position:fixed;inset:0;background: var(--acc);opacity:.85;animation: dg-saveload-flash 160ms ease-out both;}
+@keyframes dg-saveload-flash{
+  0%{opacity:.85;}
+  100%{opacity:0;}
+}
+@media (prefers-reduced-motion: reduce){
+  .dg-saveload-stripe::after{animation:none;left:0;width:100%;}
+  .dg-saveload.flash::before{animation:none;opacity:0;}
+}
