@@ -472,7 +472,7 @@ const BAND_DATABASE = Object.freeze({
     id: "kiwi", name: "Kiwi", kana: "キーウィ", internalLv: 1, color: "#B5E04C", markStyle: "B",
     genres: ["ポップロック", "インディーロック", "ゆるいオルタナ"],
     description: "ゆるく明るい空気でライブハウスを和ませるポップロックバンド。",
-    representativeSong: "グリムポップ", representativeName: "モズ", representativePart: "Dr",
+    representativeSong: "グリムポップ", representativeName: "モズ", representativePart: "Vo/Ba",
     skillIds: ["healing_character"],
     tags: ["early", "random_battle", "soft", "friendly"],
     fame: 20, audience: 16
