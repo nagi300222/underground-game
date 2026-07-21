@@ -7866,6 +7866,7 @@ function dgAnimateLiveResultReveal() {
   if (!modal) return;
   const rankMatch = modal.className.match(/rank-(\S)/);
   const rank = rankMatch ? rankMatch[1] : "C";
+  const v043fReveal = v043fScheduleLiveResultAudio(rank); /* PR-J: 本書タイムラインの絶対スケジューリング。reduced-motion判定より前に評価し、視覚短絡とは独立に発音する */
 
   const stamp = document.createElement("div");
   stamp.className = "dg-rank-stamp-lg";
@@ -7914,6 +7915,8 @@ function dgAnimateLiveResultReveal() {
   }
   function skipToFinal() {
     if (settled) return;
+    v043fStopScheduledNodes(v043fReveal.nodes); /* PR-J: タップ早送り時は予約済みSEを全停止 */
+    v043fPlayD6(v043fNow()); /* PR-J: D6のみ1回鳴らして終了 */
     jumpAllToFinal();
     settle();
   }
@@ -8669,6 +8672,238 @@ function dgGetOrCreateOverlayEl(id, className) {
   return el;
 }
 
+/* ===== PR-J: AudioManager（v043f・Web Audio自作合成SE基盤） =====
+   命名規約: 関数・変数はv043fプレフィックス、グローバルはv043fAudioの1個のみ。外部素材・
+   外部ライブラリは一切使用しない自己完結セクション。解錠（AudioContext生成/resume）は
+   最初のユーザー操作まで行わず、解錠前のSE呼び出しは例外を出さず無音でスキップする。
+   合成レシピは委託文PR-J付録A（se-console v2.1正典）をそのまま移植した（SKIN_ORDER_PRJ）。
+   付録Aのosc(type,f0,f1,...)はf1に0を渡すとピッチスライドなし（f0固定）を表す規約として実装
+   （E1の3和音・A3の余韻2本がいずれも単一ピッチのチャイムである実際の音を優先した解釈）。 */
+const V043F_SE_MUTE_KEY = "underground_v043_se_muted";
+const v043fAudio = {
+  ctx: null,
+  master: null,
+  unlocked: false,
+  muted: typeof safeStorageGet === "function" && safeStorageGet(V043F_SE_MUTE_KEY) === "1",
+  maxNodes: 16,
+  noiseBuffer: null
+};
+function v043fSetMuted(muted) {
+  v043fAudio.muted = !!muted;
+  if (typeof safeStorageSet === "function") safeStorageSet(V043F_SE_MUTE_KEY, v043fAudio.muted ? "1" : "0");
+}
+function v043fEnsureContext() {
+  if (v043fAudio.ctx) return v043fAudio.ctx;
+  if (typeof window === "undefined") return null;
+  const Ctor = window.AudioContext || window.webkitAudioContext;
+  if (!Ctor) return null;
+  try {
+    const ctx = new Ctor();
+    const master = ctx.createGain();
+    master.gain.value = 0.5;
+    master.connect(ctx.destination);
+    v043fAudio.ctx = ctx;
+    v043fAudio.master = master;
+    return ctx;
+  } catch (e) {
+    return null;
+  }
+}
+function v043fUnlock() {
+  const ctx = v043fEnsureContext();
+  if (!ctx) return;
+  v043fAudio.unlocked = true;
+  if (ctx.state === "suspended") ctx.resume().catch(() => {});
+}
+function v043fHandleVisibilityResume() {
+  if (!v043fAudio.unlocked || !v043fAudio.ctx) return;
+  if (typeof document !== "undefined" && document.visibilityState === "visible" && v043fAudio.ctx.state === "suspended") {
+    v043fAudio.ctx.resume().catch(() => {});
+  }
+}
+if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+  document.addEventListener("visibilitychange", v043fHandleVisibilityResume);
+}
+/* 最初期タップ解錠フック: 既存の最初期タップ画面renderTitleScreen()を再代入でラップ
+   （wrap-by-reassignment、方針v2.0.2標準）。個別ボタンではなくdocument捕捉フェーズの
+   最速の1回（pointerdown/keydown）で解錠する。AudioContextの生成/resumeはユーザー操作の
+   コールスタック内で行う必要があるため（PR-J）。 */
+let v043fUnlockListenerAttached = false;
+function v043fAttachUnlockListenerOnce() {
+  if (v043fUnlockListenerAttached || typeof document === "undefined" || typeof document.addEventListener !== "function") return;
+  v043fUnlockListenerAttached = true;
+  const handler = () => { v043fUnlock(); };
+  document.addEventListener("pointerdown", handler, { capture: true, once: true });
+  document.addEventListener("keydown", handler, { capture: true, once: true });
+}
+const dgRenderTitleScreenOriginal = renderTitleScreen;
+renderTitleScreen = function () {
+  dgRenderTitleScreenOriginal();
+  v043fAttachUnlockListenerOnce();
+};
+function v043fCanPlay() {
+  if (v043fAudio.muted) return false;
+  const ctx = v043fAudio.ctx;
+  if (!ctx || !v043fAudio.unlocked) return false;
+  if (ctx.state !== "running") return false;
+  return true;
+}
+function v043fNow() {
+  return v043fAudio.ctx ? v043fAudio.ctx.currentTime : 0;
+}
+function v043fEnv(gainNode, t, peak, dur) {
+  const g = gainNode.gain;
+  const safePeak = Math.max(peak, 0.0001);
+  g.cancelScheduledValues(t);
+  g.setValueAtTime(0.0001, t);
+  g.exponentialRampToValueAtTime(safePeak, t + 0.005);
+  g.exponentialRampToValueAtTime(0.0001, t + 0.005 + Math.max(dur, 0.001));
+}
+function v043fSpawnGain() {
+  const g = v043fAudio.ctx.createGain();
+  g.gain.value = 0.0001;
+  g.connect(v043fAudio.master);
+  return g;
+}
+/* 簡易上限（既定16ノード）は「その瞬間に同時発音しているノード数」で判定する（区間重なり方式）。
+   結果コレオは全SEを先読みで一括スケジュールするため、単純に「予約された累計ノード数」で数えると
+   1回の通常再生だけで即座に上限へ達し、後半のC1刻みやD6が無音落ちしてしまう不具合があった。
+   区間[開始, 終了)の重なりで数えることで、実際に同時に鳴っているノード数のみを上限判定に使う（PR-J） */
+v043fAudio.activeRanges = [];
+function v043fPruneRanges(now) {
+  v043fAudio.activeRanges = v043fAudio.activeRanges.filter(r => r.end > now);
+}
+function v043fCountOverlapping(t, end) {
+  return v043fAudio.activeRanges.filter(r => r.start < end && r.end > t).length;
+}
+function v043fRegisterRange(node, t, end) {
+  v043fAudio.activeRanges.push({ start: t, end });
+  node.onended = () => {
+    v043fAudio.activeRanges = v043fAudio.activeRanges.filter(r => !(r.start === t && r.end === end));
+  };
+}
+function v043fOsc(type, f0, f1, t, dur, peak) {
+  if (!v043fCanPlay()) return null;
+  const ctx = v043fAudio.ctx;
+  const end = t + dur + 0.08;
+  v043fPruneRanges(ctx.currentTime);
+  if (v043fCountOverlapping(t, end) >= v043fAudio.maxNodes) return null;
+  const osc = ctx.createOscillator();
+  osc.type = type;
+  osc.frequency.setValueAtTime(f0, t);
+  if (f1) osc.frequency.exponentialRampToValueAtTime(Math.max(f1, 1), t + dur);
+  const g = v043fSpawnGain();
+  v043fEnv(g, t, peak, dur);
+  osc.connect(g);
+  osc.start(t);
+  osc.stop(end);
+  v043fRegisterRange(osc, t, end);
+  return osc;
+}
+function v043fGetNoiseBuffer(ctx) {
+  if (v043fAudio.noiseBuffer && v043fAudio.noiseBuffer.sampleRate === ctx.sampleRate) return v043fAudio.noiseBuffer;
+  const length = ctx.sampleRate;
+  const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
+  v043fAudio.noiseBuffer = buffer;
+  return buffer;
+}
+function v043fNoise(t, dur, peak, lpFreq, hpFreq) {
+  if (!v043fCanPlay()) return null;
+  const ctx = v043fAudio.ctx;
+  const end = t + dur + 0.08;
+  v043fPruneRanges(ctx.currentTime);
+  if (v043fCountOverlapping(t, end) >= v043fAudio.maxNodes) return null;
+  const src = ctx.createBufferSource();
+  src.buffer = v043fGetNoiseBuffer(ctx);
+  let node = src;
+  if (lpFreq) {
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = lpFreq;
+    node.connect(lp);
+    node = lp;
+  }
+  if (hpFreq) {
+    const hp = ctx.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = hpFreq;
+    node.connect(hp);
+    node = hp;
+  }
+  const g = v043fSpawnGain();
+  v043fEnv(g, t, peak, dur);
+  node.connect(g);
+  src.start(t);
+  src.stop(end);
+  v043fRegisterRange(src, t, end);
+  return src;
+}
+/* ===== SE関数（付録A・se-console v2.1正典の合成レシピをそのまま移植） ===== */
+function v043fPlayA3(t) {
+  return [
+    v043fOsc("square", 900, 0, t, .012, .5),
+    v043fNoise(t, .16, .9, 900),
+    v043fOsc("sine", 150, 50, t, .15, 1.0),
+    v043fOsc("sine", 880, 0, t + .02, .45, .12),
+    v043fOsc("sine", 1320, 0, t + .02, .35, .07)
+  ].filter(Boolean);
+}
+function v043fPlayB2(t) {
+  return [v043fOsc("sine", 1000, 580, t, .05, .4)].filter(Boolean);
+}
+function v043fPlayC1(t, volume) {
+  return [v043fOsc("sine", 2000, 0, t, .015, volume)].filter(Boolean);
+}
+function v043fPlayD6(t) {
+  return [
+    v043fOsc("sine", 220, 170, t, .06, .4),
+    v043fNoise(t, .05, .3, 900)
+  ].filter(Boolean);
+}
+function v043fPlayE1(t) {
+  return [
+    v043fOsc("sine", 1500, 0, t, .1, .3),
+    v043fOsc("sine", 2000, 0, t + .05, .1, .28),
+    v043fOsc("sine", 2600, 0, t + .1, .12, .25)
+  ].filter(Boolean);
+}
+function v043fPlayF1(t) {
+  return [v043fOsc("square", 170, 120, t, .09, .35)].filter(Boolean);
+}
+function v043fPlaySeNow(name) {
+  const t = v043fNow();
+  if (name === "b2") v043fPlayB2(t);
+  else if (name === "f1") v043fPlayF1(t);
+  else if (name === "a3") v043fPlayA3(t);
+  else if (name === "d6") v043fPlayD6(t);
+  else if (name === "e1") v043fPlayE1(t);
+}
+function v043fStopScheduledNodes(nodes) {
+  if (!nodes || !nodes.length || !v043fAudio.ctx) return;
+  const now = v043fAudio.ctx.currentTime;
+  nodes.forEach(node => { try { node.stop(now); } catch (e) {} });
+}
+/* --- 結果コレオグラフィのSE配線: 委託文タイムラインどおりの絶対スケジューリング（Web Audioの
+   自クロックで事前予約するため、setTimeoutのジッタに影響されない）。呼び出し元でreduced-motion
+   判定より前に評価することで、視覚短絡（jumpAllToFinal）とは独立に発音する（PR-J仕様） --- */
+function v043fScheduleLiveResultAudio(rank) {
+  if (!v043fCanPlay()) return { nodes: [] };
+  const t0 = v043fAudio.ctx.currentTime;
+  const nodes = [];
+  const collect = arr => { if (arr) nodes.push(...arr); };
+  for (let ms = 0; ms < 1000; ms += 70) collect(v043fPlayC1(t0 + ms / 1000, 0.16));
+  collect(v043fPlayA3(t0 + 1.12));
+  if (rank === "S" || rank === "A") {
+    collect(v043fPlayE1(t0 + 1.27));
+    if (rank === "S") collect(v043fPlayE1(t0 + 1.27 + 0.155));
+  }
+  for (let ms = 1670; ms < 1670 + 1170; ms += 90) collect(v043fPlayC1(t0 + ms / 1000, 0.10));
+  collect(v043fPlayD6(t0 + 2.97));
+  return { nodes };
+}
+
 /* --- 斜めワイプ: render()を再代入でラップし、state.view変化のみ検知（他の208箇所のrender()呼び出しには無反応） --- */
 let dgLastRenderedView;
 function dgTriggerWipe() {
@@ -8813,7 +9048,7 @@ function v043aRenderConfirmationSheet(config={}) {
     <div class="event-modal ${escapeHtml(tone)} ${escapeHtml(modalClass)}">
       <div class="modal-icon">${config.icon || "?"}</div>
       <div class="modal-copy"><h2>${escapeHtml(config.title || "確認")}</h2>${config.bodyHtml || ""}</div>
-      <div class="${escapeHtml(actionsClass)}"><button id="${escapeHtml(config.confirmId || "confirmSheetBtn")}" class="${escapeHtml(confirmClass)}"${confirmAttrs}>${escapeHtml(config.confirmLabel || "決定")}</button><button id="${escapeHtml(config.cancelId || "cancelSheetBtn")}" class="${escapeHtml(cancelClass)}"${cancelAttrs}>${escapeHtml(config.cancelLabel || "戻る")}</button></div>
+      <div class="${escapeHtml(actionsClass)}"><button id="${escapeHtml(config.confirmId || "confirmSheetBtn")}" class="${escapeHtml(confirmClass)}" data-se="b2"${confirmAttrs}>${escapeHtml(config.confirmLabel || "決定")}</button><button id="${escapeHtml(config.cancelId || "cancelSheetBtn")}" class="${escapeHtml(cancelClass)}" data-se="f1"${cancelAttrs}>${escapeHtml(config.cancelLabel || "戻る")}</button></div>
     </div>
   </div>`;
 }
@@ -10602,7 +10837,7 @@ function renderSongcraftControls() {
         <div><label>キーワード</label><select id="craftKeyword">${KEYWORDS.map(g=>`<option value="${g}">${g}</option>`).join("")}</select></div>
         <div><label>アレンジ</label><select id="craftArrange">${ARRANGES.map(g=>`<option value="${g}">${g}</option>`).join("")}</select></div>
       </div>
-      <button id="executeCraftBtn" class="songcraft-action">曲作りを実行</button>
+      <button id="executeCraftBtn" class="songcraft-action" data-se="b2">曲作りを実行</button>
       ${renderDraftList()}
     </div>
   `;
@@ -10954,7 +11189,7 @@ function renderLivePrep() {
         ${renderLivePrepStepPanel(step, 4, `
           <div class="prep-step-heading"><h3>④ 最終チェック</h3><small>気になる所は「直す」で戻れる。よければ本番へ。</small></div>
           ${renderLivePrepCheckPanel(v, { showStepLinks:true })}
-          <div class="live-prep-final-actions"><button id="performLiveBtn" class="big-action">ライブ本番へ</button>${!currentLiveEvent().fixed ? `<button id="noShowLiveBtn" class="ghost-btn danger wide-cancel">ライブをドタキャンする</button>` : ""}</div>
+          <div class="live-prep-final-actions"><button id="performLiveBtn" class="big-action" data-se="b2">ライブ本番へ</button>${!currentLiveEvent().fixed ? `<button id="noShowLiveBtn" class="ghost-btn danger wide-cancel">ライブをドタキャンする</button>` : ""}</div>
           ${currentApplicantList().length ? renderApplicantList() : ""}
           ${renderLivePrepStepControls(step)}
         `)}
@@ -11539,7 +11774,7 @@ function renderBandNameOverlay() {
     <div class="event-modal event band-name-modal">
       <div class="modal-icon">◆︎</div>
       <div class="modal-copy"><h2>${renaming ? "バンド名を変更する" : "バンド名を決めよう"}</h2><p>${renaming ? "改名すると、古い名前で覚えていた人が少し迷う。認知度がごく少し下がります。" : "ライブハウスに名前を出すには、バンド名が必要だ。"}</p><input id="bandNameInput" class="wide-input" placeholder="例：名無しの地下バンド" value="${escapeHtml(state.band.name || "")}" /></div>
-      <div class="modal-actions confirm-wide"><button id="confirmBandNameBtn" class="big-action">この名前で行く</button>${renaming ? `<button id="cancelBandNameBtn" class="ghost-btn">戻る</button>` : ""}</div>
+      <div class="modal-actions confirm-wide"><button id="confirmBandNameBtn" class="big-action" data-se="b2">この名前で行く</button>${renaming ? `<button id="cancelBandNameBtn" class="ghost-btn" data-se="f1">戻る</button>` : ""}</div>
     </div>
   </div>`;
 }
@@ -14424,7 +14659,8 @@ function renderAccountSettingsScreen() {
     <label>メールアドレス<input id="accountEmail" maxlength="40" value="${escapeHtml(acc.email)}" /></label>
     <label>SNS表示名<input id="accountSnsDisplayName" maxlength="28" value="${escapeHtml(acc.snsDisplayName)}" /></label>
     <label>SNSユーザー名<input id="accountSnsUserName" maxlength="24" value="${escapeHtml(acc.snsUserName)}" /></label>
-    <button id="saveAccountSettingsBtn" class="big-action">保存</button>
+    <label class="v043f-se-toggle"><input type="checkbox" id="accountSeToggle" ${v043fAudio.muted ? "" : "checked"} /> 効果音（SE）</label>
+    <button id="saveAccountSettingsBtn" class="big-action" data-se="b2">保存</button>
   </div>`);
 }
 
@@ -14638,6 +14874,14 @@ bindEvents = function bindEvents_v042() {
     render();
   });
   document.querySelectorAll(".phoneModeBtn").forEach(btn => btn.addEventListener("click", () => { state.phoneAccountEdit = null; }));
+  /* PR-J: B2/F1 SE配線。既存ハンドラには一切触れず、data-se属性を持つ要素へ追加でリスナーを張るのみ
+     （実行確定系の主要タップ＝b2、戻る/キャンセル＝f1。適用範囲はPR本文の候補一覧で報告・発注者が取捨） */
+  document.querySelectorAll("[data-se]").forEach(btn => {
+    if (btn.dataset.v043fSeBound === "1") return;
+    btn.dataset.v043fSeBound = "1";
+    btn.addEventListener("click", () => v043fPlaySeNow(btn.dataset.se));
+  });
+  document.getElementById("accountSeToggle")?.addEventListener("change", (ev) => { v043fSetMuted(!ev.target.checked); });
 };
 
 /* --- fix2 (P0): ライブ結果オーバーレイの背面スクロールロック ---
