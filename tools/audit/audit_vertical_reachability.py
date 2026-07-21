@@ -31,6 +31,15 @@
    サンドボックスパスにフォールバックする。)
 
 終了コード: 全項目PASSで0、いずれかFAILで1。
+拡張（fix6 B5・恒久）:
+  上記の個別ターゲット到達性に加え、以下2項目を全画面（home/band/songs/schedule/
+  bandbook一覧・詳細/phone各サブビュー/dev/log）へ一律適用する。
+  (a) 初期表示可視性: スクロール操作なしの初期表示で、フッター/タブバー
+      （ホームは専用の下部操作＝コマンドタイル）が100dvh内に完全可視であること。
+  (b) ネスト検出: overflow-y:auto/scrollかつ実際にコンテンツが溢れている要素
+      （＝実効スクロールオーナー）が、同一画面内で祖先子関係にある組を持たない
+      こと（「1画面1スクロールオーナー」規則の機械的検証）。演出オーバーレイ
+      （ライブ進行/結果・会話等の一時要素、上記TARGETSで個別検証済み）は対象外。
 """
 import json
 import os
@@ -55,6 +64,10 @@ SETUP_BASE = """() => {
 RESET_OVERLAYS = """() => {
     state.liveProgressModal = null; state.liveResultModal = null; state.pendingLiveResultModal = null;
     state.activeStoryEvent = null; state.view = 'home'; state.phoneSubView = null; state.activeMailId = null;
+    /* fix6 B5: setlist_builderターゲットがstate.turnをライブ本番ターンへ書き換えたまま残ると、
+       以降の全チェックでliveMode=true（isLiveTurn()）が続き、.v042-tabbarへlive-lockが
+       付与されっぱなしになる（意図通りの非表示だが、本監査には無関係な汚染）。turnを安全な初期値へ戻す。 */
+    state.turn = 1;
     render();
 }"""
 
@@ -131,6 +144,112 @@ TARGETS = [
         "selector": "#performLiveBtn",
     },
 ]
+
+# fix6 B5（恒久）: 「1画面1スクロールオーナー」＋「初期表示でフッター常時可視」の全画面監査対象。
+# 演出オーバーレイ（TARGETSで個別検証済み）は対象外。
+SCREENS = [
+    {"name": "home", "setup": """() => { state.view='home'; render(); }"""},
+    {"name": "band", "setup": """() => { state.view='band'; render(); }"""},
+    {"name": "songs", "setup": """() => { state.view='songs'; render(); }"""},
+    {"name": "schedule", "setup": """() => { state.view='schedule'; render(); }"""},
+    {"name": "bandbook_list", "setup": """() => {
+        Object.keys(BAND_DATABASE).forEach(id => promoteBandState(id, 'met'));
+        state.view='bandbook'; state.bandBookDetail=null; render();
+    }"""},
+    {"name": "bandbook_detail", "setup": """() => {
+        const id = Object.keys(BAND_DATABASE)[0]; promoteBandState(id, 'met');
+        state.view='bandbook'; state.bandBookDetail=id; render();
+    }"""},
+    {"name": "phone_menu", "setup": """() => { state.view='phone'; state.phoneSubView='menu'; render(); }"""},
+    {"name": "phone_mail", "setup": """() => { state.view='phone'; state.phoneSubView='mail'; render(); }"""},
+    {"name": "phone_sns", "setup": """() => { state.view='phone'; state.phoneSubView='sns'; render(); }"""},
+    {"name": "dev", "setup": """() => { state.devMode=true; state.view='dev'; render(); }"""},
+    {"name": "log", "setup": """() => { state.view='log'; render(); }"""},
+]
+
+# ホームはタブバーを意図的に非表示にし、コマンドタイル群を下部の主要操作として使う設計。
+# 携帯(phone_*)はデバイス風オーバーレイが下部タブバーを完全に置き換え、閉じるボタンが
+# 唯一の常設操作となる設計。いずれも意図的な非タブバー画面のため、代表操作セレクタを切り替える。
+FOOTER_SELECTOR_BY_SCREEN = {
+    "home": ".v043b-action-btn",  # コマンドタイル（下部主要操作）の代表1件
+    "phone_menu": ".phoneCloseBtn",
+    "phone_mail": ".phoneCloseBtn",
+    "phone_sns": ".phoneCloseBtn",
+}
+DEFAULT_FOOTER_SELECTOR = ".v042-tabbar"
+
+
+def check_footer_visible_at_rest(page, screen):
+    page.evaluate(RESET_OVERLAYS)
+    page.wait_for_timeout(80)
+    page.evaluate(screen["setup"])
+    page.wait_for_timeout(200)
+    selector = FOOTER_SELECTOR_BY_SCREEN.get(screen["name"], DEFAULT_FOOTER_SELECTOR)
+    EPS = 1.5
+    info = page.evaluate(
+        """(sel) => {
+            const els = document.querySelectorAll(sel);
+            if (!els.length) return { found: false };
+            const el = els[els.length - 1];
+            const r = el.getBoundingClientRect();
+            const cs = getComputedStyle(el);
+            return { found: true, top: r.top, bottom: r.bottom, vh: window.innerHeight,
+                     display: cs.display, visibility: cs.visibility };
+        }""",
+        selector,
+    )
+    if not info["found"]:
+        return {"name": screen["name"], "pass": False, "reason": "footer selector not found: " + selector}
+    if info["display"] == "none" or info["visibility"] == "hidden":
+        return {"name": screen["name"], "pass": False, "reason": "footer element hidden (display/visibility)"}
+    visible = -EPS <= info["top"] and info["bottom"] <= info["vh"] + EPS
+    return {
+        "name": screen["name"], "pass": visible, "selector": selector,
+        "top": info["top"], "bottom": info["bottom"], "vh": info["vh"],
+    }
+
+
+def check_no_nested_scrollers(page, screen):
+    page.evaluate(RESET_OVERLAYS)
+    page.wait_for_timeout(80)
+    page.evaluate(screen["setup"])
+    page.wait_for_timeout(200)
+    result = page.evaluate(
+        """() => {
+            const all = Array.from(document.querySelectorAll('body *'));
+            const scrollers = all.filter(el => {
+                const cs = getComputedStyle(el);
+                const canScrollY = ['auto', 'scroll'].includes(cs.overflowY);
+                const overflowsY = el.scrollHeight > el.clientHeight + 1;
+                const visible = el.getBoundingClientRect().width > 0;
+                return canScrollY && overflowsY && visible;
+            });
+            const nestedPairs = [];
+            scrollers.forEach((a, i) => {
+                scrollers.forEach((b, j) => {
+                    if (i === j) return;
+                    if (a.contains(b) && a !== b) {
+                        nestedPairs.push({
+                            outer: a.tagName + '.' + (a.className || '').toString().slice(0, 40),
+                            inner: b.tagName + '.' + (b.className || '').toString().slice(0, 40),
+                        });
+                    }
+                });
+            });
+            return {
+                scrollerCount: scrollers.length,
+                scrollers: scrollers.map(el => el.tagName + '.' + (el.className || '').toString().slice(0, 40)),
+                nestedPairs,
+            };
+        }"""
+    )
+    return {
+        "name": screen["name"],
+        "pass": len(result["nestedPairs"]) == 0,
+        "scrollerCount": result["scrollerCount"],
+        "scrollers": result["scrollers"],
+        "nestedPairs": result["nestedPairs"],
+    }
 
 
 def resolve_executable_path():
@@ -214,16 +333,26 @@ def main():
             for target in TARGETS:
                 results.append(check_target(page, target))
 
+            footer_results = [check_footer_visible_at_rest(page, screen) for screen in SCREENS]
+            nested_results = [check_no_nested_scrollers(page, screen) for screen in SCREENS]
+
             browser.close()
     finally:
         srv.terminate()
 
     print(json.dumps(results, indent=2, ensure_ascii=False))
-    failed = [r for r in results if not r["pass"]]
+    print("\n--- fix6 B5 (a) footer/tabbar visible at rest, per screen ---")
+    print(json.dumps(footer_results, indent=2, ensure_ascii=False))
+    print("\n--- fix6 B5 (b) nested scrollable ancestors, per screen ---")
+    print(json.dumps(nested_results, indent=2, ensure_ascii=False))
+
+    all_results = results + footer_results + nested_results
+    failed = [r for r in all_results if not r["pass"]]
     if failed:
-        print(f"\n[NG] {len(failed)} target(s) FAILED vertical reachability.", file=sys.stderr)
+        print(f"\n[NG] {len(failed)} check(s) FAILED vertical reachability (incl. fix6 B5 extensions).", file=sys.stderr)
         sys.exit(1)
-    print(f"\n[OK] all {len(results)} targets PASSED vertical reachability.")
+    print(f"\n[OK] all {len(results)} targets + {len(footer_results)} footer-visibility + "
+          f"{len(nested_results)} nested-scroller checks PASSED vertical reachability.")
     sys.exit(0)
 
 

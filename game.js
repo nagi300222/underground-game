@@ -14663,12 +14663,6 @@ render = function () {
         currentStep.scrollIntoView({ block: "nearest" });
       }
     }
-    /* fix5 A4: ホームのターン帯は現在ターンのセルが常に完全可視であることを要求されるため、
-       .now セルが端で見切れている場合のみ最小移動で可視化する（block/inlineともnearestで無駄な再スクロールを防止） */
-    const nowTurnCell = document.querySelector(".v042-turn-scroll .v042-turn.now");
-    if (nowTurnCell && typeof nowTurnCell.scrollIntoView === "function") {
-      nowTurnCell.scrollIntoView({ block: "nearest", inline: "nearest" });
-    }
   }
 };
 

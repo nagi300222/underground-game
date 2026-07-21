@@ -2295,9 +2295,8 @@ body:has(.v042-phone-backdrop){overflow-x:hidden;}
 .v042-turn-head{display:flex;justify-content:space-between;gap:8px;align-items:center;color: var(--ink);margin-bottom:6px;}
 /* 二役: 紫=空間の静、ターン大数字（SKIN_ORDER_v3 PR-D #4。大サイズ太字のみ許容のためbold+拡大とセットで運用） */
 .v042-turn-head span{font-size:19px;color: var(--vio);font-weight:900;font-family: var(--font-anton), var(--font-display);font-variant-numeric:tabular-nums;letter-spacing:.02em;}
-/* fix5 A4: 端で前後セルが中途半端に見切れないよう、要素境界へ吸着するスクロールスナップを付与 */
-.v042-turn-scroll{display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:thin;max-width:100%;padding-bottom:2px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;scroll-padding-inline:2px;}
-.v042-turn{flex:0 0 56px;min-width:56px;min-height:52px;display:grid;align-content:center;gap:2px;border: 1px solid var(--ink);border-radius: 0;background: var(--bg);color: var(--ink);scroll-snap-align:start;}
+.v042-turn-scroll{display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:thin;max-width:100%;padding-bottom:2px;}
+.v042-turn{flex:0 0 56px;min-width:56px;min-height:52px;display:grid;align-content:center;gap:2px;border: 1px solid var(--ink);border-radius: 0;background: var(--bg);color: var(--ink);}
 .v042-turn b{font-size:14px;}
 .v042-turn small{font-size:10px;color: var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .v042-turn.done{opacity:.55;}
@@ -2318,12 +2317,10 @@ body:has(.v042-phone-backdrop){overflow-x:hidden;}
 .v042-songcraft,.v042-plan,.v042-band-manage{position:relative;z-index:0;overflow:hidden;border: 2px solid var(--ink);border-radius: 0;color: var(--ink);background-image: radial-gradient(rgba(242,242,245,.045) 1px, transparent 1.5px);background-size:5px 5px;background-color: var(--bg);min-width:0;padding:10px;text-align:left;display:grid;gap:4px;box-sizing:border-box;}
 .v042-songcraft{min-height:94px;background: var(--bg);color: var(--ink);font-size:16px;}
 .v042-songcraft span{font-size:24px;}
-.v042-plan small,.v042-band-manage small{font-style:normal;font-size:11px;}
-/* fix5 A1: 状態文字（未/済等）は本文（small）から分離し、バナー右肩の小型状態チップへ独立配置。
-   小文言は1行固定・折返し禁止（孤立文字の折返しを構造的に防止）。 */
-.v042-songcraft{padding-top:14px;}
-.v042-songcraft small{display:block;font-style:normal;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
-.v042-songcraft em{position:absolute;top:8px;right:8px;font-style:normal;font-size:10px;line-height:1;padding:3px 6px;background: var(--bg);color: var(--ink);border:1px solid var(--ink);white-space:nowrap;z-index:2;}
+.v042-songcraft em,.v042-plan small,.v042-band-manage small{font-style:normal;font-size:11px;}
+/* fix6 A2: 左揃え起因の孤立折返しを、中央揃えスタック（英ラベル・和文・サブ文言・状態文字の全行）で解消。
+   fix5 A1のチップ分離ではなくレイアウト意匠での解決（発注者裁定によりfix5 A群はロールバック済み） */
+.v042-songcraft{text-align:center;justify-items:center;}
 .v042-songcraft:disabled{opacity:.66;}
 .v042-plan{min-height:94px;background: var(--bg);color: var(--ink);}
 .v042-illustration{min-height:188px;border: 1px solid var(--ink);border-radius: 0;background: var(--bg);color: var(--ink);display:grid;grid-template-columns:minmax(0,1.1fr) minmax(86px,.75fr);align-items:end;gap:10px;padding:12px;text-align:left;overflow:hidden;}
@@ -2588,6 +2585,21 @@ body:has(.v042-phone-backdrop){overflow-x:hidden;}
 #app:has(.v043b-shell-compact-home),
 body:has(.v043b-shell-compact-home){height:100dvh;overflow:hidden;}
 .v043b-shell-compact-home .v042-view-panel{height:100%;max-width:100%;margin:0;padding:0 !important;overflow:hidden;display:block;}
+/* fix6 B4: 「1画面1スクロールオーナー」を全画面へ一般化。外側(shell/body/app)は100dvhで固定し、
+   .v042-view-panelのみを唯一のスクロール領域とする。ホーム(compact-home)は上記の専用ルールが
+   同一詳細度＋!importantで優先され続けるため無影響（そもそも全内容が収まりスクロール自体が不要）。 */
+.v043b-shell{height:100dvh;max-height:100dvh;overflow:hidden;box-sizing:border-box;}
+#app:has(.v043b-shell),
+body:has(.v043b-shell){height:100dvh;overflow:hidden;}
+.v042-view-panel{height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;}
+/* fix6 B3: overflow-xのみの指定はCSS仕様上overflow-yがautoへ暗黙昇格し、意図しない第二のスクロール
+   オーナーを生む（実描画で確認）。overflow-x/yを明示両立し、上のoverflow-y:autoが単独のオーナーとして機能するようにする */
+.v042-view-panel{overflow-x:hidden;}
+/* fix6 B3: 旧タブバー用ルール（.tabbar, .tabbar.live-lock、@media(max-width:700px) and (orientation:portrait)内）が
+   position:static !importantを課しており、同じ.tabbarクラスを共有するv042系タブバーのposition:fixedを
+   打ち消していた（実描画で確認：フッター圏外の確定原因）。v042-tabbar側だけを!importantで是正し、
+   旧ルール自体（他要素が依存している可能性）には触れない。 */
+.v042-tabbar{position:fixed !important;}
 .v043b-home{height:100%;min-height:0;display:grid;grid-template-rows:auto auto auto minmax(0,1fr);gap:5px;overflow:hidden;}
 .v043b-home .v042-home-top{grid-template-columns:minmax(0,1fr) 44px 44px !important;gap:6px !important;align-items:center;min-height:44px;position:relative;z-index:12;}
 .v043b-home .v042-profile-block b{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -2643,9 +2655,7 @@ body:has(.v043b-shell-compact-home){height:100dvh;overflow:hidden;}
   background:var(--bg);}
 .v043b-home .v042-home-grid{min-height:0;height:100%;grid-template-columns:92px minmax(0,1fr);gap:6px;align-items:stretch;overflow:hidden;}
 .v043b-home .v042-action-column{height:100%;min-height:0;display:grid;grid-template-rows:repeat(6,minmax(0,1fr));gap:5px;overflow:hidden;}
-/* fix5 A2: タイル規格化。note行を可変（残り空間を吸収）にしてicon/labelの帯を常に下端固定へ。
-   container-typeでタイル自身の実高を基準にゴースト英語を比率指定（45-55%帯の中央=50cqh）できるようにする */
-.v043b-home .v043b-action-btn{position:relative;min-height:0;height:100%;border-radius: 0;padding:4px 5px;grid-template-columns:auto 1fr;grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"note note" "icon label";align-content:stretch;justify-items:stretch;gap:0;text-align:center;box-shadow: none;container-type:size;}
+.v043b-home .v043b-action-btn{position:relative;min-height:0;height:100%;border-radius: 0;padding:4px 5px;grid-template-columns:auto 1fr;grid-template-areas:"note note" "icon label";align-content:center;justify-items:stretch;gap:0;text-align:center;box-shadow: none;}
 .v043b-home .v043b-action-btn span{font-size:15px;line-height:1;}
 .v043b-home .v043b-action-btn b{max-width:100%;font-size:12px;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 /* PR-I タイル解剖: 下部黒ラベル帯（ピクト＋和文900、SKIN_ORDER v2.1 work-item3）。note(ヒント)行は帯外＝ゴースト語が透ける余白 */
@@ -2655,15 +2665,10 @@ body:has(.v043b-shell-compact-home){height:100dvh;overflow:hidden;}
 .v043b-home .v043b-action-btn span{display:grid;place-items:center;margin-left:-5px;padding:2px 2px 2px 3px;}
 .v043b-home .v043b-action-btn b{display:flex;align-items:center;justify-content:center;margin-right:-5px;padding:2px 3px 2px 2px;font-weight:900;}
 .v043b-home .v043b-action-btn small{width:100%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:10px;line-height:1.1;}
-/* fix5 A2: ゴースト英語をタイル自身の実高比率で統一（45-55%帯の中央=50cqh）。6タイル同一規格。 */
-.v043b-home .v043b-action-btn::before{font-size:50cqh;line-height:1;}
 .v043b-home .v043b-action-btn.selected{border-color: var(--ink);background: var(--bg);color: var(--ink);box-shadow: none;}
 .v043b-home .v043b-action-btn.selected em{position:absolute;top:3px;right:4px;width:16px;height:16px;border-radius: 0;display:grid;place-items:center;background: var(--bg);color: var(--ink);font-style:normal;font-size:10px;font-weight:900;}
 .v043b-home .v043b-action-btn:disabled{background: var(--bg);color: var(--ink);box-shadow: none;}
-/* fix5 A3: 画像未配置時はプレースホルダー行を内容量まで圧縮、配置後(:has(img))は3:4向け可変枠へ自動拡張。
-   グリッドの並び・段数は不変、比率(行サイズ)のみ画像有無で切替える。 */
-.v043b-home .v042-info-column{height:100%;min-height:0;display:grid;grid-template-rows:minmax(42px,auto) minmax(64px,auto) auto minmax(42px,auto);gap:6px;overflow:hidden;}
-.v043b-home .v042-info-column:has(.v042-stage-visual img){grid-template-rows:minmax(42px,auto) minmax(118px,1fr) auto minmax(42px,auto);}
+.v043b-home .v042-info-column{height:100%;min-height:0;display:grid;grid-template-rows:minmax(42px,auto) minmax(118px,1fr) auto minmax(42px,auto);gap:6px;overflow:hidden;}
 .v043b-home .v042-songcraft,
 .v043b-home .v042-band-manage{min-height:0;padding:6px 8px;gap:1px;align-content:center;}
 .v043b-home .v042-songcraft{font-size:13px;}
@@ -2846,9 +2851,8 @@ button .v043e-icon,
 .v043b-home .v042-songcraft b::before{content:"SONGCRAFT";display:block;font-family: var(--font-display);font-size:8px;font-weight:600;letter-spacing:.14em;opacity:1;margin-bottom:1px;}
 /* PR-I条件解消: 要素opacity.72が実効コントラストを希釈していた実測発見（4.12:1<4.5:1）。
    1.0へ是正し実測5.83:1を確保（発注者裁定: rgba(11,11,16,.75以上)かつ実測4.5:1以上） */
-.v043b-home .v042-songcraft small{color: var(--bg);opacity:1;}
-/* fix5 A1: チップは橙地から独立した自前のダーク地を持つため、文字色は明（--ink）のまま据え置く */
-.v043b-home .v042-songcraft em{opacity:1;}
+.v043b-home .v042-songcraft small,
+.v043b-home .v042-songcraft em{color: var(--bg);opacity:1;}
 .v043b-home .v042-songcraft:disabled b,
 .v043b-home .v042-songcraft:disabled span,
 .v043b-home .v042-songcraft:disabled small,

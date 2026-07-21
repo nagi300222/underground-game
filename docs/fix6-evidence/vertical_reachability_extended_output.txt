@@ -1,0 +1,242 @@
+[
+  {
+    "name": "live_progress_idx0（進行開始・最小コンテンツ）",
+    "pass": true,
+    "mode": "visible_at_rest",
+    "btnTop": 568.750244140625,
+    "btnBottom": 612.7864990234375
+  },
+  {
+    "name": "live_progress_idx4（進行完了・最大成長）",
+    "pass": true,
+    "mode": "visible_at_rest",
+    "btnTop": 566.74853515625,
+    "btnBottom": 612.78662109375
+  },
+  {
+    "name": "live_result（ライブ結果）",
+    "pass": true,
+    "mode": "visible_at_rest",
+    "btnTop": 446.44476318359375,
+    "btnBottom": 494.2624206542969
+  },
+  {
+    "name": "conversation（会話／ストーリーイベント最深ステップ）",
+    "pass": true,
+    "mode": "visible_at_rest",
+    "btnTop": 544.109375,
+    "btnBottom": 614
+  },
+  {
+    "name": "phone_mail_list（携帯メッセージ一覧・多件数）",
+    "pass": true,
+    "mode": "visible_at_rest",
+    "btnTop": 59,
+    "btnBottom": 103
+  },
+  {
+    "name": "setlist_builder（セトリ編成・最終ステップ／その他の成長画面）",
+    "pass": true,
+    "mode": "reachable_by_scroll",
+    "btnTopAtRest": 899.03125,
+    "btnBottomAtRest": 953.03125,
+    "btnTopAfterScroll": 613.03125,
+    "btnBottomAfterScroll": 667.03125
+  }
+]
+
+--- fix6 B5 (a) footer/tabbar visible at rest, per screen ---
+[
+  {
+    "name": "home",
+    "pass": true,
+    "selector": ".v043b-action-btn",
+    "top": 584.686279296875,
+    "bottom": 661.27294921875,
+    "vh": 667
+  },
+  {
+    "name": "band",
+    "pass": true,
+    "selector": ".v042-tabbar",
+    "top": 602.65625,
+    "bottom": 667,
+    "vh": 667
+  },
+  {
+    "name": "songs",
+    "pass": true,
+    "selector": ".v042-tabbar",
+    "top": 602.65625,
+    "bottom": 667,
+    "vh": 667
+  },
+  {
+    "name": "schedule",
+    "pass": true,
+    "selector": ".v042-tabbar",
+    "top": 602.65625,
+    "bottom": 667,
+    "vh": 667
+  },
+  {
+    "name": "bandbook_list",
+    "pass": true,
+    "selector": ".v042-tabbar",
+    "top": 602.65625,
+    "bottom": 667,
+    "vh": 667
+  },
+  {
+    "name": "bandbook_detail",
+    "pass": true,
+    "selector": ".v042-tabbar",
+    "top": 602.65625,
+    "bottom": 667,
+    "vh": 667
+  },
+  {
+    "name": "phone_menu",
+    "pass": true,
+    "selector": ".phoneCloseBtn",
+    "top": 5,
+    "bottom": 50,
+    "vh": 667
+  },
+  {
+    "name": "phone_mail",
+    "pass": true,
+    "selector": ".phoneCloseBtn",
+    "top": 5,
+    "bottom": 50,
+    "vh": 667
+  },
+  {
+    "name": "phone_sns",
+    "pass": true,
+    "selector": ".phoneCloseBtn",
+    "top": 5,
+    "bottom": 50,
+    "vh": 667
+  },
+  {
+    "name": "dev",
+    "pass": true,
+    "selector": ".v042-tabbar",
+    "top": 602.65625,
+    "bottom": 667,
+    "vh": 667
+  },
+  {
+    "name": "log",
+    "pass": true,
+    "selector": ".v042-tabbar",
+    "top": 602.65625,
+    "bottom": 667,
+    "vh": 667
+  }
+]
+
+--- fix6 B5 (b) nested scrollable ancestors, per screen ---
+[
+  {
+    "name": "home",
+    "pass": true,
+    "scrollerCount": 0,
+    "scrollers": [],
+    "nestedPairs": []
+  },
+  {
+    "name": "band",
+    "pass": true,
+    "scrollerCount": 1,
+    "scrollers": [
+      "MAIN.view-panel v042-view-panel"
+    ],
+    "nestedPairs": []
+  },
+  {
+    "name": "songs",
+    "pass": true,
+    "scrollerCount": 1,
+    "scrollers": [
+      "MAIN.view-panel v042-view-panel"
+    ],
+    "nestedPairs": []
+  },
+  {
+    "name": "schedule",
+    "pass": true,
+    "scrollerCount": 1,
+    "scrollers": [
+      "MAIN.view-panel v042-view-panel"
+    ],
+    "nestedPairs": []
+  },
+  {
+    "name": "bandbook_list",
+    "pass": true,
+    "scrollerCount": 1,
+    "scrollers": [
+      "MAIN.view-panel v042-view-panel"
+    ],
+    "nestedPairs": []
+  },
+  {
+    "name": "bandbook_detail",
+    "pass": true,
+    "scrollerCount": 1,
+    "scrollers": [
+      "MAIN.view-panel v042-view-panel"
+    ],
+    "nestedPairs": []
+  },
+  {
+    "name": "phone_menu",
+    "pass": true,
+    "scrollerCount": 1,
+    "scrollers": [
+      "MAIN.view-panel v042-view-panel phone-open"
+    ],
+    "nestedPairs": []
+  },
+  {
+    "name": "phone_mail",
+    "pass": true,
+    "scrollerCount": 2,
+    "scrollers": [
+      "MAIN.view-panel v042-view-panel phone-open",
+      "DIV.v042-mail-app"
+    ],
+    "nestedPairs": []
+  },
+  {
+    "name": "phone_sns",
+    "pass": true,
+    "scrollerCount": 1,
+    "scrollers": [
+      "MAIN.view-panel v042-view-panel phone-open"
+    ],
+    "nestedPairs": []
+  },
+  {
+    "name": "dev",
+    "pass": true,
+    "scrollerCount": 1,
+    "scrollers": [
+      "MAIN.view-panel v042-view-panel"
+    ],
+    "nestedPairs": []
+  },
+  {
+    "name": "log",
+    "pass": true,
+    "scrollerCount": 1,
+    "scrollers": [
+      "MAIN.view-panel v042-view-panel"
+    ],
+    "nestedPairs": []
+  }
+]
+
+[OK] all 6 targets + 11 footer-visibility + 11 nested-scroller checks PASSED vertical reachability.
