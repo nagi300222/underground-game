@@ -2210,6 +2210,10 @@ small,.badge,.tabbar .tabBtn small,.menu-tile small{font-size:12px;line-height:1
 .sns-body footer{display:flex;gap:12px;color: var(--v41-muted);font-size:12px;flex-wrap:wrap;}
 .account-form{display:grid;gap:9px;margin:10px 0;}
 .account-form label{display:grid;gap:4px;color: var(--v41-muted);font-size:12px;font-weight:700;}
+/* PR-J: SE ON/OFFトグル（チェックボックス行）。account-form input の width:100%/min-height:42px を上書きし、
+   テキストラベルと同じ行に収める。 */
+.account-form label.v043f-se-toggle{display:flex;align-items:center;gap:8px;}
+.account-form label.v043f-se-toggle input{width:auto;min-height:auto;flex:none;}
 @media(max-width:360px){
   .gmail-row{grid-template-columns:30px minmax(0,1fr) auto !important;}
   .gmail-row .mail-kind-chip{display:none;}
