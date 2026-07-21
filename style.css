@@ -612,6 +612,8 @@ button.stage-slot.selected {outline: 2px solid var(--accent);background: var(--b
 .result-header span {color: var(--accent);letter-spacing: .18em;font-size: .72rem;font-weight: 800;font-family: var(--font-display);text-transform:uppercase;}
 .result-header b {font-size: 1.15rem;}
 .result-header em {color: var(--muted);font-style: normal;}
+/* PR-F: 対バン相手のワードマーク（表示のみ追加。fix4のRANK演出タイムラインには不接触） */
+.result-opponent {margin-top:2px;}
 .rank-burst {position: absolute;top: 12px;right: 16px;width: 64px;height: 64px;display:grid;place-items:center;border-radius: 0;background: var(--bg);color: var(--ink);font-size: 2rem;font-weight: 1000;box-shadow: none;animation: rankBurst 260ms cubic-bezier(.2,.9,.1,1) both;font-family: var(--font-anton), var(--font-display);}
 /* RANKスタンプ叩き込み（STUDY 10正典）: rotate(-8deg)は静止姿勢まで維持。
    方針v2.0.2により「傾け禁止」の適用対象はリソース値・カウントアップ数字等の判断材料に限定され、
@@ -1406,6 +1408,8 @@ button:focus:not(:focus-visible), input:focus:not(:focus-visible), select:focus:
 .story-name.tag-color-c16::before{background: var(--tag-c16);} .story-name.tag-color-c17::before{background: var(--tag-c17);}
 .story-name.tag-color-c18::before{background: var(--tag-c18);} .story-name.tag-color-c19::before{background: var(--tag-c19);}
 .story-name.tag-color-c20::before{background: var(--tag-c20);} .story-name.tag-color-c21::before{background: var(--tag-c21);}
+/* PR-F: バンド固有色（BAND_DATABASE.color、実色）。ハッシュ振り分けを置換する経路 */
+.story-name.tag-color-band::before{background: var(--band-tag-color);}
 /* 選択肢/進行ボタン: clip-pathで平行四辺形（文字水平・44px確保）。300msゲート機構(#storyNextBtn等)には無干渉（SKIN_ORDER_v4 PR-G #3） */
 .story-actions button{position:relative;isolation:isolate;background:transparent;border:none;box-shadow:none;min-height:44px;padding:10px 18px;}
 .story-actions button::before{content:"";position:absolute;inset:0;z-index:-1;background: var(--panel-2);border:1px solid var(--ink);clip-path: polygon(8% 0, 100% 0, 92% 100%, 0 100%);}
@@ -1799,8 +1803,10 @@ button.danger{background: transparent;border-color: var(--ink);color: var(--ink)
 .phone-action-required{border-color: var(--ink);}
 .phone-action-required.ok{border-color: var(--v41-border);}
 .mail-row-enhanced{display:flex;align-items:center;gap:9px;background: var(--panel-2);border: 1px solid var(--v41-border);border-radius: 0;box-shadow: none;text-align:left;position:relative;padding-left:11px;}
-/* 差出人固有色帯: バンドDBに色データが無いため送信者名から算出した表示用派生class（tag-color-cN、SKIN_ORDER_v4 PR-G #1） */
+/* 差出人固有色帯: バンド送信者はBAND_DATABASE.color（実色、tag-color-band）を使用。
+   非バンド差出人（店長・機材レンタル等）は送信者名ハッシュ振り分け（tag-color-cN）を維持（PR-F条件） */
 .mail-row-enhanced::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background: var(--dim);}
+.mail-row-enhanced.tag-color-band::before{background: var(--band-tag-color);}
 .mail-row-enhanced.tag-color-c0::before{background: var(--tag-c0);} .mail-row-enhanced.tag-color-c1::before{background: var(--tag-c1);}
 .mail-row-enhanced.tag-color-c2::before{background: var(--tag-c2);} .mail-row-enhanced.tag-color-c3::before{background: var(--tag-c3);}
 .mail-row-enhanced.tag-color-c4::before{background: var(--tag-c4);} .mail-row-enhanced.tag-color-c5::before{background: var(--tag-c5);}
@@ -2174,6 +2180,26 @@ small,.badge,.tabbar .tabBtn small,.menu-tile small{font-size:12px;line-height:1
 .mail-meta span{min-width:0;overflow-wrap:anywhere;}
 .tweet-card{display:grid !important;grid-template-columns:38px minmax(0,1fr);gap:9px;padding:10px !important;}
 .sns-avatar{width:38px;height:38px;display:grid;place-items:center;border-radius: 0;background: var(--v41-paper);color: var(--v41-paper-ink);font-weight:900;}
+/* PR-F: バンド発信のSNS投稿はBAND_DATABASE.colorをアバター背景へ直接使用（ハッシュ非経由）。
+   22色は明暗が混在するため、文字は硬縁取りで明暗どちらの地でも視認性を確保 */
+.sns-avatar.tag-color-band{background: var(--band-tag-color);color: var(--ink);text-shadow: 1px 1px 0 #000;}
+
+/* PR-F ワードマーク（22ロゴのCSS作字、BAND_IDENTITY_v1.md準拠。同梱Anton/Barlowのみ・画像アセット不要） */
+.band-wordmark{--wordmark-gap-bg: var(--bg);position:relative;display:inline-block;max-width:100%;color: var(--ink);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-bottom:6px;line-height:1.15;}
+.band-wordmark::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background: var(--band-tag-color, var(--dim));}
+/* A 極太伊体（衝動系）: Anton＋擬似伊体skewX。display級のため傾け可 */
+.band-wordmark.wm-style-A{font-family: var(--font-anton), var(--font-display);font-weight:900;transform: skewX(-8deg);transform-origin:left bottom;letter-spacing:.01em;}
+/* B 細身・字間広（浮遊・歌系）: Barlow Condensed＋広いletter-spacing */
+.band-wordmark.wm-style-B{font-family: var(--font-display);font-weight:600;letter-spacing:.3em;padding-right:.3em;}
+/* C ステンシル欠き（DIY・尖り系）: Barlow＋文字を横切るBG色2pxの欠きライン */
+.band-wordmark.wm-style-C{font-family: var(--font-display);font-weight:700;letter-spacing:.04em;}
+.band-wordmark.wm-style-C::before{content:"";position:absolute;left:0;right:0;top:42%;height:2px;background: var(--wordmark-gap-bg);z-index:1;pointer-events:none;}
+.band-wordmark.wm-sm{font-size:12px;padding-bottom:3px;}
+.band-wordmark.wm-sm::after{height:2px;}
+.band-wordmark.wm-md{font-size:18px;}
+.band-wordmark.wm-lg{font-size:24px;}
+/* 図鑑カードは--panel地（--bgではない）のため、Cスタイルの欠きラインを地の色に追従させる */
+.bandbook-row .band-wordmark,.bandbook-detail .band-wordmark{--wordmark-gap-bg: var(--panel);}
 .sns-body{min-width:0;display:grid;gap:5px;}
 .sns-body header{display:flex;gap:5px;align-items:baseline;min-width:0;}
 .sns-body header b,.sns-body header span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}

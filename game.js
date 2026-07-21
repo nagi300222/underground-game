@@ -469,7 +469,7 @@ const BAND_TUNING = {
  * ------------------------------------------------------------------ */
 const BAND_DATABASE = Object.freeze({
   kiwi: {
-    id: "kiwi", name: "Kiwi", kana: "キーウィ", internalLv: 1,
+    id: "kiwi", name: "Kiwi", kana: "キーウィ", internalLv: 1, color: "#B5E04C", markStyle: "B",
     genres: ["ポップロック", "インディーロック", "ゆるいオルタナ"],
     description: "ゆるく明るい空気でライブハウスを和ませるポップロックバンド。",
     representativeSong: "グリムポップ", representativeName: "モズ", representativePart: null,
@@ -478,7 +478,7 @@ const BAND_DATABASE = Object.freeze({
     fame: 20, audience: 16
   },
   kodama: {
-    id: "kodama", name: "コダマ", kana: "こだま", internalLv: 1,
+    id: "kodama", name: "コダマ", kana: "こだま", internalLv: 1, color: "#8FD6C7", markStyle: "B",
     genres: ["ギターロック", "和風ロック", "インディーロック"],
     description: "静かで少し不思議な余韻を残す和風インディーロックバンド。",
     representativeSong: "木漏れ日", representativeName: "ヒノカワ", representativePart: null,
@@ -487,7 +487,7 @@ const BAND_DATABASE = Object.freeze({
     fame: 22, audience: 18
   },
   melt: {
-    id: "melt", name: "めると", kana: "めると", internalLv: 1,
+    id: "melt", name: "めると", kana: "めると", internalLv: 1, color: "#9FB8FF", markStyle: "B",
     genres: ["ドリームポップ", "ミクスチャー"],
     description: "ボカロP文脈も持つ、ネット発の少し病んだドリームポップ系アーティスト。",
     representativeSong: "マグマカップ", representativeName: "ロク", representativePart: null,
@@ -496,7 +496,7 @@ const BAND_DATABASE = Object.freeze({
     fame: 24, audience: 19
   },
   koharugiku: {
-    id: "koharugiku", name: "コハルギク", kana: "こはるぎく", internalLv: 1,
+    id: "koharugiku", name: "コハルギク", kana: "こはるぎく", internalLv: 1, color: "#FFB27A", markStyle: "A",
     genres: ["歌ものロック", "メロコア"],
     description: "エモい歌詞と疾走感のあるメロディーで駆け抜ける地下に風をもたらすメロコアバンド。",
     representativeSong: "Rain", representativeName: "シュンカ", representativePart: null,
@@ -505,7 +505,7 @@ const BAND_DATABASE = Object.freeze({
     fame: 25, audience: 21
   },
   triple_arrows: {
-    id: "triple_arrows", name: "Triple Arrows", kana: "トリプルアローズ", internalLv: 2,
+    id: "triple_arrows", name: "Triple Arrows", kana: "トリプルアローズ", internalLv: 2, color: "#3D8BFF", markStyle: "A",
     genres: ["青春パンク", "メロコア"],
     description: "UNDERを拠点にする、荒削りで熱い青春パンクバンド。",
     representativeSong: "run throw", representativeName: "タカナシ", representativePart: "Vo/Gt",
@@ -514,7 +514,7 @@ const BAND_DATABASE = Object.freeze({
     fame: 26, audience: 20
   },
   carbons: {
-    id: "carbons", name: "CARBONS", kana: "カーボンズ", internalLv: 2,
+    id: "carbons", name: "CARBONS", kana: "カーボンズ", internalLv: 2, color: "#6C7CE0", markStyle: "C",
     genres: ["オルタナロック"],
     description: "尖ったオルタナロックで序盤に立ちはだかるライバルバンド。",
     representativeSong: null, representativeName: "ナキリ", representativePart: "Ba/Vo",
@@ -523,7 +523,7 @@ const BAND_DATABASE = Object.freeze({
     fame: 30, audience: 26
   },
   magnet_wolf: {
-    id: "magnet_wolf", name: "magnet wolf", kana: "マグネットウルフ", internalLv: 2,
+    id: "magnet_wolf", name: "magnet wolf", kana: "マグネットウルフ", internalLv: 2, color: "#8FA0B8", markStyle: "A",
     genres: ["ハードロック"],
     description: "少しダサくて味がある、荒いハードロックバンド。",
     representativeSong: "ICEBOX", representativeName: "ダイドウジ", representativePart: null,
@@ -532,7 +532,7 @@ const BAND_DATABASE = Object.freeze({
     fame: 33, audience: 29
   },
   patriot_sunshine: {
-    id: "patriot_sunshine", name: "Patriot Sunshine", kana: "パトリオットサンシャイン", internalLv: 2,
+    id: "patriot_sunshine", name: "Patriot Sunshine", kana: "パトリオットサンシャイン", internalLv: 2, color: "#E64524", markStyle: "A",
     genres: ["パンクロック", "スカパンク"],
     description: "明るく熱い、青春パンク寄りのスカパンクバンド。",
     representativeSong: "メタルレイ", representativeName: "アズマル", representativePart: null,
@@ -541,7 +541,7 @@ const BAND_DATABASE = Object.freeze({
     fame: 36, audience: 32
   },
   d_lion: {
-    id: "d_lion", name: "D-Lion", kana: "ディーライオン", internalLv: 2,
+    id: "d_lion", name: "D-Lion", kana: "ディーライオン", internalLv: 2, color: "#FF8C1A", markStyle: "A",
     genres: ["ミクスチャー", "パンクロック"],
     description: "陽気なミクスチャー/パンクでフロアを揺らす常連バンド。",
     representativeSong: "LifeTechno", representativeName: "TAMANO", representativePart: null,
@@ -550,7 +550,7 @@ const BAND_DATABASE = Object.freeze({
     fame: 39, audience: 35
   },
   pachi_pachi: {
-    id: "pachi_pachi", name: "Pachi-Pachi", kana: "パチパチ", internalLv: 3,
+    id: "pachi_pachi", name: "Pachi-Pachi", kana: "パチパチ", internalLv: 3, color: "#FF7E8F", markStyle: "A",
     genres: ["青春ロック", "歌ものロック"],
     description: "共感できる歌詞と客席を巻き込む力で人気を集める青春ロックバンド。",
     representativeSong: "わたあめ", representativeName: "ミケ", representativePart: "Gt/Vo",
@@ -559,7 +559,7 @@ const BAND_DATABASE = Object.freeze({
     fame: 46, audience: 42
   },
   in_bab: {
-    id: "in_bab", name: "IN-BAB", kana: "インバブ", internalLv: 3,
+    id: "in_bab", name: "IN-BAB", kana: "インバブ", internalLv: 3, color: "#5F49D6", markStyle: "C",
     genres: ["変化球ロック", "初期BiSH系"],
     description: "メンバーの圧倒的な魅力によって、ライブファンを根こそぎ連れていくロックバンド。",
     representativeSong: null, representativeName: "Nasu", representativePart: "Vo",
@@ -568,7 +568,7 @@ const BAND_DATABASE = Object.freeze({
     fame: 50, audience: 47
   },
   nova_biscuit: {
-    id: "nova_biscuit", name: "Nova Biscuit", kana: "ノヴァビスケット", internalLv: 3,
+    id: "nova_biscuit", name: "Nova Biscuit", kana: "ノヴァビスケット", internalLv: 3, color: "#E5C296", markStyle: "B",
     genres: ["エモ", "パワーポップ", "インディーロック"],
     description: "宇宙っぽい名前に反して、ライブでは意外と激しいエモ/パワーポップバンド。",
     representativeSong: "冥王星", representativeName: "ドウセイ", representativePart: null,
@@ -577,7 +577,7 @@ const BAND_DATABASE = Object.freeze({
     fame: 48, audience: 41
   },
   polaris: {
-    id: "polaris", name: "POLARIS", kana: "ポラリス", internalLv: 3,
+    id: "polaris", name: "POLARIS", kana: "ポラリス", internalLv: 3, color: "#8FD9F5", markStyle: "B",
     genres: ["幻想演出系ロック"],
     description: "ぶっちぎりの個性で虜にさせる歌と演奏。冷たくも温かいロックバンド。",
     representativeSong: null, representativeName: "ヘイル", representativePart: "Vo",
@@ -586,7 +586,7 @@ const BAND_DATABASE = Object.freeze({
     fame: 52, audience: 44
   },
   shelter: {
-    id: "shelter", name: "SHELTER", kana: "シェルター", internalLv: 4,
+    id: "shelter", name: "SHELTER", kana: "シェルター", internalLv: 4, color: "#F0E23C", markStyle: "A",
     genres: ["ポップパンク", "ハードコア", "青春パンク"],
     description: "高い技術とライブパフォーマンスで、ひとつ上のステージを見せる実力派ロックバンド。",
     representativeSong: "RED MOON", representativeName: "クリオ", representativePart: "Vo",
@@ -595,7 +595,7 @@ const BAND_DATABASE = Object.freeze({
     fame: 58, audience: 52
   },
   luminescence: {
-    id: "luminescence", name: "LUMINESCENCE", kana: "ルミナスセンス", internalLv: 4,
+    id: "luminescence", name: "LUMINESCENCE", kana: "ルミナスセンス", internalLv: 4, color: "#3B7CD1", markStyle: "C",
     genres: ["メロディックハードコア", "スケートパンク", "エモパンク"],
     description: "雨、深海、発光をテーマにした、冷たく速いシアトル系メロディックハードコア。",
     representativeSong: null, representativeName: "ヘルツ", representativePart: "Vo/Gt",
@@ -604,7 +604,7 @@ const BAND_DATABASE = Object.freeze({
     fame: 62, audience: 55
   },
   jack_bomb: {
-    id: "jack_bomb", name: "JACK BOMB", kana: "ジャックボム", internalLv: 4,
+    id: "jack_bomb", name: "JACK BOMB", kana: "ジャックボム", internalLv: 4, color: "#D2222A", markStyle: "A",
     genres: ["ラウド寄りミクスチャーロック"],
     description: "ラウド寄りのミクスチャーロックでフロアを盛り上げる爆発力のあるロックバンド。",
     representativeSong: "TNT", representativeName: "アラカ", representativePart: "Vo/Ba",
@@ -613,7 +613,7 @@ const BAND_DATABASE = Object.freeze({
     fame: 60, audience: 56
   },
   hyper_marmoty: {
-    id: "hyper_marmoty", name: "HYPER MARMOTY", kana: "ハイパーマルモッティ", internalLv: 4,
+    id: "hyper_marmoty", name: "HYPER MARMOTY", kana: "ハイパーマルモッティ", internalLv: 4, color: "#C97A2F", markStyle: "A",
     genres: ["青春パンク"],
     description: "まっすぐ熱い青春パンクで突っ走るシャウト系パンクロックバンド。",
     representativeSong: "シャウト!!", representativeName: "ヤマモト", representativePart: "Vo",
@@ -622,7 +622,7 @@ const BAND_DATABASE = Object.freeze({
     fame: 55, audience: 50
   },
   ultimate_quokkas: {
-    id: "ultimate_quokkas", name: "ultimate quokkas", kana: "アルティメットクオッカズ", internalLv: 4,
+    id: "ultimate_quokkas", name: "ultimate quokkas", kana: "アルティメットクオッカズ", internalLv: 4, color: "#77DD4E", markStyle: "A",
     genres: ["スカパンク"],
     description: "明るいスカパンクで客席を笑顔にし、幸せを振りまくスカバンド。",
     representativeSong: "ジャグリング", representativeName: "ワラジ", representativePart: "Ba/Vo",
@@ -631,7 +631,7 @@ const BAND_DATABASE = Object.freeze({
     fame: 57, audience: 51
   },
   rumble_sand: {
-    id: "rumble_sand", name: "RUMBLE SAND", kana: "ランブルサンド", internalLv: 5,
+    id: "rumble_sand", name: "RUMBLE SAND", kana: "ランブルサンド", internalLv: 5, color: "#0F7D74", markStyle: "A",
     genres: ["パンクロック", "ラウドロック", "ハードロック"],
     description: "イギリスのパンクロックバンド。重く荒い音で巨大ステージを揺らす。",
     representativeSong: "arrive at the beach", representativeName: "サウスポート", representativePart: "Vo",
@@ -640,7 +640,7 @@ const BAND_DATABASE = Object.freeze({
     fame: 78, audience: 72
   },
   neon_reef: {
-    id: "neon_reef", name: "Neon Reef", kana: "ネオンリーフ", internalLv: 5,
+    id: "neon_reef", name: "Neon Reef", kana: "ネオンリーフ", internalLv: 5, color: "#2B3FCC", markStyle: "B",
     genres: ["アート寄りロック", "都会的混沌"],
     description: "深海を思わす美しく存在感がある。名実ともに完成されたロックバンド。",
     representativeSong: "深青", representativeName: "ミノア", representativePart: "Vo",
@@ -649,7 +649,7 @@ const BAND_DATABASE = Object.freeze({
     fame: 84, audience: 78
   },
   kaede: {
-    id: "kaede", name: "KAEDE", kana: "カエデ", internalLv: 5,
+    id: "kaede", name: "KAEDE", kana: "カエデ", internalLv: 5, color: "#A8322B", markStyle: "B",
     genres: ["ギターロック", "歌ものロック"],
     description: "弾き語りでもバンド編成でも、言葉と歌で空気を変えるシンガーソングライター。",
     representativeSong: "Dragonfly", representativeName: "カエデ", representativePart: "Vo/Gt",
@@ -658,7 +658,7 @@ const BAND_DATABASE = Object.freeze({
     fame: 74, audience: 66
   },
   lact: {
-    id: "lact", name: "LACT", kana: "ラクト", internalLv: 6,
+    id: "lact", name: "LACT", kana: "ラクト", internalLv: 6, color: "#AB3B57", markStyle: "A",
     genres: ["ハードコア", "ラウドロック", "パンク"],
     description: "全てのバンドが憧れる伝説のロックバンド。重く激しいがキャッチーな音で全てを取り込む。",
     representativeSong: "a lact of heart", representativeName: "ラルゴ", representativePart: "Vo",
@@ -1848,7 +1848,7 @@ function createTripleArrowsInviteOffer() {
     createdTurn: state.turn, storyInvite: true
   };
   state.liveOffers.unshift(offer);
-  const mailId = addMail("俺たちの企画　参加依頼", `この前のライブ、お疲れ！\nまだ荒削りだけど、お前らきっとすごくなるぜ。\nこの前言ってた企画ライブ、よかったら出てくれよ。\n\nTriple Arrows　タカナシ`, "live_offer", { offerId: offer.id, offerTurn, status: "open", sender: "Triple Arrows　タカナシ" });
+  const mailId = addMail("俺たちの企画　参加依頼", `この前のライブ、お疲れ！\nまだ荒削りだけど、お前らきっとすごくなるぜ。\nこの前言ってた企画ライブ、よかったら出てくれよ。\n\nTriple Arrows　タカナシ`, "live_offer", { offerId: offer.id, offerTurn, status: "open", sender: "Triple Arrows　タカナシ", senderBandId: "triple_arrows" });
   offer.mailId = mailId;
   return offer;
 }
@@ -1981,6 +1981,7 @@ function renderBandBookRow(b, no) {
   }
   return `<button class="bandBookRowBtn dict-row bandbook-row" data-band-id="${b.id}">
     <b>No.${no}　${escapeHtml(b.name)}</b>${stateBadge}${BAND_STATE_ORDER[entry.state] >= 2 ? `<span class="badge ${stage.cls}">${stage.label}</span>` : ""}
+    ${renderBandWordmark(b, "sm")}
     <small>${escapeHtml(b.kana)} / ${escapeHtml((b.genres || []).join("・"))}</small>
   </button>`;
 }
@@ -2053,6 +2054,7 @@ function renderBandBookDetail(id) {
   const panel = activeTab === "comment" ? commentPanel : activeTab === "lore" ? lorePanel : profilePanel;
   return `<div class="card bandbook-detail">
     <div class="section-title"><h2>${escapeHtml(b.name)}</h2><span class="badge ${entry.state === "skill_unlocked" ? "good" : ""}">${bandStateLabel(entry.state)}</span></div>
+    ${renderBandWordmark(b, "md")}
     ${renderBandBookTabs(activeTab)}
     ${panel}
     <div class="modal-actions">${backBtn}</div>
@@ -2212,17 +2214,17 @@ function addMail(subject, body, kind="info", payload={}) {
 function mailSenderForKind(kind="info") {
   return ({ live_offer:"ライブハウス受付", fan_mail:"ファンメール", member:"連絡先交換相手", info:"携帯通知", warn:"携帯通知" }[kind] || "携帯通知");
 }
-function addSnsPost(author, body, mood="normal") {
+function addSnsPost(author, body, mood="normal", bandId=null) {
   state.snsPosts = Array.isArray(state.snsPosts) ? state.snsPosts : [];
-  state.snsPosts.unshift({ id:`sns_${Date.now()}_${Math.floor(Math.random()*9999)}`, turn: state.turn, author, body, mood });
+  state.snsPosts.unshift({ id:`sns_${Date.now()}_${Math.floor(Math.random()*9999)}`, turn: state.turn, author, body, mood, bandId });
   state.snsPosts = state.snsPosts.slice(0, 50);
 }
 
-function addSnsPostOnce(key, author, body, mood="world") {
+function addSnsPostOnce(key, author, body, mood="world", bandId=null) {
   state.snsWorldSeen = state.snsWorldSeen && typeof state.snsWorldSeen === "object" ? state.snsWorldSeen : {};
   if (!key || state.snsWorldSeen[key]) return false;
   state.snsWorldSeen[key] = state.turn || 1;
-  addSnsPost(author, body, mood);
+  addSnsPost(author, body, mood, bandId);
   return true;
 }
 function bandSnsVoice(bandId) {
@@ -2250,7 +2252,7 @@ function maybeSeedWorldReactionPosts() {
   const discovered = Object.entries((state.bandBook || {}).bands || {}).filter(([id, e]) => e && e.state && e.state !== "unknown").map(([id]) => id);
   discovered.slice(0, 3).forEach(id => {
     const voice = bandSnsVoice(id);
-    if (voice) addSnsPostOnce(`band_voice_${id}`, voice.author, voice.body, "band");
+    if (voice) addSnsPostOnce(`band_voice_${id}`, voice.author, voice.body, "band", id);
   });
 }
 function addLiveWorldReactionPosts(result, setlist, ev) {
@@ -2262,7 +2264,7 @@ function addLiveWorldReactionPosts(result, setlist, ev) {
   if (["D","E"].includes(rank)) addSnsPostOnce(`${keyBase}_rough`, "@livehouse_note", `${bandName}、まだ荒い。でも荒さの中に残るフレーズはあった。`, "reaction");
   invitedBandsForEvent(ev).slice(0, 2).forEach(b => {
     const voice = bandSnsVoice(b.id);
-    if (voice) addSnsPostOnce(`${keyBase}_band_${b.id}`, voice.author, voice.body, "band");
+    if (voice) addSnsPostOnce(`${keyBase}_band_${b.id}`, voice.author, voice.body, "band", b.id);
   });
   const label = String(ev?.label || currentLiveName() || "");
   if (state.turn === 50 || label.includes("GRAND")) {
@@ -6351,13 +6353,15 @@ function renderStoryEventOverlay() {
   const actors = Array.isArray(scene.actors) && scene.actors.length ? scene.actors : (ev.actors || []);
   const activePortrait = scene.portrait || "";
   const speaker = formatStoryText(scene.speaker || "", ctx);
-  const speakerColorClass = `tag-color-c${bandColorIndexFromName(speaker || "？？？")}`;
+  const speakerActor = actors.find(a => a.name === speaker);
+  const speakerBandId = speakerActor ? NPC_BAND_MAP[speakerActor.id] : null;
+  const speakerAttrs = bandColorAttrs(speakerBandId, speaker || "？？？");
   const body = formatStoryText(scene.text || "", ctx);
   return `<div class="story-backdrop"><div class="story-stage story-bg-${escapeHtml(ev.background || "livehouse")}">
     <div class="story-title-chip">${escapeHtml(ev.title || "イベント")}</div>
     <div class="story-actors">${actors.map(a => `<div class="story-silhouette story-pos-${escapeHtml(a.position || "center")} story-type-${escapeHtml(a.type || "member")} ${a.id === activePortrait ? "active" : ""}" title="${escapeHtml(a.name || "")}"><span></span>${a.id ? `<img src="assets/char/${escapeHtml(a.id)}_story.webp" alt="" loading="lazy" onerror="this.remove()">` : ""}</div>`).join("")}</div>
     <div class="story-dialogue ${scene.bubble ? "bubble" : ""}">
-      <div class="story-name ${speakerColorClass}">${escapeHtml(speaker || "？？？")}</div>
+      <div class="story-name ${speakerAttrs.cls}"${speakerAttrs.style}>${escapeHtml(speaker || "？？？")}</div>
       <div class="story-text">${escapeHtml(body).replace(/\n/g,"<br>")}</div>
       <div class="story-actions"><button id="storySkipBtn" class="ghost-btn">スキップ</button><button id="storyNextBtn" class="big-action">${(active.step || 0) >= scenes.length - 1 ? "結果へ" : "次へ"}</button>${logButton}</div>
     </div>
@@ -9674,7 +9678,7 @@ function generateLiveOffer(reason="turn") {
   const mailId = addMail(`${meta.short}の出演通知`, `${turn}ターン目、${v.name}の${meta.short}に出演できます。
 ${meta.feeLabel}：${fee.toLocaleString()}円
 共演：${bands.map(b=>b.name).join(" / ") || "ライブハウスイベント枠"}
-携帯のメールから参加できます。`, "live_offer", { offerId:offer.id, offerTurn:turn, status:"open", sender: type === "booking_band" ? (bands[0]?.name || "対バン企画担当") : `${v.name} 店長` });
+携帯のメールから参加できます。`, "live_offer", { offerId:offer.id, offerTurn:turn, status:"open", sender: type === "booking_band" ? (bands[0]?.name || "対バン企画担当") : `${v.name} 店長`, senderBandId: type === "booking_band" ? (bands[0]?.id || null) : null });
   offer.mailId = mailId;
   addSnsPost("@livehouse_info", `${turn}T ${v.name}で${meta.short}あり。若手バンドの出演枠、まだ動いてるっぽい。`, "event");
   log(`携帯にライブ出演通知が届いた：${turn}T ${v.name} / ${meta.short}`, "event");
@@ -9696,7 +9700,7 @@ function generateSnsTrendPost() {
   if (roll < 0.67) {
     const roster = rosterBands();
     const b = roster[rand(0, roster.length-1)];
-    addSnsPost(`@${b.id}`, `${b.name} 次の企画に向けて対バン探し中。${b.genre}寄りの夜にしたい。`, "event");
+    addSnsPost(`@${b.id}`, `${b.name} 次の企画に向けて対バン探し中。${b.genre}寄りの夜にしたい。`, "event", b.id);
     return;
   }
   const genres = ["青春パンク", "メロディックパンク", "オルタナロック", "エモ", "ポップパンク", "ガレージロック"];
@@ -11494,9 +11498,11 @@ function renderLiveResultOverlay() {
   const weakest = axes.slice().sort((a,b)=>a[1]-b[1])[0]?.[0] || "準備";
   const lowRankNote = ["C", "D", "E"].includes(r.rank || "") ? `<div class="result-low-note">収穫はある。次は${escapeHtml(weakest)}を上げれば、もっと届く。</div>` : "";
   const closeLabel = state.pendingAfterparty ? "打ち上げの相談へ" : "結果を受け取って進む";
+  const opponentBand = (r.invitedBandIds || []).map(id => BAND_DATABASE[id]).find(Boolean);
+  const opponentLine = opponentBand ? `<div class="result-opponent">${renderBandWordmark(opponentBand, "sm")}</div>` : "";
   return `<div class="modal-backdrop result-backdrop">
     <div class="live-result-modal rank-${escapeHtml(r.rank || "C")}">
-      <div class="result-header"><span>LIVE RESULT</span><b>${escapeHtml(r.title || "ライブ結果")}</b><em>${escapeHtml(r.venue || "ライブハウス")}</em></div>
+      <div class="result-header"><span>LIVE RESULT</span><b>${escapeHtml(r.title || "ライブ結果")}</b><em>${escapeHtml(r.venue || "ライブハウス")}</em>${opponentLine}</div>
       <div class="result-rank-line"><div class="rank-burst">${escapeHtml(r.rank || "-")}</div><div class="result-score"><b>${val(r.total || 0)}</b><span>総合点</span><small>${escapeHtml(r.liveTypeLabel || "ライブ")}</small></div></div>
       <div class="result-summary-grid result-primary-gains">
         <div><b>動員</b><span>${val(attendees)}人</span><small>自分${val(r.ownAudience || r.revenue?.ownAudience || 0)} / 他${val(r.partnerAudience || r.revenue?.partnerAudience || 0)}</small></div>
@@ -11971,7 +11977,7 @@ function resolveAfterpartyChoice(choiceKey="listen") {
     if (Math.random() < introChance) {
       const applicant = addApplicantFromCandidates("打ち上げ紹介");
       if (applicant) {
-        addMail("打ち上げで紹介されたメンバー候補", `${bands[0]?.name || "共演者"}から紹介された${applicant.name}です。\nライブ後に連絡先をもらいました。バンド情報から加入を検討できます。`, "member", { sender: bands[0]?.name || "打ち上げで知り合った人" });
+        addMail("打ち上げで紹介されたメンバー候補", `${bands[0]?.name || "共演者"}から紹介された${applicant.name}です。\nライブ後に連絡先をもらいました。バンド情報から加入を検討できます。`, "member", { sender: bands[0]?.name || "打ち上げで知り合った人", senderBandId: bands[0]?.id || null });
         introText = `\n紹介：${applicant.name}の連絡先をもらった。`;
       }
     }
@@ -13340,7 +13346,7 @@ function calculateLive(setlist, supports, merch, positions, vocalist, chorus) {
     money: { ticketRevenue:revenue.ticketRevenue, bonus:revenue.bonus, cost:revenue.baseCost, supportCost:revenue.supportCost, merchCost:revenue.merch.cost, finalProfit:revenue.finalProfit }
   };
 
-  return { performance, expression, heat, strategy, stability, total, rank, revenue, originalCount, coverCount, adlib: liveArrange, liveArrange, repeatInfo, setlistBonus, coreEvent, supports, merch, venue: venueData, liveType:venue.liveType || "self_one_man", liveTypeLabel: liveMeta.label, invitedBands: invitedBands.map(b=>b.name), prepScore, venueShortage, diagnostics, vocalistName: vocalist.name, chorusName: chorusList.length ? chorusList.map(ch => ch.name).join(" / ") : "なし", positions, performers: performers.map(m => m.id), positionText };
+  return { performance, expression, heat, strategy, stability, total, rank, revenue, originalCount, coverCount, adlib: liveArrange, liveArrange, repeatInfo, setlistBonus, coreEvent, supports, merch, venue: venueData, liveType:venue.liveType || "self_one_man", liveTypeLabel: liveMeta.label, invitedBands: invitedBands.map(b=>b.name), invitedBandIds: invitedBands.map(b=>b.id), prepScore, venueShortage, diagnostics, vocalistName: vocalist.name, chorusName: chorusList.length ? chorusList.map(ch => ch.name).join(" / ") : "なし", positions, performers: performers.map(m => m.id), positionText };
 }
 
 function analyzeRepeatSetlist(setlist) {
@@ -13643,7 +13649,8 @@ function makeLiveResultModal(r, setlist) {
     isFirstLive: (state.liveCount || 0) === 0,
     fanGainBreakdown: v043dFanGainBreakdown(r, currentLiveEvent()),
     gains: r.gains || {},
-    songs: setlist.map(s => s.title)
+    songs: setlist.map(s => s.title),
+    invitedBandIds: r.invitedBandIds || []
   };
 }
 
@@ -13827,19 +13834,41 @@ function renderPhoneScreen() {
   </div>`;
 }
 
+/* PR-F: バンド文脈のハッシュ振り分けを廃止するための直接色参照。非バンド差出人（店長・機材レンタル等）専用として
+   bandColorIndexFromName()自体は存置（全廃しない）。sil_xxxのNPCはBAND_DATABASEのrepresentativeNameと一致する
+   ものだけをバンドに紐付ける（既存データ棚卸しで確認済みの13名。スバル/店長/主人公等はバンド非紐付けのまま） */
+const NPC_BAND_MAP = Object.freeze({
+  sil_takanashi: "triple_arrows", sil_nakiri: "carbons", sil_clio: "shelter",
+  sil_mike: "pachi_pachi", sil_mozu: "kiwi", sil_daidoji: "magnet_wolf",
+  sil_hail: "polaris", sil_kaede: "kaede", sil_largo: "lact", sil_nasu: "in_bab",
+  sil_araka: "jack_bomb", sil_waraji: "ultimate_quokkas", sil_yamamoto: "hyper_marmoty"
+});
 function bandColorIndexFromName(name) {
   const s = String(name || "");
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
   return h % 22;
 }
+/* バンド色が解決できればtag-color-band（実色）を、できなければ従来のハッシュtag-color-cNを返す */
+function bandColorAttrs(bandId, fallbackLabel) {
+  const band = bandId ? BAND_DATABASE[bandId] : null;
+  if (band && band.color) return { style: ` style="--band-tag-color:${band.color};"`, cls: "tag-color-band" };
+  return { style: "", cls: `tag-color-c${bandColorIndexFromName(fallbackLabel)}` };
+}
+/* PR-F: 22ロゴのワードマークをCSS作字で共通レンダリング（BAND_IDENTITY_v1.md準拠、画像アセット不要） */
+function renderBandWordmark(bandOrId, size="md") {
+  const band = typeof bandOrId === "string" ? BAND_DATABASE[bandOrId] : bandOrId;
+  if (!band) return "";
+  const style = band.markStyle && ["A","B","C"].includes(band.markStyle) ? band.markStyle : "B";
+  return `<span class="band-wordmark wm-style-${style} wm-${size}" style="--band-tag-color:${escapeHtml(band.color || "var(--dim)")};">${escapeHtml(band.name)}</span>`;
+}
 function renderMailRow(m) {
   const kind = m.kind || "info";
   const needsReply = isActionableMail(m);
   const preview = firstLine(m.body || "").slice(0, 58);
   const senderLabel = m.sender || mailSenderForKind(kind);
-  const bandColorClass = `tag-color-c${bandColorIndexFromName(senderLabel)}`;
-  return `<button class="mail-row mailOpenBtn mail-row-enhanced gmail-row ${kind} ${m.read ? "read" : "unread"} ${bandColorClass}" data-mail-id="${escapeHtml(m.id)}">
+  const bandAttrs = bandColorAttrs(m.payload?.senderBandId, senderLabel);
+  return `<button class="mail-row mailOpenBtn mail-row-enhanced gmail-row ${kind} ${m.read ? "read" : "unread"} ${bandAttrs.cls}" data-mail-id="${escapeHtml(m.id)}"${bandAttrs.style}>
     <span class="mail-sender-icon">${mailSenderIcon(kind)}</span>
     <span class="mail-row-main"><b>${escapeHtml(senderLabel)}</b><strong>${m.read ? "" : "● "}${escapeHtml(m.subject || "無題")}</strong><small>${escapeHtml(preview)}</small></span>
     <span class="mail-kind-chip">${needsReply ? "要返信" : mailKindLabel(kind)}</span>
@@ -13853,9 +13882,10 @@ function renderMailDetail(m) {
   const offer = offerId ? (state.liveOffers || []).find(o => o.id === offerId) : null;
   if (offer) updateLiveOfferStatuses();
   const canAccept = offer && !offer.accepted && !offer.expired && (offer.storyInvite || canBookLiveTurn(offer.turn)) && !liveEventForTurn(offer.turn);
+  const senderBand = m.payload?.senderBandId ? BAND_DATABASE[m.payload.senderBandId] : null;
   return `<div class="mail-detail gmail-detail">
     <div class="section-title"><h2>${escapeHtml(m.subject || "無題")}</h2><span class="badge ${m.read ? "good" : "warn"}">${m.read ? "既読" : "未読"}</span></div>
-    <div class="mail-meta"><b>差出人</b><span>${escapeHtml(m.sender || mailSenderForKind(m.kind))}</span><b>宛先</b><span>${escapeHtml(acc.email)}</span><b>時刻</b><span>${m.turn || "?"}T</span></div>
+    <div class="mail-meta"><b>差出人</b><span>${escapeHtml(m.sender || mailSenderForKind(m.kind))}</span><b>宛先</b><span>${escapeHtml(acc.email)}</span><b>時刻</b><span>${m.turn || "?"}T</span>${senderBand ? `<b>バンド</b><span>${renderBandWordmark(senderBand, "sm")}</span>` : ""}</div>
     <p>${escapeHtml(m.body || "").replace(/\n/g,"<br>")}</p>
     ${offer ? renderOfferActionsFromMail(offer, canAccept) : renderMailActionsWithoutOffer(m)}
   </div>`;
@@ -13867,7 +13897,9 @@ function renderSnsPost(p) {
   const author = self ? acc.snsUserName : (p.author || "@unknown");
   const display = self ? acc.snsDisplayName : author.replace(/^@/, "");
   const reactions = Math.max(0, Math.round((p.reactions || 0) + (p.turn || 1) % 7 + (p.mood === "reaction" ? 12 : 3)));
-  return `<article class="sns-post tweet-card ${escapeHtml(p.mood || "normal")}"><div class="sns-avatar">${escapeHtml(display.slice(0, 1).toUpperCase())}</div><div class="sns-body"><header><b>${escapeHtml(display)}</b><span>${escapeHtml(author)}</span><em>${p.turn || "?"}T</em></header><p>${escapeHtml(p.body || "")}</p><footer><span>#underground</span><span>↻︎ ${Math.floor(reactions / 3)}</span><span>♡︎ ${reactions}</span></footer></div></article>`;
+  const avatarBand = !self && p.bandId ? BAND_DATABASE[p.bandId] : null;
+  const avatarAttrs = avatarBand && avatarBand.color ? ` style="--band-tag-color:${avatarBand.color};"` : "";
+  return `<article class="sns-post tweet-card ${escapeHtml(p.mood || "normal")}"><div class="sns-avatar ${avatarBand ? "tag-color-band" : ""}"${avatarAttrs}>${escapeHtml(display.slice(0, 1).toUpperCase())}</div><div class="sns-body"><header><b>${escapeHtml(display)}</b><span>${escapeHtml(author)}</span><em>${p.turn || "?"}T</em></header><p>${escapeHtml(p.body || "")}</p><footer><span>#underground</span><span>↻︎ ${Math.floor(reactions / 3)}</span><span>♡︎ ${reactions}</span></footer></div></article>`;
 }
 
 function renderAccountSettingsScreen() {
