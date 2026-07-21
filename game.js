@@ -11596,6 +11596,8 @@ function bindEvents() {
       state.phoneSubView = "menu";
       state.activeMailId = null;
     }
+    /* fix5 #7: 図鑑への直接遷移（携帯を介さない data-view="bandbook" リンク）も常に一覧から開始させる */
+    if (v === "bandbook") { state.bandBookDetail = null; state.bandBookDetailTab = "profile"; }
     state.view = v;
     if (v === "schedule" && state.scheduleTutorialStage === "needSchedule") {
       state.scheduleTutorialStage = "done";
@@ -11704,7 +11706,14 @@ function bindEvents() {
   if (bookLiveBtn) bookLiveBtn.addEventListener("click", () => bookLiveFromHome());
   document.querySelectorAll(".liveCandidateBtn").forEach(btn => btn.addEventListener("click", () => { state.pendingBooking = { turn:Number(btn.dataset.turn), venueId:btn.dataset.venue, liveType:btn.dataset.liveType || "self_one_man", invitedBandIds:(btn.dataset.bands || "").split(",").filter(Boolean) }; render(); }));
   document.querySelectorAll(".acceptOfferBtn").forEach(btn => btn.addEventListener("click", () => requestLiveOfferAccept(btn.dataset.offerId)));
-  document.querySelectorAll(".phoneModeBtn").forEach(btn => btn.addEventListener("click", () => { state.phoneSubView = btn.dataset.phoneMode || "menu"; if (state.phoneSubView !== "mail") state.activeMailId = null; render(); }));
+  document.querySelectorAll(".phoneModeBtn").forEach(btn => btn.addEventListener("click", () => {
+    state.phoneSubView = btn.dataset.phoneMode || "menu";
+    if (state.phoneSubView !== "mail") state.activeMailId = null;
+    /* fix5 #7: 図鑑アプリへの入口（トップメニュー遷移）は常に一覧から開始させる。
+       行内からの詳細遷移(.bandBookRowBtn)はこのハンドラを経由しないため無影響。 */
+    if (state.phoneSubView === "bandbook") { state.bandBookDetail = null; state.bandBookDetailTab = "profile"; }
+    render();
+  }));
   document.querySelectorAll(".tutorialSkipHintsBtn").forEach(btn => btn.addEventListener("click", () => { state.tutorialSkipHints = true; log("チュートリアルの案内表示を少なめにした。", "event"); render(); }));
   document.querySelectorAll(".mailOpenBtn").forEach(btn => btn.addEventListener("click", () => openMail(btn.dataset.mailId)));
   document.querySelectorAll(".closeMailDetailBtn").forEach(btn => btn.addEventListener("click", closeMailDetail));
@@ -13855,6 +13864,22 @@ function bandColorAttrs(bandId, fallbackLabel) {
   if (band && band.color) return { style: ` style="--band-tag-color:${band.color};"`, cls: "tag-color-band" };
   return { style: "", cls: `tag-color-c${bandColorIndexFromName(fallbackLabel)}` };
 }
+/* fix5 #8: メール差出人→バンドID解決の一本化。payload.senderBandIdが無い場合（PR-F以前に作られた
+   旧セーブのメール等）でも、差出人文字列をバンド名・kana・representativeName・「バンド名＋代表者名」の
+   複合署名まで網羅照合して解決する。非バンド差出人（運営・機材・ファン等）はnullを返し従来ハッシュへ委ねる。 */
+function resolveSenderBandId(mail) {
+  const explicit = mail?.payload?.senderBandId;
+  if (explicit && BAND_DATABASE[explicit]) return explicit;
+  const sender = String(mail?.sender || mail?.payload?.sender || "").trim();
+  if (!sender) return null;
+  for (const band of Object.values(BAND_DATABASE)) {
+    if (sender === band.name || sender === band.kana) return band.id;
+    if (band.representativeName && sender === band.representativeName) return band.id;
+    const boundary = sender.slice(band.name.length, band.name.length + 1);
+    if (sender.startsWith(band.name) && (boundary === "" || /[\s　]/.test(boundary))) return band.id;
+  }
+  return null;
+}
 /* PR-F: 22ロゴのワードマークをCSS作字で共通レンダリング（BAND_IDENTITY_v1.md準拠、画像アセット不要） */
 function renderBandWordmark(bandOrId, size="md") {
   const band = typeof bandOrId === "string" ? BAND_DATABASE[bandOrId] : bandOrId;
@@ -13867,7 +13892,7 @@ function renderMailRow(m) {
   const needsReply = isActionableMail(m);
   const preview = firstLine(m.body || "").slice(0, 58);
   const senderLabel = m.sender || mailSenderForKind(kind);
-  const bandAttrs = bandColorAttrs(m.payload?.senderBandId, senderLabel);
+  const bandAttrs = bandColorAttrs(resolveSenderBandId(m), senderLabel);
   return `<button class="mail-row mailOpenBtn mail-row-enhanced gmail-row ${kind} ${m.read ? "read" : "unread"} ${bandAttrs.cls}" data-mail-id="${escapeHtml(m.id)}"${bandAttrs.style}>
     <span class="mail-sender-icon">${mailSenderIcon(kind)}</span>
     <span class="mail-row-main"><b>${escapeHtml(senderLabel)}</b><strong>${m.read ? "" : "● "}${escapeHtml(m.subject || "無題")}</strong><small>${escapeHtml(preview)}</small></span>
@@ -13882,7 +13907,8 @@ function renderMailDetail(m) {
   const offer = offerId ? (state.liveOffers || []).find(o => o.id === offerId) : null;
   if (offer) updateLiveOfferStatuses();
   const canAccept = offer && !offer.accepted && !offer.expired && (offer.storyInvite || canBookLiveTurn(offer.turn)) && !liveEventForTurn(offer.turn);
-  const senderBand = m.payload?.senderBandId ? BAND_DATABASE[m.payload.senderBandId] : null;
+  const senderBandId = resolveSenderBandId(m);
+  const senderBand = senderBandId ? BAND_DATABASE[senderBandId] : null;
   return `<div class="mail-detail gmail-detail">
     <div class="section-title"><h2>${escapeHtml(m.subject || "無題")}</h2><span class="badge ${m.read ? "good" : "warn"}">${m.read ? "既読" : "未読"}</span></div>
     <div class="mail-meta"><b>差出人</b><span>${escapeHtml(m.sender || mailSenderForKind(m.kind))}</span><b>宛先</b><span>${escapeHtml(acc.email)}</span><b>時刻</b><span>${m.turn || "?"}T</span>${senderBand ? `<b>バンド</b><span>${renderBandWordmark(senderBand, "sm")}</span>` : ""}</div>
@@ -14636,6 +14662,12 @@ render = function () {
       if (currentStep && typeof currentStep.scrollIntoView === "function") {
         currentStep.scrollIntoView({ block: "nearest" });
       }
+    }
+    /* fix5 A4: ホームのターン帯は現在ターンのセルが常に完全可視であることを要求されるため、
+       .now セルが端で見切れている場合のみ最小移動で可視化する（block/inlineともnearestで無駄な再スクロールを防止） */
+    const nowTurnCell = document.querySelector(".v042-turn-scroll .v042-turn.now");
+    if (nowTurnCell && typeof nowTurnCell.scrollIntoView === "function") {
+      nowTurnCell.scrollIntoView({ block: "nearest", inline: "nearest" });
     }
   }
 };
