@@ -2280,6 +2280,7 @@ function mailKindLabel(kind="info") {
 const DATA = {
   player: {
     id: "player",
+    portraitId: "player",
     name: "あなた",
     part: "Vo/Gt",
     mainInstrument: "vocal",
@@ -5413,6 +5414,8 @@ const MEMBER_DATABASE = Object.freeze([
     "replaceNote": "メンタル・世界観補助。特殊曲に強い後半Cho。"
   }
 ]);
+/* PR-F 器: portraitIdをidから機械的に付与（既存のmember_xxx命名をそのまま踏襲、内側オブジェクトは非frozenのため代入可） */
+MEMBER_DATABASE.forEach(m => { if (!m.portraitId) m.portraitId = m.id; });
 DATA.candidateCharacters = clone(MEMBER_DATABASE);
 
 const SUPPORT_MEMBER_DATABASE = Object.freeze([
@@ -5665,6 +5668,27 @@ function maybeUnlockProgressSkills(context="") {
   if ((state.turn || 1) >= 35 && ((cc.practice || 0) + (cc.promo || 0) + (cc.talk || 0)) >= 16) unlockSkill("shortcut_command", "後半の段取りが身についた");
 }
 function initials(name) { return String(name).replace(/[（(].*?[）)]/g, "").slice(0, 2); }
+/* PR-F 器: パート→ステンシル型（story-typeの語彙を再利用したミニ版）。未知パートはmemberへフォールバック */
+function memberPortraitTypeClass(part) {
+  const p = String(part || "");
+  if (p === "player") return "player";
+  if (/Gt/.test(p)) return "gtvo";
+  if (/Ba\/Vo/.test(p)) return "bavo";
+  if (/Ba/.test(p)) return "bass";
+  if (/Vo/.test(p)) return "vocal";
+  if (p === "Dr") return "short";
+  if (p === "Key") return "long";
+  return "member";
+}
+/* PR-F 器: 3段フォールバック（画像→ステンシルシルエット→イニシャル）の共通レンダラ。
+   portraitIdが未指定/画像が404の場合はimgタグをJS側で除去し、下層のステンシル/イニシャルへ委譲する。 */
+function renderAvatarPortrait(portraitId, name, part, extraClass="") {
+  const typeClass = memberPortraitTypeClass(part);
+  const id = portraitId || "";
+  const initialsHtml = escapeHtml(initials(name));
+  const imgHtml = id ? `<img src="assets/char/${escapeHtml(id)}_avatar.webp" alt="" loading="lazy" onerror="this.remove()">` : "";
+  return `<div class="avatar portrait-slot has-stencil pt-${typeClass} ${extraClass}"><b class="portrait-initials">${initialsHtml}</b><i class="portrait-stencil" aria-hidden="true"></i>${imgHtml}</div>`;
+}
 
 const DISCOVERY_KEY = "underground_v014_discovered_subgenres"; // v0.2.4でも継続利用
 const LEGACY_SAVE_KEY = "underground_v020_save";
@@ -6331,7 +6355,7 @@ function renderStoryEventOverlay() {
   const body = formatStoryText(scene.text || "", ctx);
   return `<div class="story-backdrop"><div class="story-stage story-bg-${escapeHtml(ev.background || "livehouse")}">
     <div class="story-title-chip">${escapeHtml(ev.title || "イベント")}</div>
-    <div class="story-actors">${actors.map(a => `<div class="story-silhouette story-pos-${escapeHtml(a.position || "center")} story-type-${escapeHtml(a.type || "member")} ${a.id === activePortrait ? "active" : ""}" title="${escapeHtml(a.name || "")}"><span></span></div>`).join("")}</div>
+    <div class="story-actors">${actors.map(a => `<div class="story-silhouette story-pos-${escapeHtml(a.position || "center")} story-type-${escapeHtml(a.type || "member")} ${a.id === activePortrait ? "active" : ""}" title="${escapeHtml(a.name || "")}"><span></span>${a.id ? `<img src="assets/char/${escapeHtml(a.id)}_story.webp" alt="" loading="lazy" onerror="this.remove()">` : ""}</div>`).join("")}</div>
     <div class="story-dialogue ${scene.bubble ? "bubble" : ""}">
       <div class="story-name ${speakerColorClass}">${escapeHtml(speaker || "？？？")}</div>
       <div class="story-text">${escapeHtml(body).replace(/\n/g,"<br>")}</div>
@@ -9863,7 +9887,7 @@ function renderMemberStageSlot(m, slotIndex=0) {
   const active = state.selectedMemberId === m.id ? "selected" : "";
   const memberIndex = slotIndex - 1;
   const actions = m.id === "player" ? `<small>主人公 / 詳細はカード内表示</small>` : `<div class="stage-actions"><button class="moveMemberBtn" data-index="${memberIndex}" data-dir="up">前へ</button><button class="moveMemberBtn" data-index="${memberIndex}" data-dir="down">後へ</button><button class="dismissMemberBtn danger" data-index="${memberIndex}">脱退</button></div>`;
-  return `<div class="stage-slot ${active}"><button class="stage-main selectMemberBtn" data-member-id="${m.id}"><div class="avatar">${initials(m.name)}</div><div><b>${m.name}</b><small>${role} / ${m.part}</small><span class="badge warn">${m.mainGenre}</span></div></button>${actions}</div>`;
+  return `<div class="stage-slot ${active}"><button class="stage-main selectMemberBtn" data-member-id="${m.id}">${renderAvatarPortrait(m.portraitId || m.id, m.name, m.part)}<div><b>${m.name}</b><small>${role} / ${m.part}</small><span class="badge warn">${m.mainGenre}</span></div></button>${actions}</div>`;
 }
 
 function renderReserveCard(m, memberIndex) {
@@ -10615,7 +10639,7 @@ function renderApplicantCard(a) {
   return `
     <div class="member applicant-card">
       <h4>加入候補：${escapeHtml(a.name)}</h4>${a.canRename ? `<small>加入時に名前変更可 / 成長:${escapeHtml(a.growthType || "未設定")}</small>` : ""}
-      <div class="member-head"><div class="avatar">${initials(a.name)}</div><div class="kv">
+      <div class="member-head">${renderAvatarPortrait(a.portraitId || a.id, a.name, a.part)}<div class="kv">
         <b>担当</b><span>${escapeHtml(a.part)}</span>
         <b>一番得意ジャンル</b><span>${escapeHtml(a.mainGenre)}</span>
         <b>二番目得意</b><span>${(a.secondMainGenres||[]).map(escapeHtml).join(" / ") || "なし"}</span>
@@ -10660,7 +10684,7 @@ function renderMemberCard(m) {
   const genreLine = `
     <p><span class="badge warn">一番得意:${m.mainGenre}</span> ${(m.secondMainGenres||[]).map(g=>`<span class="badge good">二番目:${g}</span>`).join(" ")}</p>
     <p>${discovered.map(g=>`<span class="badge">判明サブ:${g}</span>`).join(" ")} ${hiddenCount ? `<span class="badge bad">未判明サブ ${hiddenCount}</span>` : `<span class="badge good">サブ全判明</span>`}</p>${growthLine}`;
-  return `<div class="member"><div class="member-head"><div class="avatar">${initials(m.name)}</div><div><h4>${m.name} <span class="badge good">${m.part}</span></h4><p>${stats}</p>${genreLine}</div></div>${insts}<small>${m.replaceNote || ""}</small></div>`;
+  return `<div class="member"><div class="member-head">${renderAvatarPortrait(m.portraitId || m.id, m.name, m.part)}<div><h4>${m.name} <span class="badge good">${m.part}</span></h4><p>${stats}</p>${genreLine}</div></div>${insts}<small>${m.replaceNote || ""}</small></div>`;
 }
 
 function renderSongs() {
@@ -14246,7 +14270,7 @@ function renderHomeIllustrationV042() {
   const next = v043bNextEventSummary();
   return `<article class="v042-illustration v043b-visual-card" aria-label="挿絵と次予定">
     <button class="v043b-visual-member openMemberDetailBtn" data-member-id="${escapeHtml(recent?.id || "player")}">
-      <div class="v042-stage-visual"><span>${escapeHtml(initials(recent?.name || "主人公"))}</span><i></i></div>
+      <div class="v042-stage-visual portrait-slot has-stencil pt-${memberPortraitTypeClass(recent?.part)}"><span class="portrait-initials">${escapeHtml(initials(recent?.name || "主人公"))}</span><em class="portrait-stencil" aria-hidden="true"></em><i></i>${(recent?.portraitId || recent?.id) ? `<img src="assets/char/${escapeHtml(recent.portraitId || recent.id)}_story.webp" alt="" loading="lazy" onerror="this.remove()">` : ""}</div>
       <div><b>${escapeHtml(recent?.name || "主人公")}</b><small>${escapeHtml(recent?.part || "主人公")} / ${escapeHtml(memberNames || "ソロ")}</small><small>図鑑登録 ${bandbookCount} 組</small></div>
     </button>
     <button class="jumpTabBtn v043b-next-chip" data-view="schedule" ${next.turn ? `data-turn="${next.turn}"` : ""}>
@@ -14415,7 +14439,7 @@ function renderPositionOnlyControlsV042() {
     const savedInst = state.livePrepPositions?.[m.id];
     const defaultInst = locked && m.id === "player" ? "vocal" : (savedInst || m.mainInstrument || "off");
     const disabled = locked && m.id === "player" ? "disabled" : "";
-    return `<div class="position-row" data-member="${m.id}"><div class="avatar small">${initials(m.name)}</div><div><b>${escapeHtml(m.name)}</b><small>${escapeHtml(m.part || "")}</small>${renderPositionMiniStats(m, defaultInst)}</div><select class="positionSelect" data-member-id="${m.id}" ${disabled}>${positionOptions(defaultInst)}</select><button class="openMemberDetailBtn ghost-btn" data-member-id="${m.id}">詳細</button></div>`;
+    return `<div class="position-row" data-member="${m.id}">${renderAvatarPortrait(m.portraitId || m.id, m.name, m.part, "small")}<div><b>${escapeHtml(m.name)}</b><small>${escapeHtml(m.part || "")}</small>${renderPositionMiniStats(m, defaultInst)}</div><select class="positionSelect" data-member-id="${m.id}" ${disabled}>${positionOptions(defaultInst)}</select><button class="openMemberDetailBtn ghost-btn" data-member-id="${m.id}">詳細</button></div>`;
   }).join("");
   return `<div class="stage-card v042-position-card">${rows}</div>`;
 }
