@@ -758,7 +758,7 @@ const BAND_LORE_DATABASE = Object.freeze({
   ] },
   rumble_sand: { comment: "サウスポート『砂嵐の中でも、前にいる奴の背中だけは見える。それがバンドだ。』", lore: [
     { id:"rumble_sand_lore_1", needRelation:30, title:"荒さの流儀", text:"『きれいに整えた音を出す気はない。荒いままの方が、でかいステージにもちゃんと刺さるんだ。』" },
-    { id:"rumble_sand_lore_2", needRelation:60, title:"重さの理由", text:"『速さで押すバンドは他にいくらでもいる。うちは重い音で、床ごと客の足を止めにいくんだ。』" }
+    { id:"rumble_sand_lore_2", needRelation:60, title:"重さの理由", text:"『速さで押すバンドは他にいくらでもいる。うちは重い音を鳴らして、客の足を止めにいくんだ。』" }
   ] },
   neon_reef: { comment: "ミノア『深く潜るほど、音は静かになる。静かな音ほど、逃げ場がなくなる。』", lore: [
     { id:"neon_reef_lore_1", needRelation:30, title:"完成という誤解", text:"『完成されたって言われるの、実はそんなに嬉しくない。まだ削れる場所を、いつも探してるだけなんだ。』" },
@@ -2280,11 +2280,11 @@ function addSnsPostOnce(key, author, body, mood="world", bandId=null) {
 /* T2A改A: ガイドSNS細則（v1.1追補）に従い名言調を廃し、Xのバンドマンの生活タイムライン
    として書き直した。各バンド4パターン（告知・エゴサ反応・生活雑・対バン/シーン）を持たせ、
    投稿ごとにランダム表示する（機構: 既存の単一voiceを配列化。ランダム選択は既存のrand()を
-   流用、表示側=呼び出し元は{author,body}を受け取るだけなので無変更）。「床」は全体で1回のみ
+   流用、表示側=呼び出し元は{author,body}を受け取るだけなので無変更）。「床」は語彙圏から退役、使用ゼロ
    （shelterの生活雑1本に集約）。金言・説教調は禁止のため、性格は語彙と温度のみで出す。 */
 const BAND_SNS_VOICE_POOL = {
   triple_arrows: { author:"@triple_arrows", bodies: [
-    "今度のハコ、俺たちも出るぜ！気軽に来いよな。",
+    "今度の企画、俺たちも出るぜ！気軽に来いよな。",
     "昨日の対バン、めちゃくちゃかき鳴らした。来てくれたみんな最高だったぜ！",
     "スタジオ終わりのラーメン、毎回大盛りにしちまう。",
     "新しいバンド見てると、俺たちの最初の頃思い出すな。"
@@ -2302,10 +2302,10 @@ const BAND_SNS_VOICE_POOL = {
     "対バンのバンド、良すぎて普通に沼った。"
   ] },
   shelter: { author:"@shelter_staff", bodies: [
-    "今度、うちのハコで出演する。よければ。",
+    "今度、うちの現場で出演する。よければ。",
     "昨日の対バン、来てくれた人がいて安心した。",
     "開店前の掃除、意外と落ち着く時間。",
-    "知らないバンドがまたひとつ、この床に名前を置いていった。"
+    "知らないバンドがまたひとつ、この地下に名前を置いていった。"
   ] },
   kiwi: { author:"@kiwi_room", bodies: [
     "今度ライブっすー。暇なら来てくださーい。",
@@ -9545,7 +9545,7 @@ function snsPost(kind="chat") {
     const v = venueById(next.venueId);
     addSnsPost("@our_band", `${next.turn}T ${v.name}でライブします。よかったら来てください。`, "self");
   } else {
-    const samples = ["スタジオ帰りのコンビニ、だいたい何か買ってしまう。", "新しいリフ、まだ名前がないけど悪くない。", "今日の練習、最後の1回だけ妙に合った。", "ライブハウスの床の感じ、ちょっと好き。"];
+    const samples = ["スタジオ帰りのコンビニ、だいたい何か買ってしまう。", "新しいリフ、まだ名前がないけど悪くない。", "今日の練習、最後の1回だけ妙に合った。", "現場の空気の感じ、ちょっと好き。"];
     addSnsPost("@our_band", samples[rand(0, samples.length - 1)], "self");
   }
   state.snsLastPostTurn = state.turn;
@@ -14764,7 +14764,22 @@ function renderSnsScreen() {
   const acc = profileAccount();
   const edit = state.phoneAccountEdit === "sns";
   const form = edit ? `<div class="v042-inline-edit two"><label>表示名<input id="snsInlineDisplayName" maxlength="28" value="${escapeHtml(acc.snsDisplayName)}"></label><label>ユーザー名<input id="snsInlineUserName" maxlength="24" value="${escapeHtml(acc.snsUserName)}"></label><button id="saveSnsProfileBtn" class="big-action">保存</button></div>` : "";
-  return `<div class="v042-sns-app"><div class="v042-phone-app-top"><button class="phoneModeBtn ghost-btn" data-phone-mode="menu">${v043eIcon("back")}</button><b>${v043eIcon("sns")} SNS</b><button class="phoneInlineEditBtn ghost-btn" data-edit="sns">${v043eIcon("settings")} 編集</button></div><header class="v042-sns-profile"><div class="sns-avatar">${escapeHtml((acc.snsDisplayName || state.band?.name || "B").slice(0,1).toUpperCase())}</div><div><b>${escapeHtml(acc.snsDisplayName || state.band?.name || "バンド")}</b><span>${escapeHtml(acc.snsUserName || "@bandname")}</span></div></header>${form}<div class="v042-sns-timeline">${(state.snsPosts || []).map(renderSnsPost).join("") || `<div class="empty-panel">まだ投稿はありません。</div>`}</div></div>`;
+  const postedToday = state.snsLastPostTurn === state.turn;
+  const compose = `<div class="v042-sns-compose">
+    <textarea id="snsFreePostInput" maxlength="140" placeholder="今の気分を140字で。" ${postedToday ? "disabled" : ""}></textarea>
+    <div class="v042-sns-compose-row"><small>${postedToday ? "本日は投稿済み。次のターンまで投稿できません。" : "140字まで。1ターン1回。数値には影響しません。"}</small><button id="snsFreePostBtn" class="big-action" ${postedToday ? "disabled" : ""}>投稿</button></div>
+  </div>`;
+  return `<div class="v042-sns-app"><div class="v042-phone-app-top"><button class="phoneModeBtn ghost-btn" data-phone-mode="menu">${v043eIcon("back")}</button><b>${v043eIcon("sns")} SNS</b><button class="phoneInlineEditBtn ghost-btn" data-edit="sns">${v043eIcon("settings")} 編集</button></div>${compose}<header class="v042-sns-profile"><div class="sns-avatar">${escapeHtml((acc.snsDisplayName || state.band?.name || "B").slice(0,1).toUpperCase())}</div><div><b>${escapeHtml(acc.snsDisplayName || state.band?.name || "バンド")}</b><span>${escapeHtml(acc.snsUserName || "@bandname")}</span></div></header>${form}<div class="v042-sns-timeline">${(state.snsPosts || []).map(renderSnsPost).join("") || `<div class="empty-panel">まだ投稿はありません。</div>`}</div></div>`;
+}
+function snsFreePost() {
+  if (state.snsLastPostTurn === state.turn) { log("SNS投稿は1日1回まで。", "warn"); render(); return; }
+  const input = document.getElementById("snsFreePostInput");
+  const body = (input?.value || "").trim().slice(0, 140);
+  if (!body) { alert("投稿内容を入力してください。"); return; }
+  addSnsPost("@our_band", body, "free");
+  state.snsLastPostTurn = state.turn;
+  log("SNSに投稿した。");
+  render();
 }
 
 function renderPhoneBandBookScreen() {
@@ -14985,6 +15000,7 @@ bindEvents = function bindEvents_v042() {
     state.saveNotice = "メールアドレスを保存しました。";
     render();
   });
+  document.getElementById("snsFreePostBtn")?.addEventListener("click", snsFreePost);
   document.getElementById("saveSnsProfileBtn")?.addEventListener("click", () => {
     const display = cleanProfileInput(document.getElementById("snsInlineDisplayName")?.value, "", 28);
     let user = cleanProfileInput(document.getElementById("snsInlineUserName")?.value, "", 24);
