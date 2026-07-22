@@ -1890,7 +1890,7 @@ function createTripleArrowsInviteOffer() {
     createdTurn: state.turn, storyInvite: true
   };
   state.liveOffers.unshift(offer);
-  const mailId = addMail("俺たちの企画　参加依頼", `この前のライブ、お疲れ！\nまだ荒削りだけど、お前らきっとすごくなるぜ。\nこの前言ってた企画ライブ、よかったら出てくれよ。\n\nTriple Arrows　タカナシ`, "live_offer", { offerId: offer.id, offerTurn, status: "open", sender: "Triple Arrows　タカナシ", senderBandId: "triple_arrows" });
+  const mailId = addMail("俺たちの企画　参加依頼", `この前のライブ、良かったぜ。\nまだ粗いとこもあるけど、ちゃんと客に届いてた。\n今度の企画、お前らも一本鳴らしに来ないか。\n\nTriple Arrows　タカナシ`, "live_offer", { offerId: offer.id, offerTurn, status: "open", sender: "Triple Arrows　タカナシ", senderBandId: "triple_arrows" });
   offer.mailId = mailId;
   return offer;
 }
@@ -2271,25 +2271,25 @@ function addSnsPostOnce(key, author, body, mood="world", bandId=null) {
 }
 function bandSnsVoice(bandId) {
   return ({
-    triple_arrows: { author:"@triple_arrows", body:"ライブハウスの床って、下手でも本気ならちゃんと鳴るんだよな。" },
-    carbons: { author:"@carbons_noise", body:"音作りは逃げ道じゃない。伝えたいものを削って残す作業だ。" },
-    pachi_pachi: { author:"@pachi_pachi", body:"客席が一回でも手を上げたら、その夜は少し勝ち。" },
-    shelter: { author:"@shelter_staff", body:"今日も、知らないバンドがひとつ名前を置いていった。" },
-    kiwi: { author:"@kiwi_room", body:"楽屋の空気って、演奏より先にバンドの形が出る気がする。" },
-    magnet_wolf: { author:"@magnet_wolf", body:"綺麗に鳴らすより、刺さる音を鳴らせ。" },
-    kaede: { author:"@kaede_note", body:"伸びてるバンドは、反省の言葉が具体的。そこが面白い。" },
-    lact: { author:"@lact_info", body:"GRANDの名前が近づくほど、地下の音はごまかせなくなる。" }
+    triple_arrows: { author:"@triple_arrows", body:"下手だろうと、本気の音は床まで届くんだぜ。" },
+    carbons: { author:"@carbons_noise", body:"削れ。飾りを剥がした先にしか、残る音はない。" },
+    pachi_pachi: { author:"@pachi_pachi", body:"一緒に落ちる客が一人でもいたら、その夜はもう勝ちだ。" },
+    shelter: { author:"@shelter_staff", body:"今日もまた、知らない名前がひとつ、この床に残った。" },
+    kiwi: { author:"@kiwi_room", body:"力抜いたぶんだけ、ちゃんと鳴る気がするんだよね。" },
+    magnet_wolf: { author:"@magnet_wolf", body:"綺麗じゃなくていい。正面から噛みつく音の方が、ちゃんと刺さる。" },
+    kaede: { author:"@kaede_note", body:"言葉ひとつ削れないバンドほど、伸びていく。" },
+    lact: { author:"@lact_info", body:"地下で鳴らした音は、GRANDの舞台でこそ本性が出る。" }
   }[bandId] || null);
 }
 function maybeSeedWorldReactionPosts() {
   if (!state || !Array.isArray(state.snsPosts)) return;
   const t = state.turn || 1;
-  if (t >= 3 && !state.snsWorldSeen?.first_scene) addSnsPostOnce("first_scene", "@livehouse_staff", "最近、ガレージ周りで新しいバンドが動き出してるらしい。", "world");
-  if (t >= 28 && t < 30) addSnsPostOnce("under_countdown", "@under_fes_watch", "UNDER FES前、ライブハウスの掲示板が少しだけ騒がしくなってきた。", "fes");
-  if (t >= 31) addSnsPostOnce("after_under_scene", "@scene_report", "UNDERを越えたバンドの名前は、次のブッキングで少しだけ見られ方が変わる。", "world");
+  if (t >= 3 && !state.snsWorldSeen?.first_scene) addSnsPostOnce("first_scene", "@livehouse_staff", "最近、ガレージ界隈で新しい名前がちらほら動き出してるらしい。", "world");
+  if (t >= 28 && t < 30) addSnsPostOnce("under_countdown", "@under_fes_watch", "UNDER FESが近づいて、現場の掲示板が少し騒がしくなってきた。", "fes");
+  if (t >= 31) addSnsPostOnce("after_under_scene", "@scene_report", "UNDERを越えた名前は、次のブッキングで少し扱いが変わるらしい。", "world");
   if (t >= 44 && t < 50) {
-    addSnsPostOnce("grand_lact_shadow", "@fes_watch", "GRAND UNDER FESの話題に、今年もLACTの名前が出ている。遠いけど、同じタイムラインにいる。", "lact");
-    addSnsPostOnce("grand_countdown", "@underground_digest", "GRAND前のこの時期、定番曲を持っているバンドはやっぱり強い。", "fes");
+    addSnsPostOnce("grand_lact_shadow", "@fes_watch", "GRAND UNDER FESの話題には、今年もLACTの名前が出てくる。遠い場所だけど、同じ地下から鳴ってきた音だ。", "lact");
+    addSnsPostOnce("grand_countdown", "@underground_digest", "GRANDが近いこの時期、鳴らせる定番曲を持ってるバンドはやっぱり強い。", "fes");
   }
   const discovered = Object.entries((state.bandBook || {}).bands || {}).filter(([id, e]) => e && e.state && e.state !== "unknown").map(([id]) => id);
   discovered.slice(0, 3).forEach(id => {
@@ -2302,16 +2302,16 @@ function addLiveWorldReactionPosts(result, setlist, ev) {
   const bandName = state.band?.name || "名無しの地下バンド";
   const firstSong = setlist?.[0]?.title || "1曲目";
   const keyBase = `live_${state.turn}_${rank}_${result?.liveEventId || ev?.id || "live"}`;
-  if (["S","A"].includes(rank)) addSnsPostOnce(`${keyBase}_good`, "@listener_random", `${bandName}、${firstSong}から空気変わった。次も見たい。`, "reaction");
-  if (["D","E"].includes(rank)) addSnsPostOnce(`${keyBase}_rough`, "@livehouse_note", `${bandName}、まだ荒い。でも荒さの中に残るフレーズはあった。`, "reaction");
+  if (["S","A"].includes(rank)) addSnsPostOnce(`${keyBase}_good`, "@listener_random", `${bandName}、${firstSong}から空気が変わった。もう一回、あの音を聴きたい。`, "reaction");
+  if (["D","E"].includes(rank)) addSnsPostOnce(`${keyBase}_rough`, "@livehouse_note", `${bandName}、まだ荒い。それでも、耳に残るフレーズが一個あった。`, "reaction");
   invitedBandsForEvent(ev).slice(0, 2).forEach(b => {
     const voice = bandSnsVoice(b.id);
     if (voice) addSnsPostOnce(`${keyBase}_band_${b.id}`, voice.author, voice.body, "band", b.id);
   });
   const label = String(ev?.label || currentLiveName() || "");
   if (state.turn === 50 || label.includes("GRAND")) {
-    addSnsPostOnce(`${keyBase}_lact`, "@fes_watch", "GRANDの袖、LACTのリハ音が一瞬だけ漏れた。あの圧の横で鳴らす夜が来た。", "lact");
-    addSnsPostOnce(`${keyBase}_grand`, "@underground_digest", `${bandName}、GRAND UNDER FES本番。地下から上がってきた音が、どこまで届くか。`, "fes");
+    addSnsPostOnce(`${keyBase}_lact`, "@fes_watch", "GRANDの袖でLACTのリハ音が一瞬漏れた。あの圧の横で鳴らす夜が、とうとう来た。", "lact");
+    addSnsPostOnce(`${keyBase}_grand`, "@underground_digest", `${bandName}、GRAND UNDER FES本番。地下から上がってきた音が、どこまで届くか見届けたい。`, "fes");
   }
 }
 function mailSenderIcon(kind="info") {
@@ -7626,9 +7626,9 @@ function closeActionResultModal() {
 
 
 // 旧セーブ互換用：関数名とofferIdはPaper Moonのまま残し、内部ではinitialPartnerBandId()でTriple Arrowsへ読み替える。
-function addStoryLiveOfferPaperMoon() { state.storyFlags = state.storyFlags || {}; if (state.storyFlags.paperMoonInvite8) return; state.storyFlags.paperMoonInvite8 = true; const offer = { id:"story_paper_moon_8", turn:8, venueId:"garage", liveType:"booking_band", invitedBandIds:["paper_moon"], accepted:false, expired:false, status:"open", createdTurn:state.turn, storyInvite:true }; state.liveOffers = Array.isArray(state.liveOffers) ? state.liveOffers : []; state.liveOffers.unshift(offer); const mailId = addMail("俺たちの企画　参加依頼", `この前のライブ、お疲れ！
-まだ荒削りだけど、お前らきっとすごくなるぜ。
-この前言ってた企画ライブ、よかったら出てくれよ。
+function addStoryLiveOfferPaperMoon() { state.storyFlags = state.storyFlags || {}; if (state.storyFlags.paperMoonInvite8) return; state.storyFlags.paperMoonInvite8 = true; const offer = { id:"story_paper_moon_8", turn:8, venueId:"garage", liveType:"booking_band", invitedBandIds:["paper_moon"], accepted:false, expired:false, status:"open", createdTurn:state.turn, storyInvite:true }; state.liveOffers = Array.isArray(state.liveOffers) ? state.liveOffers : []; state.liveOffers.unshift(offer); const mailId = addMail("俺たちの企画　参加依頼", `この前のライブ、良かったぜ。
+まだ粗いとこもあるけど、ちゃんと客に届いてた。
+今度の企画、お前らも一本鳴らしに来ないか。
 
 Paper Moon Kids　タカナシ`, "live_offer", { offerId:offer.id, offerTurn:8, status:"open", sender:"Paper Moon Kids　タカナシ" }); offer.mailId = mailId; }
 function addInitialFlowMail(key, subject, body, sender="携帯通知") {
@@ -7760,18 +7760,18 @@ function v043cSetScheduleTab(tab) {
 function applyInitialFlowTurnEvents() {
   if ((state.liveCount || 0) > 0 && state.turn === 6 && !bandSystemOn()) { addStoryLiveOfferPaperMoon(); }
   if ((state.liveCount || 0) > 0) return;
-  if (state.turn === 2) addInitialFlowMail("t2RecruitMail", "メンバー募集の反応", `受信BOXにメンバー募集の情報が届いている。
-バンドメンバーに迎え入れるか考えよう。`, "メンバー募集掲示板");
+  if (state.turn === 2) addInitialFlowMail("t2RecruitMail", "メンバー募集の反応", `募集掲示板に、新しい応募が届いている。
+迎え入れるかどうか、目を通しておこう。`, "メンバー募集掲示板");
   if (state.turn === 3) addInitialFlowMail("underInviteMail", "ライブイベントのお誘い", `はじめまして。
 ライブハウスUNDERの運営です。
-最近活動を始めたバンド向けのイベントがあります。
-よければ、出演しませんか？
+地下で鳴らし始めたばかりのバンドを集めた回を予定しています。
+よろしければ、出演されませんか？
 
 出演日：5ターン目 18:00～
 形式：ライブハウスイベント
 参加費：4500円`, "ライブハウスUNDER");
-  if (state.turn === 4 && (state.commandCounts?.promo || 0) > 0) addInitialFlowMail("t4PromoRecruitMail", "宣伝を見たメンバー候補", `宣伝でも、メンバー加入の連絡が来ることがある。
-バンドメンバーに迎え入れるか考えよう。`, "メンバー募集掲示板");
+  if (state.turn === 4 && (state.commandCounts?.promo || 0) > 0) addInitialFlowMail("t4PromoRecruitMail", "宣伝を見たメンバー候補", `宣伝を見た、という応募が届いている。
+迎え入れるかどうか、目を通しておこう。`, "メンバー募集掲示板");
 }
 
 function finishPendingTurnAdvance() {
@@ -9254,7 +9254,7 @@ function maybeAddTutorialSnsSeed(command) {
   if (command !== "promo" || (state.liveCount || 0) > 0) return;
   if (state.tutorialLastPhonePromptTurn === state.turn) return;
   state.tutorialLastPhonePromptTurn = state.turn;
-  addSnsPost("@livehouse_staff", "初ライブ前の告知を見かけた。地下の新しいバンド、ちょっと気になる。", "event");
+  addSnsPost("@livehouse_staff", "初ライブ前の告知を見かけた。地下から出てきた新顔、ちょっと気になる。", "event");
 }
 
 function unreadMailCount() { return (state.phoneMails || []).filter(m => !m.read).length; }
@@ -9487,7 +9487,7 @@ function snsPost(kind="chat") {
   if (kind === "notice" && !next) { log("告知できるライブ予定がありません。", "warn"); render(); return; }
   if (kind === "notice") {
     const v = venueById(next.venueId);
-    addSnsPost("@our_band", `${next.turn}T ${v.name}でライブあります。よかったら来てください。`, "self");
+    addSnsPost("@our_band", `${next.turn}T ${v.name}でライブします。よかったら来てください。`, "self");
   } else {
     const samples = ["スタジオ帰りのコンビニ、だいたい何か買ってしまう。", "新しいリフ、まだ名前がないけど悪くない。", "今日の練習、最後の1回だけ妙に合った。", "ライブハウスの床の感じ、ちょっと好き。"];
     addSnsPost("@our_band", samples[rand(0, samples.length - 1)], "self");
@@ -9496,7 +9496,7 @@ function snsPost(kind="chat") {
   state.snsPostCount = (state.snsPostCount || 0) + 1;
   if (state.snsPostCount >= 10) unlockSkill("sns_master", "SNS投稿10件");
   log(`SNSに${kind === "notice" ? "ライブ告知" : "雑談"}を投稿した。大きな即時効果はないが、投稿10件でSNS上手に近づく。`);
-  if (kind === "notice") addSnsPost("@listener_random", "告知見た。予定合えば行くかも。", "normal");
+  if (kind === "notice") addSnsPost("@listener_random", "告知見た。予定合えば顔出すかも。", "normal");
   render();
 }
 
@@ -9956,12 +9956,12 @@ function generateLiveOffer(reason="turn") {
   state.liveOffers = state.liveOffers.slice(0, 12);
   const meta = liveTypeMeta(type);
   const fee = eventBaseCost(offer, v);
-  const mailId = addMail(`${meta.short}の出演通知`, `${turn}ターン目、${v.name}の${meta.short}に出演できます。
+  const mailId = addMail(`${meta.short}の出演通知`, `${turn}ターン目、${v.name}の${meta.short}に出演枠が空いています。
 ${meta.feeLabel}：${fee.toLocaleString()}円
 共演：${bands.map(b=>b.name).join(" / ") || "ライブハウスイベント枠"}
-携帯のメールから参加できます。`, "live_offer", { offerId:offer.id, offerTurn:turn, status:"open", sender: type === "booking_band" ? (bands[0]?.name || "対バン企画担当") : `${v.name} 店長`, senderBandId: type === "booking_band" ? (bands[0]?.id || null) : null });
+携帯のメールから返信できます。`, "live_offer", { offerId:offer.id, offerTurn:turn, status:"open", sender: type === "booking_band" ? (bands[0]?.name || "対バン企画担当") : `${v.name} 店長`, senderBandId: type === "booking_band" ? (bands[0]?.id || null) : null });
   offer.mailId = mailId;
-  addSnsPost("@livehouse_info", `${turn}T ${v.name}で${meta.short}あり。若手バンドの出演枠、まだ動いてるっぽい。`, "event");
+  addSnsPost("@livehouse_info", `${turn}T ${v.name}で${meta.short}あるらしい。若手の出演枠、まだ動いてるみたい。`, "event");
   log(`携帯にライブ出演通知が届いた：${turn}T ${v.name} / ${meta.short}`, "event");
   return offer;
 }
@@ -9969,10 +9969,10 @@ function generateSnsTrendPost() {
   const roll = Math.random();
   if (roll < 0.34) {
     const general = [
-      ["@listener_014", "駅裏のライブハウス、名前知らんバンドが急に良かったりするから油断できん。"],
+      ["@listener_014", "駅裏のライブハウス、名前も知らんバンドが急に刺さってくるから油断できん。"],
       ["@coffee_after_show", "終演後の缶コーヒーが一番うまい日ある。"],
-      ["@noise_walker", "最近、短い曲で一気に持っていくバンド増えた気がする。"],
-      ["@ticket_stub", "小箱のスピーカー前、耳終わるけどやめられない。"]
+      ["@noise_walker", "最近、短い曲で一気に持っていくバンドが増えた気がする。"],
+      ["@ticket_stub", "小箱のスピーカー前、耳は終わるけどやめられない。"]
     ];
     const [a,b] = general[rand(0,general.length-1)];
     addSnsPost(a,b,"normal");
@@ -9981,14 +9981,14 @@ function generateSnsTrendPost() {
   if (roll < 0.67) {
     const roster = rosterBands();
     const b = roster[rand(0, roster.length-1)];
-    addSnsPost(`@${b.id}`, `${b.name} 次の企画に向けて対バン探し中。${b.genre}寄りの夜にしたい。`, "event", b.id);
+    addSnsPost(`@${b.id}`, `${b.name}、次の企画に向けて対バン探し中。${b.genre}寄りの夜にしたいらしい。`, "event", b.id);
     return;
   }
   const genres = ["青春パンク", "メロディックパンク", "オルタナロック", "エモ", "ポップパンク", "ガレージロック"];
   const words = ["夜", "焦燥", "帰り道", "ネオン", "叫び", "青春", "革命", "居場所"];
   const g = genres[rand(0, genres.length - 1)];
   const w = words[rand(0, words.length - 1)];
-  addSnsPost("@underground_feed", `今週、${g}と「${w}」っぽい歌詞の反応が少し良い。ライブ後の口コミもその辺りに寄ってる。`, "trend");
+  addSnsPost("@underground_feed", `今週は${g}で「${w}」っぽい歌詞の反応がいい。ライブ後の口コミも、その辺りに寄ってる。`, "trend");
 }
 function requestLiveOfferAccept(offerId) {
   const offer = (state.liveOffers || []).find(o => o.id === offerId);
@@ -10065,7 +10065,7 @@ function acceptLiveOffer(offerId) {
   if (!addLiveEventPreservingSchedule(ev)) { setLiveOfferStatus(offer, "conflict"); log("そのターンは既に別のライブ予定があるため、出演通知を見送った。", "warn"); render(); return; }
   setLiveOfferStatus(offer, "accepted");
   log(`${offer.turn}Tの「${meta.label} / ${v.name}」に参加することにした。${meta.feeLabel}${eventBaseCost(ev, v).toLocaleString()}円。`, "event");
-  addSnsPost("@our_band", `${offer.turn}T ${v.name}、出演決定。${meta.short}で一本やります。`, "self");
+  addSnsPost("@our_band", `${offer.turn}T ${v.name}、出演決定した。${meta.short}で一本、鳴らしてくる。`, "self");
   render();
 }
 function declineLiveOffer(offerId) {
@@ -12272,7 +12272,7 @@ function resolveAfterpartyChoice(choiceKey="listen") {
     if (Math.random() < introChance) {
       const applicant = addApplicantFromCandidates("打ち上げ紹介");
       if (applicant) {
-        addMail("打ち上げで紹介されたメンバー候補", `${bands[0]?.name || "共演者"}から紹介された${applicant.name}です。\nライブ後に連絡先をもらいました。バンド情報から加入を検討できます。`, "member", { sender: bands[0]?.name || "打ち上げで知り合った人", senderBandId: bands[0]?.id || null });
+        addMail("打ち上げで紹介されたメンバー候補", `${bands[0]?.name || "共演者"}から紹介してもらった${applicant.name}です。\nライブのあと、連絡先を交換しました。バンド情報から加入を検討できます。`, "member", { sender: bands[0]?.name || "打ち上げで知り合った人", senderBandId: bands[0]?.id || null });
         introText = `\n紹介：${applicant.name}の連絡先をもらった。`;
       }
     }
@@ -12709,7 +12709,7 @@ function executeCommand(command) {
     if (eff < 1) log(`疲労が高く、宣伝効率が${Math.round(eff*100)}%まで落ちている。`, "warn");
     state.promoRecruitTurns = 3;
     state.bookingInviteBoostTurns = hasSkill("sns_master") ? 4 : 3;
-    addSnsPost("@our_band", "次のライブに向けて告知中。ブッキングの声もかかりやすくなりそう。", "self");
+    addSnsPost("@our_band", "次のライブに向けて告知中。ブッキングの声も、少しかかりやすくなった気がする。", "self");
     log(`宣伝した。知名度と曲の認知度が上がった。宣伝費-${cost.toLocaleString()}円。3ターンの間、加入希望とライブ招待が来やすくなる。`);
   }
   if (command === "talk") {
@@ -13876,14 +13876,14 @@ function applyLiveResult(r, setlist, supports) {
     state.supportAffinity[key] = (state.supportAffinity[key] || 0) + ({ S:15, A:11, B:7, C:3, D:1, E:0 }[r.rank] || 0) + (old > 20 ? 2 : 0);
   });
   if (["self_taiban", "booking_house", "booking_band"].includes(ev.liveType)) {
-    addSnsPost("@live_after", `${currentLiveName()}終了。${r.rank}評価、${r.revenue.attendees}人。${r.mannerWarning ? "セトリ面はちょっと気になる声も。" : "対バンの空気は悪くなさそう。"}`, r.rank);
+    addSnsPost("@live_after", `${currentLiveName()}終了。${r.rank}評価、${r.revenue.attendees}人入り。${r.mannerWarning ? "セトリ面には気になる声も。" : "対バンの空気は悪くなかった。"}`, r.rank);
   }
   addLiveWorldReactionPosts(r, setlist, ev);
   if (["S","A","B"].includes(r.rank) && Math.random() < 0.60) {
-    addMail("ライブの感想が届いています", `昨日のライブ、${setlist[0]?.title || "1曲目"}が特に良かったです。
-次も観に行きます。
+    addMail("ライブの感想が届いています", `昨日のライブ、${setlist[0]?.title || "1曲目"}が特に刺さりました。
+また観に行きます。
 
-効果：ファンメールにより表現力/認知度が少し伸びました。`, "fan_mail", { sender:"ライブを見たファン" });
+ファンの声が届いて、少し自信になった。`, "fan_mail", { sender:"ライブを見たファン" });
     state.band.fame = clamp(state.band.fame + 1, 0, 999);
     activeMembers().forEach(m => m.stats.charisma = clamp(m.stats.charisma + 1, 1, 99));
   }
