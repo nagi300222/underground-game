@@ -2556,14 +2556,25 @@ body:has(.v042-phone-backdrop){overflow-x:hidden;}
 
 /* v0.4.2 fix1: live-prep labels and low-contrast controls. */
 .v042-live-prep .live-prep-step-nav{grid-template-columns:repeat(3,minmax(0,1fr)) !important;gap:6px !important;overflow:visible !important;}
+/* fix11 B4: .live-prep-step-navは意図的なsticky（スクロール中も常時タブとして表示する設計）。
+   実測で確認: 背景は既にvar(--bg)で不透過だが、境界を示す線が無いため、スクロール中に
+   見出し（①セトリ等の丸数字アイコン込み）がタイル列の下端でちょうど輪切りにされ、
+   「表示バグ」に見える見た目になっていた（重なり自体はsticky設計上正常だが、見え方が粗雑）。
+   境界線を追加し、タイル列が独立した固定レイヤーであることを視覚的に明示する。 */
+.v042-live-prep .live-prep-step-nav{border-bottom:2px solid var(--ink);box-shadow:0 4px 0 -2px rgba(0,0,0,.35);}
 /* fix8: overflow:visibleだと、狭幅時に折り返した文字が隣タイルへ視覚的にはみ出し重なって
    「見切れ」に見える不具合があった（発注者実機で発覚）。カット幅+4px規則に倣い、タイル自体を
    overflow:hiddenで自タイル内に閉じ込め、パディングも+4px確保した上で、b/smallへ2行までの
    line-clampを適用し、収まらない分は省略記号で自然に切る（隣タイルへの視覚的はみ出しを根絶）。 */
-.v042-live-prep .prepStepBtn{min-height:64px !important;padding:7px 9px !important;overflow:hidden !important;display:grid !important;align-content:center;gap:2px !important;white-space:normal !important;background: var(--bg) !important;color: var(--ink) !important;border: 1px solid var(--ink) !important;}
+/* fix11 B5: 基底.prepStepBtnのgrid-template-columns:auto 1frは、狭いタイル幅では
+   auto側（アイコン列）が実測48px超まで広がり、text列(1fr)がわずか22px程度しか残らず、
+   「セトリ」級の3文字ラベルすら1行1文字しか収まらず不自然な折返し・過度な省略を招いていた
+   （実測: bのscrollHeight 38px＝実質3行相当 vs line-clamp:2の可視高25px）。
+   アイコン列を実寸に近い固定幅へ変更し、テキスト列に十分な幅を渡す。 */
+.v042-live-prep .prepStepBtn{min-height:64px !important;padding:7px 9px !important;overflow:hidden !important;display:grid !important;grid-template-columns:22px 1fr !important;align-content:center;gap:2px 6px !important;white-space:normal !important;background: var(--bg) !important;color: var(--ink) !important;border: 1px solid var(--ink) !important;}
 .v042-live-prep .prepStepBtn span,
 .v042-live-prep .prepStepBtn b,
-.v042-live-prep .prepStepBtn small{display:-webkit-box !important;-webkit-box-orient:vertical !important;-webkit-line-clamp:2 !important;white-space:normal !important;overflow:hidden !important;text-overflow:ellipsis !important;color: var(--ink) !important;line-height:1.15 !important;}
+.v042-live-prep .prepStepBtn small{display:-webkit-box !important;-webkit-box-orient:vertical !important;-webkit-line-clamp:2 !important;white-space:normal !important;overflow:hidden !important;text-overflow:ellipsis !important;color: var(--ink) !important;line-height:1.15 !important;word-break:keep-all !important;overflow-wrap:anywhere !important;}
 .v042-live-prep .prepStepBtn span{font-size:15px !important;}
 .v042-live-prep .prepStepBtn b{font-size:12px !important;}
 .v042-live-prep .prepStepBtn small{font-size:10px !important;color: var(--ink) !important;}
@@ -2728,11 +2739,11 @@ body:has(.v043b-shell){height:100dvh;overflow:hidden;}
 /* PR-H #4: 1.5x目標だと6桁金額(¥999,999等)がタイル幅を超えるため、実描画で確認の上13px(Anton)に抑制。
    さらにnowrap+ellipsisによる数値の無音切り捨てdon't-hide-dataを避け、稀な超過時はoverflow-wrapで折り返す方針に変更（判断メモ） */
 .v043b-home .v042-status b{font-family: var(--font-anton), var(--font-display);font-variant-numeric:tabular-nums;font-size:13px;overflow-wrap:anywhere;line-height:1.1;}
-.v043b-shell-compact-home .v042-tabbar,
-.v043b-shell-phone .v042-tabbar{display:none !important;}
-.v043b-shell .v042-tabbar{grid-template-columns:repeat(3,minmax(0,1fr)) !important;padding:5px 8px calc(5px + env(safe-area-inset-bottom)) !important;}
-.v043b-shell .v042-tab{min-height:48px;}
-.v043b-shell .v042-tab small{font-size:10px;}
+/* fix11: 発注者裁定により凍結事項を「3タブナビ」→「ホームハブ型」へ改訂。タブバーは
+   全画面で完全不在化する（display:noneでDOM上には残るが、当たり判定・描画とも完全ゼロで
+   fix9のホーム画面と同じ「非表示ではなく非レンダリング」相当の状態。コード自体の削除は
+   後日の棚卸しに委ねる）。従来はcompact-home/phoneの2状態限定の非表示だったが、全状態へ拡張。 */
+.v042-tabbar{display:none !important;}
 @media(max-width:360px){
   .v043b-shell-compact-home{padding:max(5px, env(safe-area-inset-top)) 5px calc(5px + env(safe-area-inset-bottom)) !important;}
   .v043b-home{gap:4px;}

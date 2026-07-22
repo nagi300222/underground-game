@@ -11168,7 +11168,12 @@ function currentLivePrepStep() {
   return n;
 }
 function renderLivePrepStepNav(step) {
-  return `<div class="live-prep-step-nav" role="tablist" aria-label="ライブ準備ステップ">${livePrepStepMeta().map(m => `<button type="button" class="prepStepBtn ${step === m.step ? "active" : ""}" data-step="${m.step}" aria-selected="${step === m.step ? "true" : "false"}"><span>${v043eIcon(m.icon)}</span><b>${m.step}. ${escapeHtml(m.title)}</b><small>${escapeHtml(m.desc)}</small></button>`).join("")}</div>`;
+  /* fix11 B5: 実機で「セト/リ」のような1文字だけ見えて省略される不自然な折返しを確認。
+     3列グリッドの狭いタイル幅で「{番号}. {タイトル}」を1行のbへ詰め込んでいたことが原因
+     （番号側で1行使い切り、タイトル本体がほぼ折返し不能な残り幅に押し込まれていた）。
+     番号はタイル自体の並び順・aria-labelで既に伝わるため、視認用の番号プレフィックスを外し、
+     タイトル本体にline-clamp:2の幅をまるごと渡す。 */
+  return `<div class="live-prep-step-nav" role="tablist" aria-label="ライブ準備ステップ">${livePrepStepMeta().map(m => `<button type="button" class="prepStepBtn ${step === m.step ? "active" : ""}" data-step="${m.step}" aria-selected="${step === m.step ? "true" : "false"}" aria-label="${m.step}. ${escapeHtml(m.title)}"><span>${v043eIcon(m.icon)}</span><b>${escapeHtml(m.title)}</b><small>${escapeHtml(m.desc)}</small></button>`).join("")}</div>`;
 }
 function renderLivePrepStepControls(step) {
   const prev = step > 1 ? `<button type="button" class="prepStepPrevBtn ghost-btn" data-step="${step - 1}">←︎ 前へ</button>` : `<span></span>`;
