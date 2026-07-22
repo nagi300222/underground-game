@@ -15010,7 +15010,15 @@ function v043gUpdateDebugOverlay() {
     const dvh = v043gReadDvhEffective();
     const displayMode = (typeof window.matchMedia === "function" && window.matchMedia("(display-mode: standalone)").matches) ? "standalone" : "browser";
     const shellEl = document.querySelector(".v043b-shell") || document.querySelector(".app-shell");
-    const footerEl = document.querySelector(".v042-tabbar") || document.querySelector(".v043b-action-btn") || document.querySelector("#performLiveBtn");
+    /* fix9: tabbarが存在しない画面（ホームはcompact-homeのため.v042-tabbar自体が非レンダリング）で
+       querySelectorが素通しでnullになった際、フォールバック先（ホームタイル等）の座標を
+       無印の「footer」ラベルでそのまま表示していたため、実機協調で「タブバーが迷子で残存」という
+       誤診断を招いた（fix9実測で.v042-tabbarはホームで非レンダリングであり座標自体は正常なホーム
+       タイルのものと判明）。何を測っているかをラベルに明記し、フォールバック発生を可視化する。 */
+    let footerEl = document.querySelector(".v042-tabbar");
+    let footerKind = "tabbar";
+    if (!footerEl) { footerEl = document.querySelector(".v043b-action-btn"); footerKind = "tile(fallback)"; }
+    if (!footerEl) { footerEl = document.querySelector("#performLiveBtn"); footerKind = "liveBtn(fallback)"; }
     const titleEl = document.querySelector(".section-title h2");
     function rectStr(elm) {
       if (!elm || typeof elm.getBoundingClientRect !== "function") return "N/A";
@@ -15022,7 +15030,7 @@ function v043gUpdateDebugOverlay() {
       `mode:${displayMode} iW:${window.innerWidth} iH:${window.innerHeight} dvh:${dvh === null ? "?" : Math.round(dvh)}\n` +
       `safe T${sa.top} R${sa.right} B${sa.bottom} L${sa.left}\n` +
       `shell ${rectStr(shellEl)}\n` +
-      `footer ${rectStr(footerEl)}\n` +
+      `footer(${footerKind}) ${rectStr(footerEl)}\n` +
       `title${titleOverflow === null ? "" : (titleOverflow ? " OVERFLOW" : " ok")}`;
   } catch (e) { /* 診断表示のみ。失敗しても本体機能へは無影響 */ }
 }

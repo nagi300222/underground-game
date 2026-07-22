@@ -2049,7 +2049,11 @@ small,.badge,.tabbar .tabBtn small,.menu-tile small{font-size:12px;line-height:1
 .fes-detail-countdown{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}
 .fes-detail-countdown span{min-width:0;padding:6px 8px;border: 1px solid var(--v41-border);border-radius: 0;color: var(--v41-text);background: var(--bg);font-size:12px;text-align:center;white-space:nowrap;}
 @media (max-width:399px){
-  .app-shell,.app-shell-v041a{padding-top:6px !important;padding-left:6px !important;padding-right:6px !important;}
+  /* fix9: このpadding-topが固定6pxのままだと、狭幅端末（実機iPhone幅もここに該当）で
+     safe-area-inset-topを反映した797行目のルールを!importantで完全に無効化していた
+     （standaloneでシェル上端がsafe-area無視でT0開始する確定原因）。6px下限は維持しつつ
+     env()を反映する。 */
+  .app-shell,.app-shell-v041a{padding-top:max(6px, env(safe-area-inset-top)) !important;padding-left:6px !important;padding-right:6px !important;}
   .view-panel{margin-top:6px;padding-bottom:16px;}
   .l0-dashboard{margin-bottom:6px;}
   .v041-status-sub{display:none;}
@@ -2589,7 +2593,7 @@ body:has(.v042-phone-backdrop){overflow-x:hidden;}
 
 /* v0.4.3b-home-navigation-draft: home/navigation scope only. */
 .v043b-shell{max-width:480px !important;}
-.v043b-shell-compact-home{width:min(480px,100vw) !important;height:100dvh !important;max-height:100dvh !important;padding:6px 6px calc(6px + env(safe-area-inset-bottom)) !important;overflow:hidden !important;box-sizing:border-box !important;}
+.v043b-shell-compact-home{width:min(480px,100vw) !important;height:100dvh !important;max-height:100dvh !important;padding:max(6px, env(safe-area-inset-top)) 6px calc(6px + env(safe-area-inset-bottom)) !important;overflow:hidden !important;box-sizing:border-box !important;}
 #app:has(.v043b-shell-compact-home),
 body:has(.v043b-shell-compact-home){height:100dvh;overflow:hidden;}
 .v043b-shell-compact-home .v042-view-panel{height:100%;max-width:100%;margin:0;padding:0 !important;overflow:hidden;display:block;}
@@ -2717,7 +2721,7 @@ body:has(.v043b-shell){height:100dvh;overflow:hidden;}
 .v043b-shell .v042-tab{min-height:48px;}
 .v043b-shell .v042-tab small{font-size:10px;}
 @media(max-width:360px){
-  .v043b-shell-compact-home{padding:5px 5px calc(5px + env(safe-area-inset-bottom)) !important;}
+  .v043b-shell-compact-home{padding:max(5px, env(safe-area-inset-top)) 5px calc(5px + env(safe-area-inset-bottom)) !important;}
   .v043b-home{gap:4px;}
   .v043b-home .v042-home-top{grid-template-columns:minmax(0,1fr) 44px 44px !important;gap:5px !important;min-height:44px;}
   .v043b-utility-popover{top:48px;right:-48px;width:150px;}
