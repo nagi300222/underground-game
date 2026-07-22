@@ -8790,7 +8790,8 @@ const v043fAudio = {
   debugUnlockHandlerFired: false,
   debugResumeAttempted: false,
   debugResumedConfirmed: false,
-  debugLastChoreoSnapshot: null
+  debugLastChoreoSnapshot: null,
+  debugChoreoCallCount: 0
 };
 function v043fSetMuted(muted) {
   v043fAudio.muted = !!muted;
@@ -8858,6 +8859,32 @@ function v043fCanPlay() {
   if (!ctx || !v043fAudio.unlocked) return false;
   if (ctx.state !== "running") return false;
   return true;
+}
+/* fix-SE計装（調査用・削除予定）: 既存のv043gデバッグオーバーレイ（画面左上・top:0起点で
+   下方向へ伸びる箱）は、内容が増えて画面高を超えると下端がビューポート外へはみ出し、
+   追記した行だけが「表示されない」ように見える恐れがある（position:fixedはビューポート
+   基準で伸びるだけで、自動で折り返し表示されるわけではない）。この懸念を回避するため、
+   画面下端に固定・独立した高コントラストの帯（bottom:0、最前面z-index、大きめフォント）を
+   別途新設し、v043gオーバーレイの状態とは無関係に必ず視認できるようにする。
+   devModeOn()がtrueの間のみ表示（既存DEVフラグに従属、常時ONの現行設定と同じ扱い）。 */
+function v043fUpdateSeDebugBanner() {
+  if (typeof devModeOn !== "function" || !devModeOn()) return;
+  if (typeof document === "undefined" || !document.body) return;
+  try {
+    let el = document.getElementById("v043fSeDebugBanner");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "v043fSeDebugBanner";
+      el.setAttribute("aria-hidden", "true");
+      el.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:999999;pointer-events:none;background:#ffe600;color:#000;font:13px/1.5 monospace;padding:6px 8px;white-space:pre-wrap;word-break:break-all;border-top:3px solid #000;";
+      document.body.appendChild(el);
+    }
+    const a = v043fAudio;
+    const line1 = `SE calls:${a.debugChoreoCallCount || 0} muted:${a.muted} ctx:${!!a.ctx} unlocked:${a.unlocked} state:${a.ctx ? a.ctx.state : "N/A"}`;
+    const line2 = `handlerFired:${!!a.debugUnlockHandlerFired} resumeAttempt:${!!a.debugResumeAttempted} resumedOK:${!!a.debugResumedConfirmed}`;
+    const line3 = a.debugLastChoreoSnapshot ? `lastCanPlay:${a.debugLastChoreoSnapshot.canPlay}` : "lastCanPlay: (結果画面未到達)";
+    el.textContent = `${line1}\n${line2}\n${line3}`;
+  } catch (e) { /* 診断表示のみ。失敗しても本体機能へは無影響 */ }
 }
 function v043fNow() {
   return v043fAudio.ctx ? v043fAudio.ctx.currentTime : 0;
@@ -9003,8 +9030,11 @@ function v043fScheduleLiveResultAudio(rank) {
   /* fix-SE計装（調査用・削除予定）: v043fCanPlay()の無言スキップの真因を実機で特定するため、
      結果コレオ発火の瞬間の4条件＋解錠経路の状態をコンソールへ記録し、v043gデバッグオーバーレイ
      （DEV限定）にも同じスナップショットを反映する。判定ロジック自体（v043fCanPlay()の中身・
-     呼び出しタイミング）は一切変更しない。 */
+     呼び出しタイミング）は一切変更しない。debugChoreoCallCountは関数の最初の行で増分するため、
+     「この関数がそもそも呼ばれているか」を他の条件と無関係に確認できる。 */
+  v043fAudio.debugChoreoCallCount = (v043fAudio.debugChoreoCallCount || 0) + 1;
   const debugSnapshot = {
+    calledCount: v043fAudio.debugChoreoCallCount,
     muted: v043fAudio.muted,
     ctxExists: !!v043fAudio.ctx,
     unlocked: v043fAudio.unlocked,
@@ -9016,6 +9046,7 @@ function v043fScheduleLiveResultAudio(rank) {
   };
   v043fAudio.debugLastChoreoSnapshot = debugSnapshot;
   if (typeof console !== "undefined" && console.log) console.log("[v043f SE debug] choreo fire:", JSON.stringify(debugSnapshot));
+  if (typeof v043fUpdateSeDebugBanner === "function") v043fUpdateSeDebugBanner();
   if (!v043fCanPlay()) return { nodes: [] };
   const t0 = v043fAudio.ctx.currentTime;
   const nodes = [];
@@ -15171,6 +15202,7 @@ const dgRenderBeforeFix8 = render;
 render = function () {
   dgRenderBeforeFix8();
   v043gUpdateDebugOverlay();
+  v043fUpdateSeDebugBanner();
 };
 
 render();
