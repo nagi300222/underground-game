@@ -2259,6 +2259,7 @@ function addMail(subject, body, kind="info", payload={}) {
   const sender = payload.sender || mailSenderForKind(kind);
   state.phoneMails.unshift({ id, turn: state.turn, subject, sender, body, kind, read:false, payload });
   state.phoneMails = state.phoneMails.slice(0, 60);
+  if (typeof v043fPlaySeNow === "function") v043fPlaySeNow("notify"); /* PR-J2 B項: メール新着通知 */
   return id;
 }
 function mailSenderForKind(kind="info") {
@@ -7518,6 +7519,7 @@ function log(msg, type="info") {
   state.logs.unshift(msg);
   state.lastLogType = type;
   state.telopFlash = Date.now();
+  if (type === "warn" && typeof v043fPlaySeNow === "function") v043fPlaySeNow("error"); /* PR-J2 B項: 操作不可・条件未達 */
 }
 function normalizePopupQueue() {
   state.popupQueue = Array.isArray(state.popupQueue) ? state.popupQueue.filter(Boolean) : [];
@@ -8014,7 +8016,7 @@ function dgAnimateLiveResultReveal() {
   function skipToFinal() {
     if (settled) return;
     v043fStopScheduledNodes(v043fReveal.nodes); /* PR-J: タップ早送り時は予約済みSEを全停止 */
-    v043fPlayD6(v043fNow()); /* PR-J: D6のみ1回鳴らして終了 */
+    if (v043fCanPlay()) v043fRankResultFn(rank)(v043fNow()); /* PR-J2 C項: 結果音のみ1回鳴らして終了（旧D6単発から差し替え） */
     jumpAllToFinal();
     settle();
   }
@@ -8348,6 +8350,7 @@ function joinApplicantById(id) {
   state.members.push(applicant);
   setApplicantList(list);
   log(`${applicant.name}が${applicant.joinStatus}として加入した。加入済みメンバーは全員バンド構成に入り、ライブ準備で担当を選べる。`);
+  v043fPlaySeNow("join"); /* PR-J2 B項: メンバー加入 */
   const joinStoryPlayed = novelEventsOn() && startStoryEvent("member_join_generic", { silent: true, context: memberJoinStoryContext(applicant) });
   if (!joinStoryPlayed) {
     showEventPopup(applicant.joinStatus === "仮加入" ? "仮加入！" : "新メンバー加入！", `${applicant.name} がバンドに加わった！\n担当：${applicant.part}\n得意：${applicant.mainGenre}\n加入済みメンバーは全員ライブ準備に表示される。`, applicant.joinStatus === "仮加入" ? "event" : "rare", applicant.joinStatus === "仮加入" ? v043eIcon("band") : v043eIcon("fame"));
@@ -8778,24 +8781,48 @@ function dgGetOrCreateOverlayEl(id, className) {
    付録Aのosc(type,f0,f1,...)はf1に0を渡すとピッチスライドなし（f0固定）を表す規約として実装
    （E1の3和音・A3の余韻2本がいずれも単一ピッチのチャイムである実際の音を優先した解釈）。 */
 const V043F_SE_MUTE_KEY = "underground_v043_se_muted";
+const V043F_SE_VOLUME_KEY = "underground_v043_se_volume";
+const V043F_BGM_VOLUME_KEY = "underground_v043_bgm_volume";
+function v043fReadVolumeKey(key, fallback) {
+  if (typeof safeStorageGet !== "function") return fallback;
+  const raw = safeStorageGet(key);
+  const n = raw === null || raw === undefined ? NaN : Number(raw);
+  return Number.isFinite(n) ? clamp(n, 0, 1) : fallback;
+}
 const v043fAudio = {
   ctx: null,
   master: null,
+  compressor: null,
+  verb: null,
+  verbGain: null,
+  dly: null,
+  dlyFb: null,
+  dlyWet: null,
+  /* PR-J2: BGM用ゲインの先行設置（将来枠）。BGM音源はPR-K未実装のため、値だけ保持・
+     スライダーはこの変数へ反映するが、どこにも接続していない（鳴らす対象が無いだけ）。 */
+  bgmGain: null,
   unlocked: false,
   muted: typeof safeStorageGet === "function" && safeStorageGet(V043F_SE_MUTE_KEY) === "1",
-  maxNodes: 16,
-  noiseBuffer: null,
-  /* fix-SE計装（調査用・削除予定）: v043fCanPlay()の無言スキップの真因を実機で特定するための
-     追加トレース状態。ゲームロジック・音声処理そのものには一切関与しない（フラグを立てるだけ）。 */
-  debugUnlockHandlerFired: false,
-  debugResumeAttempted: false,
-  debugResumedConfirmed: false,
-  debugLastChoreoSnapshot: null,
-  debugChoreoCallCount: 0
+  seVolume: v043fReadVolumeKey(V043F_SE_VOLUME_KEY, 0.5),
+  bgmVolume: v043fReadVolumeKey(V043F_BGM_VOLUME_KEY, 0.5),
+  maxNodes: 40,
+  noiseBuffer: null
 };
 function v043fSetMuted(muted) {
   v043fAudio.muted = !!muted;
   if (typeof safeStorageSet === "function") safeStorageSet(V043F_SE_MUTE_KEY, v043fAudio.muted ? "1" : "0");
+}
+/* PR-J2 D項: SE/BGM音量スライダーの反映＋永続化（#29のミュート永続方式を踏襲）。
+   BGM音量はゲイン変数を保持するのみで、現状どこにも接続しない（音源未実装のため）。 */
+function v043fSetSeVolume(vol) {
+  v043fAudio.seVolume = clamp(Number(vol) || 0, 0, 1);
+  if (v043fAudio.master) v043fAudio.master.gain.value = v043fAudio.seVolume;
+  if (typeof safeStorageSet === "function") safeStorageSet(V043F_SE_VOLUME_KEY, String(v043fAudio.seVolume));
+}
+function v043fSetBgmVolume(vol) {
+  v043fAudio.bgmVolume = clamp(Number(vol) || 0, 0, 1);
+  if (v043fAudio.bgmGain) v043fAudio.bgmGain.gain.value = v043fAudio.bgmVolume;
+  if (typeof safeStorageSet === "function") safeStorageSet(V043F_BGM_VOLUME_KEY, String(v043fAudio.bgmVolume));
 }
 function v043fEnsureContext() {
   if (v043fAudio.ctx) return v043fAudio.ctx;
@@ -8805,10 +8832,19 @@ function v043fEnsureContext() {
   try {
     const ctx = new Ctor();
     const master = ctx.createGain();
-    master.gain.value = 0.5;
-    master.connect(ctx.destination);
+    master.gain.value = v043fAudio.seVolume;
+    /* PR-J2 A項: マスターにDynamicsCompressorを挟み全SEの音量を統一（v14正典レシピの値）。 */
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -18; comp.knee.value = 6; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.12;
+    master.connect(comp);
+    comp.connect(ctx.destination);
     v043fAudio.ctx = ctx;
     v043fAudio.master = master;
+    v043fAudio.compressor = comp;
+    /* PR-J2: BGM用ゲインの先行設置。今はどこにも接続しない（PR-K接続時に配線）。 */
+    v043fAudio.bgmGain = ctx.createGain();
+    v043fAudio.bgmGain.gain.value = v043fAudio.bgmVolume;
+    v043fEnsureFxChain();
     /* fix-SE-interrupted: iOSは他アプリの音声割込み等でAudioContext.stateを
        "interrupted"へ遷移させることがある（"suspended"とは別の値）。visibilitychangeを
        待たず、状態変化そのものをstatechangeで捕捉し、runningでなくなった瞬間に
@@ -8824,6 +8860,39 @@ function v043fEnsureContext() {
     return null;
   }
 }
+/* PR-J2 A項: se-console-v14.html 正典レシピのリバーブ（Convolver・短いIR）＋ディレイを移植。
+   全SEはbus()/driveBus()経由でmaster＋verbGainへ接続（v14と同じ配線比率）。ディレイ経路
+   （dly/dlyFb/dlyWet）は今回採用したSEでは未使用だが、レシピの構成要素として保持する
+   （将来SE追加時にそのまま使える）。 */
+function v043fEnsureFxChain() {
+  if (v043fAudio.verb || !v043fAudio.ctx) return;
+  const ctx = v043fAudio.ctx;
+  const verb = ctx.createConvolver();
+  verb.buffer = v043fMakeIR(ctx, 1.2, 3.4);
+  const verbGain = ctx.createGain();
+  verbGain.gain.value = 0.2;
+  verb.connect(verbGain);
+  verbGain.connect(v043fAudio.master);
+  const dly = ctx.createDelay();
+  dly.delayTime.value = 0.19;
+  const dlyFb = ctx.createGain(); dlyFb.gain.value = 0.3;
+  const dlyWet = ctx.createGain(); dlyWet.gain.value = 0.25;
+  dly.connect(dlyFb); dlyFb.connect(dly); dly.connect(dlyWet); dlyWet.connect(v043fAudio.master);
+  v043fAudio.verb = verb;
+  v043fAudio.verbGain = verbGain;
+  v043fAudio.dly = dly;
+  v043fAudio.dlyFb = dlyFb;
+  v043fAudio.dlyWet = dlyWet;
+}
+function v043fMakeIR(ctx, sec, decay) {
+  const rate = ctx.sampleRate, len = Math.floor(rate * sec);
+  const buf = ctx.createBuffer(2, len, rate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+  }
+  return buf;
+}
 /* fix-SE-interrupted: resume()呼び出しと状態確認を一箇所に集約。onRunningは
    実際にrunningへ復帰できた場合のみ呼ばれる（SE発火の再試行に使う）。resume()は
    Promiseで非同期完了するため、呼び出し自体はどこから行ってもよいが、iOS Safariの
@@ -8834,14 +8903,11 @@ function v043fTryResume(onRunning) {
   const ctx = v043fAudio.ctx;
   if (!ctx) return;
   if (ctx.state === "running") {
-    v043fAudio.debugResumedConfirmed = true;
     if (onRunning) onRunning();
     return;
   }
-  v043fAudio.debugResumeAttempted = true;
   ctx.resume().then(() => {
     if (ctx.state === "running") {
-      v043fAudio.debugResumedConfirmed = true;
       v043fPrimeAudioRoute();
       if (onRunning) onRunning();
     }
@@ -8886,7 +8952,7 @@ let v043fUnlockListenerAttached = false;
 function v043fAttachUnlockListenerOnce() {
   if (v043fUnlockListenerAttached || typeof document === "undefined" || typeof document.addEventListener !== "function") return;
   v043fUnlockListenerAttached = true;
-  const handler = () => { v043fAudio.debugUnlockHandlerFired = true; v043fUnlock(); };
+  const handler = () => { v043fUnlock(); };
   document.addEventListener("pointerdown", handler, { capture: true, once: true });
   document.addEventListener("keydown", handler, { capture: true, once: true });
 }
@@ -8902,33 +8968,39 @@ function v043fCanPlay() {
   if (ctx.state !== "running") return false;
   return true;
 }
-/* fix-SE計装（調査用・削除予定）: 既存のv043gデバッグオーバーレイ（画面左上・top:0起点で
-   下方向へ伸びる箱）は、内容が増えて画面高を超えると下端がビューポート外へはみ出し、
-   追記した行だけが「表示されない」ように見える恐れがある（position:fixedはビューポート
-   基準で伸びるだけで、自動で折り返し表示されるわけではない）。この懸念を回避するため、
-   画面下端に固定・独立した高コントラストの帯（bottom:0、最前面z-index、大きめフォント）を
-   別途新設し、v043gオーバーレイの状態とは無関係に必ず視認できるようにする。
-   devModeOn()がtrueの間のみ表示（既存DEVフラグに従属、常時ONの現行設定と同じ扱い）。 */
-function v043fUpdateSeDebugBanner() {
-  if (typeof devModeOn !== "function" || !devModeOn()) return;
-  if (typeof document === "undefined" || !document.body) return;
-  try {
-    let el = document.getElementById("v043fSeDebugBanner");
-    if (!el) {
-      el = document.createElement("div");
-      el.id = "v043fSeDebugBanner";
-      el.setAttribute("aria-hidden", "true");
-      el.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:999999;pointer-events:none;background:#ffe600;color:#000;font:13px/1.5 monospace;padding:6px 8px;white-space:pre-wrap;word-break:break-all;border-top:3px solid #000;";
-      document.body.appendChild(el);
-    }
-    const a = v043fAudio;
-    const line1 = `SE calls:${a.debugChoreoCallCount || 0} muted:${a.muted} ctx:${!!a.ctx} unlocked:${a.unlocked} state:${a.ctx ? a.ctx.state : "N/A"}`;
-    const line2 = `handlerFired:${!!a.debugUnlockHandlerFired} resumeAttempt:${!!a.debugResumeAttempted} resumedOK:${!!a.debugResumedConfirmed}`;
-    const line3 = a.debugLastChoreoSnapshot
-      ? `lastCanPlay:${a.debugLastChoreoSnapshot.canPlay} recovered:${!!a.debugLastChoreoSnapshot.recoveredAfterResume}`
-      : "lastCanPlay: (結果画面未到達)";
-    el.textContent = `${line1}\n${line2}\n${line3}`;
-  } catch (e) { /* 診断表示のみ。失敗しても本体機能へは無影響 */ }
+/* PR-J2 B項: タップ全般（決定・メニュー開閉・タブ切替・行動実行）へのtapA一括配線。
+   個別ボタンへdata-se属性を足して回る代わりに、document捕捉フェーズで全クリックを検知し、
+   明示的なdata-se上書き（act/purchase/turnB等、テンプレート側で個別付与）が無ければ
+   tapAを既定値として鳴らす。捕捉フェーズを使うのは、個別要素のstopPropagation（会話ログ
+   開閉・物販数量ステッパー・早送りキャッチャー等）でbubbleフェーズの委譲が握りつぶされる
+   ケースでも確実に発火させるため（PR-Jの解錠フックと同じ理由でcapture:true）。disabledな
+   ボタンはブラウザ側でclickイベント自体が発火しないため除外判定は不要。起動時に1回だけ
+   登録し、以降のrender()・bindEvents()の再実行とは無関係に効き続ける（[data-se]委譲の
+   per-render再バインドは本PRで廃止、この一括配線に一本化）。 */
+function v043fResolveTapSoundName(el) {
+  if (el.dataset && el.dataset.se) return el.dataset.se;
+  if (el.matches && (el.matches(".phoneCloseBtn") || el.matches(".closeMailDetailBtn") || el.matches('[data-phone-mode="menu"]'))) return "act";
+  return "tapA";
+}
+let v043fTapDelegationAttached = false;
+function v043fAttachTapDelegationOnce() {
+  if (v043fTapDelegationAttached || typeof document === "undefined" || typeof document.addEventListener !== "function") return;
+  v043fTapDelegationAttached = true;
+  document.addEventListener("click", (ev) => {
+    const el = ev.target && ev.target.closest ? ev.target.closest("button") : null;
+    if (!el || el.disabled) return;
+    v043fPlaySeNow(v043fResolveTapSoundName(el));
+  }, { capture: true });
+}
+v043fAttachTapDelegationOnce();
+/* PR-J2 B項: alert()（入力バリデーション等の操作不可表示）にもエラーSEを乗せる。
+   wrap-by-reassignment。alert本体の表示内容・タイミングは変更しない（SEを1つ前に鳴らすのみ）。 */
+if (typeof window !== "undefined" && typeof window.alert === "function") {
+  const v043fAlertOriginal = window.alert;
+  window.alert = function (msg) {
+    v043fPlaySeNow("error");
+    return v043fAlertOriginal(msg);
+  };
 }
 function v043fNow() {
   return v043fAudio.ctx ? v043fAudio.ctx.currentTime : 0;
@@ -9022,19 +9094,6 @@ function v043fNoise(t, dur, peak, lpFreq, hpFreq) {
   v043fRegisterRange(src, t, end);
   return src;
 }
-/* ===== SE関数（付録A・se-console v2.1正典の合成レシピをそのまま移植） ===== */
-function v043fPlayA3(t) {
-  return [
-    v043fOsc("square", 900, 0, t, .012, .5),
-    v043fNoise(t, .16, .9, 900),
-    v043fOsc("sine", 150, 50, t, .15, 1.0),
-    v043fOsc("sine", 880, 0, t + .02, .45, .12),
-    v043fOsc("sine", 1320, 0, t + .02, .35, .07)
-  ].filter(Boolean);
-}
-function v043fPlayB2(t) {
-  return [v043fOsc("sine", 1000, 580, t, .05, .4)].filter(Boolean);
-}
 function v043fPlayC1(t, volume) {
   return [v043fOsc("sine", 2000, 0, t, .015, volume)].filter(Boolean);
 }
@@ -9044,25 +9103,304 @@ function v043fPlayD6(t) {
     v043fNoise(t, .05, .3, 900)
   ].filter(Boolean);
 }
-function v043fPlayE1(t) {
-  return [
-    v043fOsc("sine", 1500, 0, t, .1, .3),
-    v043fOsc("sine", 2000, 0, t + .05, .1, .28),
-    v043fOsc("sine", 2600, 0, t + .1, .12, .25)
-  ].filter(Boolean);
+/* ===== PR-J2 A項: SE本編・共通合成パレット（同送 se-console-v14.html 正典レシピの移植） =====
+   既存のv043fOsc/v043fNoise/v043fEnv（旧PR-J、b2/f1/a3/d6/e1用）はC1/D6のためにそのまま残す。
+   ここから下は新規追加の低レベル部品で、bus()/driveBus()経由でmaster＋リバーブへ接続する
+   （v14のbus()/driveBus()と同じ配線）。maxNodesは40へ拡張済み（フェスO1・結果Sランクが
+   単体で20前後のノードを同時発音するため、旧来の16では自己競合で音が欠ける）。 */
+const V043F_NOTE = { E2:82.4,F2:87.3,G2:98,A2:110,B2:123.5,C3:130.8,D3:146.8,E3:164.8,F3:174.6,G3:196,A3:220,B3:246.9,C4:261.6,D4:293.7,E4:329.6,F4:349.2,G4:392,A4:440,B4:493.9,C5:523.3,D5:587.3,E5:659.3,F5:698.5,G5:784,A5:880,B5:987.8,C6:1046.5,D6n:1174.7,E6:1318.5 };
+function v043fBus() {
+  const g = v043fAudio.ctx.createGain();
+  g.connect(v043fAudio.master);
+  if (v043fAudio.verb) g.connect(v043fAudio.verb);
+  return g;
 }
-function v043fPlayF1(t) {
-  return [v043fOsc("square", 170, 120, t, .09, .35)].filter(Boolean);
+function v043fShaper(k) {
+  const n = 44100, curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = i * 2 / n - 1;
+    curve[i] = (3 + k) * x * 20 * Math.PI / 180 / (Math.PI + k * Math.abs(x));
+  }
+  const ws = v043fAudio.ctx.createWaveShaper();
+  ws.curve = curve;
+  ws.oversample = "4x";
+  return ws;
 }
+function v043fDriveBus(k) {
+  const ctx = v043fAudio.ctx;
+  const g = ctx.createGain();
+  const ws = v043fShaper(k || 12);
+  g.connect(ws);
+  ws.connect(v043fAudio.master);
+  if (v043fAudio.verb) ws.connect(v043fAudio.verb);
+  return g;
+}
+function v043fEnvTo(gainNode, t, peak, attack, dur) {
+  const g = gainNode.gain;
+  const safePeak = Math.max(peak, 0.0001);
+  g.cancelScheduledValues(t);
+  g.setValueAtTime(0.0001, t);
+  g.exponentialRampToValueAtTime(safePeak, t + attack);
+  g.exponentialRampToValueAtTime(0.0001, t + dur);
+}
+function v043fNoiseTo(dest, t, dur, peak, lpFreq, hpFreq, attack) {
+  const ctx = v043fAudio.ctx;
+  const end = t + dur + 0.1;
+  v043fPruneRanges(ctx.currentTime);
+  if (v043fCountOverlapping(t, end) >= v043fAudio.maxNodes) return null;
+  const src = ctx.createBufferSource();
+  src.buffer = v043fGetNoiseBuffer(ctx);
+  let node = src;
+  if (lpFreq) { const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = lpFreq; node.connect(f); node = f; }
+  if (hpFreq) { const f2 = ctx.createBiquadFilter(); f2.type = "highpass"; f2.frequency.value = hpFreq; node.connect(f2); node = f2; }
+  const g = ctx.createGain();
+  v043fEnvTo(g, t, peak, attack || 0.002, dur);
+  node.connect(g); g.connect(dest);
+  src.start(t); src.stop(end);
+  v043fRegisterRange(src, t, end);
+  return src;
+}
+function v043fGtr(dest, f, t, dur, peak) {
+  const ctx = v043fAudio.ctx;
+  const end = t + dur + 0.05;
+  v043fPruneRanges(ctx.currentTime);
+  if (v043fCountOverlapping(t, end) >= v043fAudio.maxNodes) return null;
+  const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(), g = ctx.createGain();
+  o1.type = "sawtooth"; o1.frequency.setValueAtTime(f, t);
+  o2.type = "sawtooth"; o2.frequency.setValueAtTime(f * 1.006, t);
+  v043fEnvTo(g, t, peak, 0.004, dur);
+  o1.connect(g); o2.connect(g); g.connect(dest);
+  o1.start(t); o1.stop(end); o2.start(t); o2.stop(end);
+  v043fRegisterRange(o1, t, end);
+  v043fNoiseTo(dest, t, 0.01, peak * 0.5, 5000, 1500, 0.0004);
+  return o1;
+}
+function v043fClean(dest, f, t, dur, peak) {
+  const ctx = v043fAudio.ctx;
+  const end = t + dur + 0.1;
+  v043fPruneRanges(ctx.currentTime);
+  if (v043fCountOverlapping(t, end) >= v043fAudio.maxNodes) return null;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = "triangle"; o.frequency.setValueAtTime(f, t);
+  v043fEnvTo(g, t, peak, 0.006, dur);
+  const o3 = ctx.createOscillator(), g3 = ctx.createGain();
+  o3.type = "sine"; o3.frequency.setValueAtTime(f * 2, t);
+  v043fEnvTo(g3, t, peak * 0.3, 0.006, dur * 0.7);
+  o.connect(g); g.connect(dest); o3.connect(g3); g3.connect(dest);
+  o.start(t); o.stop(end); o3.start(t); o3.stop(t + dur * 0.7 + 0.1);
+  v043fRegisterRange(o, t, end);
+  return o;
+}
+function v043fBassN(dest, f, t, dur, peak) {
+  const ctx = v043fAudio.ctx;
+  const end = t + dur + 0.05;
+  v043fPruneRanges(ctx.currentTime);
+  if (v043fCountOverlapping(t, end) >= v043fAudio.maxNodes) return null;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = "square"; o.frequency.setValueAtTime(f, t);
+  const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 700;
+  v043fEnvTo(g, t, peak, 0.004, dur);
+  o.connect(lp); lp.connect(g); g.connect(dest);
+  o.start(t); o.stop(end);
+  v043fRegisterRange(o, t, end);
+  return o;
+}
+function v043fKick(dest, t, peak) {
+  const ctx = v043fAudio.ctx;
+  const end = t + 0.25;
+  v043fPruneRanges(ctx.currentTime);
+  if (v043fCountOverlapping(t, end) >= v043fAudio.maxNodes) return null;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = "sine"; o.frequency.setValueAtTime(160, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
+  v043fEnvTo(g, t, peak, 0.002, 0.18);
+  o.connect(g); g.connect(dest);
+  o.start(t); o.stop(end);
+  v043fRegisterRange(o, t, end);
+  return o;
+}
+function v043fSnare(dest, t, peak) {
+  v043fNoiseTo(dest, t, 0.12, peak, 4000, 800, 0.001);
+  const ctx = v043fAudio.ctx;
+  const end = t + 0.12;
+  v043fPruneRanges(ctx.currentTime);
+  if (v043fCountOverlapping(t, end) >= v043fAudio.maxNodes) return null;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = "triangle"; o.frequency.setValueAtTime(220, t);
+  v043fEnvTo(g, t, peak * 0.5, 0.001, 0.09);
+  o.connect(g); g.connect(dest);
+  o.start(t); o.stop(end);
+  v043fRegisterRange(o, t, end);
+}
+function v043fCrash(dest, t, peak) {
+  v043fNoiseTo(dest, t, 0.6, peak, 13000, 5000, 0.001);
+  v043fNoiseTo(dest, t, 0.4, peak * 0.6, 9000, 3000, 0.001);
+}
+function v043fPower(dest, r, t, dur, peak) {
+  v043fGtr(dest, r, t, dur, peak);
+  v043fGtr(dest, r * 1.4983, t, dur, peak * 0.85);
+  v043fGtr(dest, r * 2, t, dur, peak * 0.6);
+}
+/* ===== PR-J2 A項: SE本編（音楽イベント音・UI音）。v14の各data-se(G1/I1/RS/RA/RB/RD/O1/
+   T1a/ACT/H1/J1/K1/N1/L1b)をそのまま移植。対応表はPR本文に記載。 ===== */
+function v043fPlayComplete(t) { // v14: G1（作詞・作曲 完成）
+  v043fEnsureFxChain();
+  const b = v043fDriveBus(7);
+  const s = 0.1;
+  v043fGtr(b, V043F_NOTE.C4, t, 0.12, 0.3);
+  v043fGtr(b, V043F_NOTE.E4, t + s, 0.12, 0.3);
+  v043fGtr(b, V043F_NOTE.G4, t + s * 2, 0.12, 0.3);
+  v043fGtr(b, V043F_NOTE.C5, t + s * 3, 0.4, 0.34);
+}
+function v043fPlayJoin(t) { // v14: I1（メンバー加入）
+  v043fEnsureFxChain();
+  const b = v043fBus();
+  const s = 0.1;
+  v043fClean(b, V043F_NOTE.C4, t, 0.3, 0.28);
+  v043fClean(b, V043F_NOTE.E4, t + s, 0.3, 0.28);
+  v043fClean(b, V043F_NOTE.G4, t + s * 2, 0.3, 0.28);
+  v043fClean(b, V043F_NOTE.C5, t + s * 3, 0.5, 0.3);
+  v043fBassN(v043fBus(), V043F_NOTE.C3, t, 0.6, 0.3);
+}
+function v043fPlayResultS(t) { // v14: RS（ライブ結果S＝フル2連爆発）
+  v043fEnsureFxChain();
+  const b = v043fDriveBus(13);
+  v043fKick(v043fBus(), t, 0.7); v043fCrash(v043fBus(), t, 0.45); v043fPower(b, V043F_NOTE.E3, t, 0.16, 0.42); v043fBassN(v043fBus(), V043F_NOTE.E2, t, 0.2, 0.5);
+  v043fKick(v043fBus(), t + 0.2, 0.7); v043fSnare(v043fBus(), t + 0.2, 0.45); v043fCrash(v043fBus(), t + 0.2, 0.4); v043fPower(b, V043F_NOTE.E3, t + 0.2, 0.6, 0.44); v043fBassN(v043fBus(), V043F_NOTE.E2, t + 0.2, 0.6, 0.5);
+}
+function v043fPlayResultA(t) { // v14: RA（Gt+Dr）
+  v043fEnsureFxChain();
+  const b = v043fDriveBus(12);
+  v043fKick(v043fBus(), t, 0.6); v043fSnare(v043fBus(), t + 0.18, 0.4); v043fPower(b, V043F_NOTE.A2, t, 0.5, 0.4);
+}
+function v043fPlayResultB(t) { // v14: RB（ギターのみ。C=Bと同音〈発注者確定〉）
+  v043fEnsureFxChain();
+  const b = v043fDriveBus(9);
+  v043fPower(b, V043F_NOTE.C3, t, 0.45, 0.36);
+}
+function v043fPlayResultD(t) { // v14: RD（ベース下降のみ）
+  v043fEnsureFxChain();
+  const b = v043fDriveBus(6);
+  v043fBassN(b, V043F_NOTE.E3, t, 0.2, 0.34); v043fBassN(b, V043F_NOTE.D3, t + 0.18, 0.2, 0.3); v043fBassN(b, V043F_NOTE.C3, t + 0.36, 0.45, 0.3);
+}
+function v043fPlayFes(t) { // v14: O1（UNDER FES開始＝歓声＋開幕）
+  v043fEnsureFxChain();
+  const b = v043fDriveBus(12);
+  v043fNoiseTo(v043fBus(), t, 1.4, 0.3, 3000, 300, 0.4);
+  v043fSnare(v043fBus(), t + 0.5, 0.4); v043fSnare(v043fBus(), t + 0.62, 0.42); v043fSnare(v043fBus(), t + 0.74, 0.44);
+  v043fKick(v043fBus(), t + 0.88, 0.9); v043fCrash(v043fBus(), t + 0.88, 0.6);
+  [V043F_NOTE.E3, V043F_NOTE.B3, V043F_NOTE.E4, V043F_NOTE.G4].forEach(f => v043fGtr(b, f, t + 0.88, 1.1, 0.34));
+  v043fBassN(v043fBus(), V043F_NOTE.E2, t + 0.88, 1.2, 0.6);
+}
+/* 1120ms「スタンプ叩き込み」用: v14のCOMBO_*前半（低音ドン）。ランクに依存しない共通の打撃音として、
+   COMBO_S/Aと同じ強度（driveBus(11)・peak 1.0）を採用（PR-J2 C項）。 */
+function v043fPlayComboImpact(t) {
+  v043fEnsureFxChain();
+  const d = v043fDriveBus(11);
+  const ctx = v043fAudio.ctx;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = "sine"; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(38, t + 0.15);
+  v043fEnvTo(g, t, 1.0, 0.001, 0.4);
+  o.connect(g); g.connect(d); o.start(t); o.stop(t + 0.5);
+  v043fNoiseTo(d, t, 0.05, 0.9, 2000, 300, 0.0005);
+}
+function v043fPlayTapA(t) { // v14: T1a（タップ全般）
+  v043fEnsureFxChain();
+  const b = v043fBus();
+  const ctx = v043fAudio.ctx;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = "triangle"; o.frequency.setValueAtTime(V043F_NOTE.E5, t);
+  v043fEnvTo(g, t, 0.4, 0.0008, 0.05);
+  const o2 = ctx.createOscillator(), g2 = ctx.createGain();
+  o2.type = "triangle"; o2.frequency.setValueAtTime(V043F_NOTE.B5, t + 0.03);
+  v043fEnvTo(g2, t + 0.03, 0.38, 0.0008, 0.06);
+  o.connect(g); g.connect(b); o2.connect(g2); g2.connect(b);
+  o.start(t); o.stop(t + 0.1); o2.start(t + 0.03); o2.stop(t + 0.12);
+}
+function v043fPlayAct(t) { // v14: ACT（戻る）
+  v043fEnsureFxChain();
+  const b = v043fDriveBus(7);
+  v043fGtr(b, V043F_NOTE.A3, t, 0.06, 0.3);
+  v043fGtr(b, V043F_NOTE.A3, t + 0.05, 0.08, 0.28);
+  v043fKick(v043fBus(), t, 0.4);
+}
+function v043fPlayPurchase(t) { // v14: H1（購入）
+  v043fEnsureFxChain();
+  const b = v043fBus();
+  const ctx = v043fAudio.ctx;
+  [[V043F_NOTE.C6, 0], [V043F_NOTE.E5, 0.05]].forEach(pair => {
+    const fr = pair[0], dt = pair[1];
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = "triangle"; o.frequency.setValueAtTime(fr, t + dt); v043fEnvTo(g, t + dt, 0.3, 0.002, 0.5);
+    const o2 = ctx.createOscillator(), g2 = ctx.createGain();
+    o2.type = "sine"; o2.frequency.setValueAtTime(fr * 2.01, t + dt); v043fEnvTo(g2, t + dt, 0.14, 0.002, 0.4);
+    o.connect(g); g.connect(b); o2.connect(g2); g2.connect(b);
+    o.start(t + dt); o.stop(t + dt + 0.6); o2.start(t + dt); o2.stop(t + dt + 0.5);
+  });
+  v043fNoiseTo(b, t, 0.35, 0.12, 9000, 4000, 0.001);
+  v043fNoiseTo(b, t, 0.02, 0.25, 6000, 2000, 0.0005);
+}
+function v043fPlayNotify(t) { // v14: J1（メール新着通知・Gmail風）
+  v043fEnsureFxChain();
+  const b = v043fBus();
+  const ctx = v043fAudio.ctx;
+  [[V043F_NOTE.E5, 0], [V043F_NOTE.A5, 0.09]].forEach(pair => {
+    const fr = pair[0], dt = pair[1];
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = "sine"; o.frequency.setValueAtTime(fr, t + dt); v043fEnvTo(g, t + dt, 0.5, 0.003, 0.35);
+    const o2 = ctx.createOscillator(), g2 = ctx.createGain();
+    o2.type = "sine"; o2.frequency.setValueAtTime(fr * 2.5, t + dt); v043fEnvTo(g2, t + dt, 0.16, 0.003, 0.2);
+    o.connect(g); g.connect(b); o2.connect(g2); g2.connect(b);
+    o.start(t + dt); o.stop(t + dt + 0.45); o2.start(t + dt); o2.stop(t + dt + 0.3);
+  });
+}
+function v043fPlaySnsSend(t) { // v14: K1（SNS送信・スワイプ）
+  v043fEnsureFxChain();
+  const b = v043fBus();
+  const ctx = v043fAudio.ctx;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = "sine"; o.frequency.setValueAtTime(600, t); o.frequency.exponentialRampToValueAtTime(1600, t + 0.12);
+  v043fEnvTo(g, t, 0.44, 0.004, 0.15);
+  o.connect(g); g.connect(b); o.start(t); o.stop(t + 0.18);
+  v043fNoiseTo(b, t, 0.06, 0.16, 3500, 900, 0.002);
+}
+function v043fPlayError(t) { // v14: N1（操作不可・条件未達・ブザー）
+  v043fEnsureFxChain();
+  const b = v043fDriveBus(5);
+  const ctx = v043fAudio.ctx;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = "square"; o.frequency.setValueAtTime(160, t); v043fEnvTo(g, t, 0.35, 0.002, 0.18);
+  o.connect(g); g.connect(b); o.start(t); o.stop(t + 0.2);
+  const o2 = ctx.createOscillator(), g2 = ctx.createGain();
+  o2.type = "square"; o2.frequency.setValueAtTime(160, t + 0.09); v043fEnvTo(g2, t + 0.09, 0.32, 0.002, 0.16);
+  o2.connect(g2); g2.connect(b); o2.start(t + 0.09); o2.stop(t + 0.26);
+}
+function v043fPlayTurnB(t) { // v14: L1b（ターン送り・確定版）
+  v043fEnsureFxChain();
+  const b = v043fBus();
+  const ctx = v043fAudio.ctx;
+  const s = ctx.createBufferSource(); s.buffer = v043fGetNoiseBuffer(ctx);
+  const sg = ctx.createGain();
+  const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 1.2;
+  bp.frequency.setValueAtTime(3000, t); bp.frequency.exponentialRampToValueAtTime(700, t + 0.15);
+  v043fEnvTo(sg, t, 0.34, 0.005, 0.18);
+  s.connect(bp); bp.connect(sg); sg.connect(b);
+  s.start(t); s.stop(t + 0.22);
+  v043fKick(v043fBus(), t + 0.14, 0.5);
+}
+const V043F_SE_DISPATCH = {
+  tapA: v043fPlayTapA, act: v043fPlayAct, purchase: v043fPlayPurchase, notify: v043fPlayNotify,
+  snsSend: v043fPlaySnsSend, error: v043fPlayError, turnB: v043fPlayTurnB,
+  complete: v043fPlayComplete, join: v043fPlayJoin, fes: v043fPlayFes,
+  resultS: v043fPlayResultS, resultA: v043fPlayResultA, resultB: v043fPlayResultB, resultD: v043fPlayResultD
+};
+/* PR-J2 B項: 過剰発火防止の最小間隔スロットル（同一名のSEを短時間に連打しても多重再生しない）。 */
 function v043fPlaySeNow(name) {
-  const play = () => {
-    const t = v043fNow();
-    if (name === "b2") v043fPlayB2(t);
-    else if (name === "f1") v043fPlayF1(t);
-    else if (name === "a3") v043fPlayA3(t);
-    else if (name === "d6") v043fPlayD6(t);
-    else if (name === "e1") v043fPlayE1(t);
-  };
+  const fn = V043F_SE_DISPATCH[name];
+  if (!fn) return;
+  const nowMs = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+  v043fAudio.lastPlayAt = v043fAudio.lastPlayAt || {};
+  if (v043fAudio.lastPlayAt[name] && nowMs - v043fAudio.lastPlayAt[name] < 60) return;
+  const play = () => { v043fAudio.lastPlayAt[name] = nowMs; fn(v043fNow()); };
   if (v043fCanPlay()) { play(); return; }
   /* fix-SE-interrupted: mutedでもctx/unlocked未整備でもない場合（＝ctx.stateが
      running以外というだけの場合）のみ、このクリックのコールスタック内でresume()を
@@ -9078,28 +9416,17 @@ function v043fStopScheduledNodes(nodes) {
 }
 /* --- 結果コレオグラフィのSE配線: 委託文タイムラインどおりの絶対スケジューリング（Web Audioの
    自クロックで事前予約するため、setTimeoutのジッタに影響されない）。呼び出し元でreduced-motion
-   判定より前に評価することで、視覚短絡（jumpAllToFinal）とは独立に発音する（PR-J仕様） --- */
+   判定より前に評価することで、視覚短絡（jumpAllToFinal）とは独立に発音する（PR-J仕様）。
+   PR-J2 C項: 1120ms=COMBO前半インパクト、1270ms=ランク別結果音（S/A/B/D、C=Bと同音）に
+   差し替え。0-1000msのC1刻み・ゲージ満了時のD6相当は既存のまま不変（視覚タイムライン自体も
+   無変更）。 --- */
+function v043fRankResultFn(rank) {
+  if (rank === "S") return v043fPlayResultS;
+  if (rank === "A") return v043fPlayResultA;
+  if (rank === "D") return v043fPlayResultD;
+  return v043fPlayResultB; // B・C（C=Bと同音、発注者確定）・不明ランクのフォールバック
+}
 function v043fScheduleLiveResultAudio(rank) {
-  /* fix-SE計装（調査用・削除予定）: v043fCanPlay()の無言スキップの真因を実機で特定するため、
-     結果コレオ発火の瞬間の4条件＋解錠経路の状態をコンソールへ記録し、v043gデバッグオーバーレイ
-     （DEV限定）にも同じスナップショットを反映する。判定ロジック自体（v043fCanPlay()の中身・
-     呼び出しタイミング）は一切変更しない。debugChoreoCallCountは関数の最初の行で増分するため、
-     「この関数がそもそも呼ばれているか」を他の条件と無関係に確認できる。 */
-  v043fAudio.debugChoreoCallCount = (v043fAudio.debugChoreoCallCount || 0) + 1;
-  const debugSnapshot = {
-    calledCount: v043fAudio.debugChoreoCallCount,
-    muted: v043fAudio.muted,
-    ctxExists: !!v043fAudio.ctx,
-    unlocked: v043fAudio.unlocked,
-    ctxState: v043fAudio.ctx ? v043fAudio.ctx.state : "N/A",
-    unlockHandlerFired: v043fAudio.debugUnlockHandlerFired,
-    resumeAttempted: v043fAudio.debugResumeAttempted,
-    resumedConfirmed: v043fAudio.debugResumedConfirmed,
-    canPlay: v043fCanPlay()
-  };
-  v043fAudio.debugLastChoreoSnapshot = debugSnapshot;
-  if (typeof console !== "undefined" && console.log) console.log("[v043f SE debug] choreo fire:", JSON.stringify(debugSnapshot));
-  if (typeof v043fUpdateSeDebugBanner === "function") v043fUpdateSeDebugBanner();
   const reveal = { nodes: [] };
   /* fix-SE-interrupted: t0はscheduleNow()の呼び出し時点で都度取り直す（即時実行と
      resume後の再試行とで、対象のctx.currentTimeが異なるため）。予約したノードは
@@ -9110,11 +9437,8 @@ function v043fScheduleLiveResultAudio(rank) {
     const t0 = v043fAudio.ctx.currentTime;
     const collect = arr => { if (arr) reveal.nodes.push(...arr); };
     for (let ms = 0; ms < 1000; ms += 70) collect(v043fPlayC1(t0 + ms / 1000, 0.16));
-    collect(v043fPlayA3(t0 + 1.12));
-    if (rank === "S" || rank === "A") {
-      collect(v043fPlayE1(t0 + 1.27));
-      if (rank === "S") collect(v043fPlayE1(t0 + 1.27 + 0.155));
-    }
+    v043fPlayComboImpact(t0 + 1.12);
+    v043fRankResultFn(rank)(t0 + 1.27);
     for (let ms = 1670; ms < 1670 + 1170; ms += 90) collect(v043fPlayC1(t0 + ms / 1000, 0.10));
     collect(v043fPlayD6(t0 + 2.97));
   };
@@ -9129,15 +9453,7 @@ function v043fScheduleLiveResultAudio(rank) {
      視覚演出（カウントアップ等）は既存のsetTimeoutどおり進むため、SEだけ数十ms〜
      数百ms遅れて追いつく形になるが、無音のまま終わるよりはるかに良い。 */
   if (!v043fAudio.muted && v043fAudio.ctx && v043fAudio.unlocked) {
-    v043fTryResume(() => {
-      if (v043fCanPlay()) {
-        scheduleNow();
-        debugSnapshot.recoveredAfterResume = true;
-        debugSnapshot.ctxStateAfterResume = v043fAudio.ctx.state;
-        if (typeof console !== "undefined" && console.log) console.log("[v043f SE debug] choreo recovered after resume:", JSON.stringify(debugSnapshot));
-        if (typeof v043fUpdateSeDebugBanner === "function") v043fUpdateSeDebugBanner();
-      }
-    });
+    v043fTryResume(() => { if (v043fCanPlay()) scheduleNow(); });
   }
   return reveal;
 }
@@ -9290,7 +9606,7 @@ function v043aRenderConfirmationSheet(config={}) {
     <div class="event-modal ${escapeHtml(tone)} ${escapeHtml(modalClass)}">
       <div class="modal-icon">${config.icon || "?"}</div>
       <div class="modal-copy"><h2>${escapeHtml(config.title || "確認")}</h2>${config.bodyHtml || ""}</div>
-      <div class="${escapeHtml(actionsClass)}"><button id="${escapeHtml(config.confirmId || "confirmSheetBtn")}" class="${escapeHtml(confirmClass)}" data-se="b2"${confirmAttrs}>${escapeHtml(config.confirmLabel || "決定")}</button><button id="${escapeHtml(config.cancelId || "cancelSheetBtn")}" class="${escapeHtml(cancelClass)}" data-se="f1"${cancelAttrs}>${escapeHtml(config.cancelLabel || "戻る")}</button></div>
+      <div class="${escapeHtml(actionsClass)}"><button id="${escapeHtml(config.confirmId || "confirmSheetBtn")}" class="${escapeHtml(confirmClass)}" data-se="tapA"${confirmAttrs}>${escapeHtml(config.confirmLabel || "決定")}</button><button id="${escapeHtml(config.cancelId || "cancelSheetBtn")}" class="${escapeHtml(cancelClass)}" data-se="act"${cancelAttrs}>${escapeHtml(config.cancelLabel || "戻る")}</button></div>
     </div>
   </div>`;
 }
@@ -9692,6 +10008,7 @@ function snsPost(kind="chat") {
   state.snsPostCount = (state.snsPostCount || 0) + 1;
   if (state.snsPostCount >= 10) unlockSkill("sns_master", "SNS投稿10件");
   log(`SNSに${kind === "notice" ? "ライブ告知" : "雑談"}を投稿した。大きな即時効果はないが、投稿10件でSNS上手に近づく。`);
+  v043fPlaySeNow("snsSend"); /* PR-J2 B項: SNS投稿 */
   if (kind === "notice") addSnsPost("@listener_random", "告知見た。予定合えば行きたい。", "normal");
   render();
 }
@@ -11087,7 +11404,7 @@ function renderSongcraftControls() {
         <div><label>キーワード</label><select id="craftKeyword">${KEYWORDS.map(g=>`<option value="${g}">${g}</option>`).join("")}</select></div>
         <div><label>アレンジ</label><select id="craftArrange">${ARRANGES.map(g=>`<option value="${g}">${g}</option>`).join("")}</select></div>
       </div>
-      <button id="executeCraftBtn" class="songcraft-action" data-se="b2">曲作りを実行</button>
+      <button id="executeCraftBtn" class="songcraft-action" data-se="tapA">曲作りを実行</button>
       ${renderDraftList()}
     </div>
   `;
@@ -11444,7 +11761,7 @@ function renderLivePrep() {
         ${renderLivePrepStepPanel(step, 4, `
           <div class="prep-step-heading"><h3>④ 最終チェック</h3><small>気になる所は「直す」で戻れる。よければ本番へ。</small></div>
           ${renderLivePrepCheckPanel(v, { showStepLinks:true })}
-          <div class="live-prep-final-actions"><button id="performLiveBtn" class="big-action" data-se="b2">ライブ本番へ</button>${!currentLiveEvent().fixed ? `<button id="noShowLiveBtn" class="ghost-btn danger wide-cancel">ライブをドタキャンする</button>` : ""}</div>
+          <div class="live-prep-final-actions"><button id="performLiveBtn" class="big-action" data-se="tapA">ライブ本番へ</button>${!currentLiveEvent().fixed ? `<button id="noShowLiveBtn" class="ghost-btn danger wide-cancel">ライブをドタキャンする</button>` : ""}</div>
           ${currentApplicantList().length ? renderApplicantList() : ""}
           ${renderLivePrepStepControls(step)}
         `)}
@@ -11922,7 +12239,7 @@ function renderActionResultOverlay() {
       ${r.training ? renderTrainingGains(r.training) : ""}
       ${r.songcraftResult ? `<div class="inline-event songcraft-summary"><b>${escapeHtml(r.songcraftResult.title || "曲作り")}</b><span>${escapeHtml(r.songcraftResult.body || "").replace(/\n/g,"<br>")}</span>${renderPopupBars(r.songcraftResult.bars)}</div>` : ""}
       ${r.tutorialMsg ? `<div class="tutorial-message">${escapeHtml(r.tutorialMsg).replace(/\n/g,"<br>")}</div>` : ""}
-      <button class="actionResultCloseBtn big-action">OK（次のターンへ）</button>
+      <button class="actionResultCloseBtn big-action" data-se="turnB">OK（次のターンへ）</button>
     </div>
   </div>`;
 }
@@ -12029,7 +12346,7 @@ function renderBandNameOverlay() {
     <div class="event-modal event band-name-modal">
       <div class="modal-icon">◆︎</div>
       <div class="modal-copy"><h2>${renaming ? "バンド名を変更する" : "バンド名を決めよう"}</h2><p>${renaming ? "改名すると、古い名前で覚えていた人が少し迷う。認知度がごく少し下がります。" : "ライブハウスに名前を出すには、バンド名が必要だ。"}</p><input id="bandNameInput" class="wide-input" placeholder="例：名無しの地下バンド" value="${escapeHtml(state.band.name || "")}" /></div>
-      <div class="modal-actions confirm-wide"><button id="confirmBandNameBtn" class="big-action" data-se="b2">この名前で行く</button>${renaming ? `<button id="cancelBandNameBtn" class="ghost-btn" data-se="f1">戻る</button>` : ""}</div>
+      <div class="modal-actions confirm-wide"><button id="confirmBandNameBtn" class="big-action" data-se="tapA">この名前で行く</button>${renaming ? `<button id="cancelBandNameBtn" class="ghost-btn" data-se="act">戻る</button>` : ""}</div>
     </div>
   </div>`;
 }
@@ -12990,12 +13307,13 @@ function buyItem(item) {
     const gear = equipmentById(id);
     if (!gear) { render(); return; }
     const lv = equipmentLevel(id);
-    if (lv >= 5) { log(`${gear.name}はLv5で最大強化済み。`); render(); return; }
+    if (lv >= 5) { log(`${gear.name}はLv5で最大強化済み。`, "warn"); render(); return; }
     let price = equipmentUpgradeCost(id);
     if (hasSkill("saving_master")) price = Math.round(price * 0.95);
     state.band.funds -= price;
     state.equipment[id] = lv + 1;
     log(`${gear.name}をLv${lv + 1}に強化した。-${price.toLocaleString()}円。ライブ・物販・準備に補正が入る。`, "event");
+    v043fPlaySeNow("purchase"); /* PR-J2 B項: 購入確定（強化） */
     maybeUnlockProgressSkills("gear");
     render();
     return;
@@ -13005,10 +13323,11 @@ function buyItem(item) {
   let price = prices[item] || 0;
   if (hasSkill("saving_master") && item !== "drink") price = Math.round(price * 0.95);
   const maxStock = { drink:99, effecter:5, usedGear:5, lightFx:5 };
-  if ((state.items[item] || 0) >= (maxStock[item] || 99)) { log(`${names[item]}はこれ以上持てない。`); render(); return; }
+  if ((state.items[item] || 0) >= (maxStock[item] || 99)) { log(`${names[item]}はこれ以上持てない。`, "warn"); render(); return; }
   state.band.funds -= price;
   state.items[item] = (state.items[item] || 0) + 1;
   log(`${names[item]}を購入した。-${price.toLocaleString()}円。`);
+  v043fPlaySeNow("purchase"); /* PR-J2 B項: 購入確定 */
   maybeUnlockProgressSkills("shop");
   render();
 }
@@ -13367,6 +13686,7 @@ function finishDraft(draftId) {
   state.songs.push(song);
   state.songTitleHistory = state.songTitleHistory || [];
   state.songTitleHistory.push({ title:song.title, genre:genreDisplay(song), turn:state.turn });
+  v043fPlaySeNow("complete"); /* PR-J2 B項: 作詞・作曲 完成 */
   maybeUnlockProgressSkills("song");
   updateDirection(song.mainGenre, 5); if (song.subGenre) updateDirection(song.subGenre, 4);
   state.pendingDrafts.splice(idx, 1);
@@ -13563,6 +13883,7 @@ function performLive() {
     render();
     return;
   }
+  if (ev.venueId === "big_stage") v043fPlaySeNow("fes"); /* PR-J2 B項: UNDER FES 開始 */
   const result = calculateLive(setlist, supports, merch, positions, vocalist, chorus);
   result.turn = liveTurn;
   result.venueId = ev?.venueId || result.venue?.id || "";
@@ -14919,6 +15240,7 @@ function snsFreePost() {
   addSnsPost("@our_band", body, "free");
   state.snsLastPostTurn = state.turn;
   log("SNSに投稿した。");
+  v043fPlaySeNow("snsSend"); /* PR-J2 B項: SNS投稿（自由投稿） */
   render();
 }
 
@@ -14938,7 +15260,9 @@ function renderAccountSettingsScreen() {
     <label>SNS表示名<input id="accountSnsDisplayName" maxlength="28" value="${escapeHtml(acc.snsDisplayName)}" /></label>
     <label>SNSユーザー名<input id="accountSnsUserName" maxlength="24" value="${escapeHtml(acc.snsUserName)}" /></label>
     <label class="v043f-se-toggle"><input type="checkbox" id="accountSeToggle" ${v043fAudio.muted ? "" : "checked"} /> 効果音（SE）</label>
-    <button id="saveAccountSettingsBtn" class="big-action" data-se="b2">保存</button>
+    <label class="v043f-vol-row">SE音量<input type="range" id="accountSeVolume" min="0" max="100" step="5" value="${Math.round(v043fAudio.seVolume * 100)}" /><span id="accountSeVolumeLabel">${Math.round(v043fAudio.seVolume * 100)}%</span></label>
+    <label class="v043f-vol-row">BGM音量<input type="range" id="accountBgmVolume" min="0" max="100" step="5" value="${Math.round(v043fAudio.bgmVolume * 100)}" /><span id="accountBgmVolumeLabel">${Math.round(v043fAudio.bgmVolume * 100)}%</span></label>
+    <button id="saveAccountSettingsBtn" class="big-action" data-se="tapA">保存</button>
   </div>`);
 }
 
@@ -15153,14 +15477,20 @@ bindEvents = function bindEvents_v042() {
     render();
   });
   document.querySelectorAll(".phoneModeBtn").forEach(btn => btn.addEventListener("click", () => { state.phoneAccountEdit = null; }));
-  /* PR-J: B2/F1 SE配線。既存ハンドラには一切触れず、data-se属性を持つ要素へ追加でリスナーを張るのみ
-     （実行確定系の主要タップ＝b2、戻る/キャンセル＝f1。適用範囲はPR本文の候補一覧で報告・発注者が取捨） */
-  document.querySelectorAll("[data-se]").forEach(btn => {
-    if (btn.dataset.v043fSeBound === "1") return;
-    btn.dataset.v043fSeBound = "1";
-    btn.addEventListener("click", () => v043fPlaySeNow(btn.dataset.se));
-  });
+  /* PR-J2: data-se属性を持つ要素へのSE配線は、per-render再バインドが不要な
+     document捕捉フェーズの一括委譲（v043fAttachTapDelegationOnce、起動時に1回登録済み）へ
+     全面移行した。ここでの個別addEventListener登録は廃止（旧: PR-J b2/f1候補配線）。 */
   document.getElementById("accountSeToggle")?.addEventListener("change", (ev) => { v043fSetMuted(!ev.target.checked); });
+  document.getElementById("accountSeVolume")?.addEventListener("input", (ev) => {
+    v043fSetSeVolume(Number(ev.target.value) / 100);
+    const label = document.getElementById("accountSeVolumeLabel");
+    if (label) label.textContent = `${Math.round(v043fAudio.seVolume * 100)}%`;
+  });
+  document.getElementById("accountBgmVolume")?.addEventListener("input", (ev) => {
+    v043fSetBgmVolume(Number(ev.target.value) / 100);
+    const label = document.getElementById("accountBgmVolumeLabel");
+    if (label) label.textContent = `${Math.round(v043fAudio.bgmVolume * 100)}%`;
+  });
 };
 
 /* --- fix2 (P0): ライブ結果オーバーレイの背面スクロールロック ---
@@ -15259,30 +15589,18 @@ function v043gUpdateDebugOverlay() {
       return `T${Math.round(r.top)} B${Math.round(r.bottom)} L${Math.round(r.left)} R${Math.round(r.right)}`;
     }
     const titleOverflow = titleEl ? (titleEl.scrollWidth > titleEl.clientWidth + 1) : null;
-    /* fix-SE計装（調査用・削除予定）: SE無音の真因特定のため、v043fAudioの現在値＋結果コレオ
-       発火時点の最終スナップショットを同一オーバーレイへ追記する（スクショ1枚で全情報が揃うように）。
-       他のオーバーレイ項目（safe-area等）とは無関係で、v043fAudio側の状態を読むだけ。 */
-    let seLine1 = "SE n/a";
-    let seLine2 = "SEcoreo(last) none yet";
-    if (typeof v043fAudio !== "undefined") {
-      seLine1 = `SE muted:${v043fAudio.muted} ctx:${!!v043fAudio.ctx} unlocked:${v043fAudio.unlocked} state:${v043fAudio.ctx ? v043fAudio.ctx.state : "N/A"}`;
-      seLine1 += `\nSE handlerFired:${!!v043fAudio.debugUnlockHandlerFired} resumeAttempt:${!!v043fAudio.debugResumeAttempted} resumedOK:${!!v043fAudio.debugResumedConfirmed}`;
-      if (v043fAudio.debugLastChoreoSnapshot) seLine2 = `SEcoreo(last) ${JSON.stringify(v043fAudio.debugLastChoreoSnapshot)}`;
-    }
     el.textContent =
       `mode:${displayMode} iW:${window.innerWidth} iH:${window.innerHeight} dvh:${dvh === null ? "?" : Math.round(dvh)}\n` +
       `safe T${sa.top} R${sa.right} B${sa.bottom} L${sa.left}\n` +
       `shell ${rectStr(shellEl)}\n` +
       `footer(${footerKind}) ${rectStr(footerEl)}\n` +
-      `title${titleOverflow === null ? "" : (titleOverflow ? " OVERFLOW" : " ok")}\n` +
-      `${seLine1}\n${seLine2}`;
+      `title${titleOverflow === null ? "" : (titleOverflow ? " OVERFLOW" : " ok")}`;
   } catch (e) { /* 診断表示のみ。失敗しても本体機能へは無影響 */ }
 }
 const dgRenderBeforeFix8 = render;
 render = function () {
   dgRenderBeforeFix8();
   v043gUpdateDebugOverlay();
-  v043fUpdateSeDebugBanner();
 };
 
 render();
