@@ -2230,6 +2230,10 @@ small,.badge,.tabbar .tabBtn small,.menu-tile small{font-size:12px;line-height:1
    テキストラベルと同じ行に収める。 */
 .account-form label.v043f-se-toggle{display:flex;align-items:center;gap:8px;}
 .account-form label.v043f-se-toggle input{width:auto;min-height:auto;flex:none;}
+/* PR-J2 D項: SE/BGM音量スライダー行。v043f-se-toggleと同じ「テキスト+コントロール」横並び方針。 */
+.account-form label.v043f-vol-row{display:flex;align-items:center;gap:8px;}
+.account-form label.v043f-vol-row input[type=range]{width:auto;min-height:auto;flex:1;}
+.account-form label.v043f-vol-row span{flex:none;min-width:3em;text-align:right;color: var(--v41-muted);font-weight:400;}
 @media(max-width:360px){
   .gmail-row{grid-template-columns:30px minmax(0,1fr) auto !important;}
   .gmail-row .mail-kind-chip{display:none;}
