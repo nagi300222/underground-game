@@ -2545,10 +2545,14 @@ body:has(.v042-phone-backdrop){overflow-x:hidden;}
 
 /* v0.4.2 fix1: live-prep labels and low-contrast controls. */
 .v042-live-prep .live-prep-step-nav{grid-template-columns:repeat(3,minmax(0,1fr)) !important;gap:6px !important;overflow:visible !important;}
-.v042-live-prep .prepStepBtn{min-height:64px !important;padding:7px 5px !important;overflow:visible !important;display:grid !important;align-content:center;gap:2px !important;white-space:normal !important;background: var(--bg) !important;color: var(--ink) !important;border: 1px solid var(--ink) !important;}
+/* fix8: overflow:visibleだと、狭幅時に折り返した文字が隣タイルへ視覚的にはみ出し重なって
+   「見切れ」に見える不具合があった（発注者実機で発覚）。カット幅+4px規則に倣い、タイル自体を
+   overflow:hiddenで自タイル内に閉じ込め、パディングも+4px確保した上で、b/smallへ2行までの
+   line-clampを適用し、収まらない分は省略記号で自然に切る（隣タイルへの視覚的はみ出しを根絶）。 */
+.v042-live-prep .prepStepBtn{min-height:64px !important;padding:7px 9px !important;overflow:hidden !important;display:grid !important;align-content:center;gap:2px !important;white-space:normal !important;background: var(--bg) !important;color: var(--ink) !important;border: 1px solid var(--ink) !important;}
 .v042-live-prep .prepStepBtn span,
 .v042-live-prep .prepStepBtn b,
-.v042-live-prep .prepStepBtn small{display:block !important;white-space:normal !important;overflow:visible !important;text-overflow:clip !important;color: var(--ink) !important;line-height:1.15 !important;}
+.v042-live-prep .prepStepBtn small{display:-webkit-box !important;-webkit-box-orient:vertical !important;-webkit-line-clamp:2 !important;white-space:normal !important;overflow:hidden !important;text-overflow:ellipsis !important;color: var(--ink) !important;line-height:1.15 !important;}
 .v042-live-prep .prepStepBtn span{font-size:15px !important;}
 .v042-live-prep .prepStepBtn b{font-size:12px !important;}
 .v042-live-prep .prepStepBtn small{font-size:10px !important;color: var(--ink) !important;}
