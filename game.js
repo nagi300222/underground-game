@@ -14956,4 +14956,80 @@ render = function () {
   }
 };
 
+/* ===== fix8: DEV限定スタンドアロン診断オーバーレイ（v043g） =====
+   タブ表示とスタンドアロン（ホーム追加）表示で実効値が変わりうる寸法
+   （innerWidth/innerHeight・100dvh実効px・safe-area 4辺・display-mode・シェル/フッタのrect・
+   タイトルのオーバーフロー有無）を画面隅に常時表示する。Chromiumでの合成再現が不能だったため、
+   実機協調プロトコル（発注者にスタンドアロン実機スクショ1枚を依頼し数値で確定）用に新設。
+   devModeOn()（ENABLE_DEV_MODE、既存の恒久DEVフラグ）がtrueの間のみ表示、本番相当では非表示にできる。
+   pointer-events:noneで操作・ジェスチャには一切干渉しない（fix7の教訓を踏襲）。 */
+function v043gGetDebugOverlayEl() {
+  if (typeof document === "undefined" || !document.body) return null;
+  let el = document.getElementById("v043gDebugOverlay");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "v043gDebugOverlay";
+    el.setAttribute("aria-hidden", "true");
+    el.style.cssText = "position:fixed;top:0;left:0;z-index:99999;pointer-events:none;background:rgba(0,0,0,.72);color:#3f3;font:9px/1.35 monospace;padding:4px 6px;white-space:pre;max-width:78vw;";
+    document.body.appendChild(el);
+  }
+  return el;
+}
+function v043gReadSafeArea() {
+  if (typeof document === "undefined" || !document.body || typeof getComputedStyle !== "function") {
+    return { top: "?", right: "?", bottom: "?", left: "?" };
+  }
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:fixed;top:0;left:0;padding-top:env(safe-area-inset-top);padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);visibility:hidden;pointer-events:none;";
+  document.body.appendChild(probe);
+  const cs = getComputedStyle(probe);
+  const result = { top: cs.paddingTop, right: cs.paddingRight, bottom: cs.paddingBottom, left: cs.paddingLeft };
+  probe.remove();
+  return result;
+}
+function v043gReadDvhEffective() {
+  if (typeof document === "undefined" || !document.body) return null;
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:fixed;top:-9999px;left:0;height:100dvh;width:1px;visibility:hidden;pointer-events:none;";
+  document.body.appendChild(probe);
+  const h = probe.getBoundingClientRect().height;
+  probe.remove();
+  return h;
+}
+function v043gUpdateDebugOverlay() {
+  if (typeof devModeOn !== "function" || !devModeOn()) return;
+  if (typeof window === "undefined" || typeof document === "undefined" || !document.body) return;
+  /* 純粋な診断表示（ゲーム進行に一切関与しない）のため、regression監査が使うNode vmスタブ環境
+     （getBoundingClientRect等の一部DOM APIが未実装）でも決して例外を投げないよう、この関数全体を
+     try/catchで包む。実ブラウザでは通常どおり動作する（PR-J等の他フックは個別typeof判定方式だが、
+     本関数はDOM APIの呼び出し箇所が多いため、この一箇所での防御に統一した）（fix8） */
+  try {
+    const el = v043gGetDebugOverlayEl();
+    if (!el) return;
+    const sa = v043gReadSafeArea();
+    const dvh = v043gReadDvhEffective();
+    const displayMode = (typeof window.matchMedia === "function" && window.matchMedia("(display-mode: standalone)").matches) ? "standalone" : "browser";
+    const shellEl = document.querySelector(".v043b-shell") || document.querySelector(".app-shell");
+    const footerEl = document.querySelector(".v042-tabbar") || document.querySelector(".v043b-action-btn") || document.querySelector("#performLiveBtn");
+    const titleEl = document.querySelector(".section-title h2");
+    function rectStr(elm) {
+      if (!elm || typeof elm.getBoundingClientRect !== "function") return "N/A";
+      const r = elm.getBoundingClientRect();
+      return `T${Math.round(r.top)} B${Math.round(r.bottom)} L${Math.round(r.left)} R${Math.round(r.right)}`;
+    }
+    const titleOverflow = titleEl ? (titleEl.scrollWidth > titleEl.clientWidth + 1) : null;
+    el.textContent =
+      `mode:${displayMode} iW:${window.innerWidth} iH:${window.innerHeight} dvh:${dvh === null ? "?" : Math.round(dvh)}\n` +
+      `safe T${sa.top} R${sa.right} B${sa.bottom} L${sa.left}\n` +
+      `shell ${rectStr(shellEl)}\n` +
+      `footer ${rectStr(footerEl)}\n` +
+      `title${titleOverflow === null ? "" : (titleOverflow ? " OVERFLOW" : " ok")}`;
+  } catch (e) { /* 診断表示のみ。失敗しても本体機能へは無影響 */ }
+}
+const dgRenderBeforeFix8 = render;
+render = function () {
+  dgRenderBeforeFix8();
+  v043gUpdateDebugOverlay();
+};
+
 render();
