@@ -34,8 +34,15 @@
 拡張（fix6 B5・恒久）:
   上記の個別ターゲット到達性に加え、以下2項目を全画面（home/band/songs/schedule/
   bandbook一覧・詳細/phone各サブビュー/dev/log）へ一律適用する。
-  (a) 初期表示可視性: スクロール操作なしの初期表示で、フッター/タブバー
-      （ホームは専用の下部操作＝コマンドタイル）が100dvh内に完全可視であること。
+  (a) 最下部要素の到達性（fix12で「フッター初期可視」から定義更新）: fix11でタブバーが
+      全画面完全不在化されたため、「フッター（固定ナビ）が初期表示で可視」という前提自体が
+      現行UIに存在しない。ホーム/携帯/ライブ準備は専用の代表操作（コマンドタイル／閉じる
+      ボタン／ライブ本番へ）を引き続き対象とするが、それ以外の一般画面（band/songs/schedule/
+      bandbook/dev/log等）は「←︎ホームへ」ボタン（画面最上部）ではなく、実際のスクロール
+      コンテナ（.v042-view-panel）の最下部要素が、静止状態で可視、または末尾までスクロール
+      すれば可視になることを検証する。タブバー撤去に伴い生じ得る「コンテンツ末尾が
+      スクロールしても到達しない/巨大な空白の奥に取り残される」という新しい退行パターンを
+      検出するのが目的（fix12で実際に発見した二重の下端予約領域はこの定義変更のきっかけ）。
   (b) ネスト検出: overflow-y:auto/scrollかつ実際にコンテンツが溢れている要素
       （＝実効スクロールオーナー）が、同一画面内で祖先子関係にある組を持たない
       こと（「1画面1スクロールオーナー」規則の機械的検証）。演出オーバーレイ
@@ -180,12 +187,12 @@ SCREENS = [
     }"""},
 ]
 
-# fix11: 発注者裁定により凍結事項が「3タブナビ」→「ホームハブ型」へ改訂され、.v042-tabbarは
-# 全画面で完全不在化された（旧DEFAULT_FOOTER_SELECTORだった.v042-tabbarはもう存在しない）。
-# ホームはコマンドタイル群、携帯(phone_*)は閉じるボタン、ライブ準備(live_prep)は
-# #performLiveBtnを代表操作とする（変更なし）。それ以外の全画面（band/songs/schedule/
-# bandbook/dev/log等）は、ホームハブ型の下で共通して常設される「←︎ホームへ」ボタン
-# （.v042-page-home、各画面のmain内で最初に描画される）を代表操作とする。
+# fix12: 「フッター初期可視」定義を「最下部要素の到達性」へ更新。fix11でタブバーが全画面
+# 完全不在化されたため、DEFAULT_FOOTER_SELECTORとして「常設の固定フッター」を仮定すること
+# 自体が現行UIの実態に合わない（.v042-page-homeは画面最上部のボタンで「最下部」の検証には
+# ならない）。ホーム/携帯/ライブ準備は代表操作（コマンドタイル／閉じるボタン／ライブ本番へ）を
+# 引き続き対象とし、それ以外の一般画面はスクロールコンテナ(.v042-view-panel)の実際の
+# 最下部要素を対象とする（下記の特殊セレクタ値LAST_CHILD_OF_VIEW_PANELで表す）。
 FOOTER_SELECTOR_BY_SCREEN = {
     "home": ".v043b-action-btn",  # コマンドタイル（下部主要操作）の代表1件
     "phone_menu": ".phoneCloseBtn",
@@ -193,14 +200,14 @@ FOOTER_SELECTOR_BY_SCREEN = {
     "phone_sns": ".phoneCloseBtn",
     "live_prep": "#performLiveBtn",
 }
-DEFAULT_FOOTER_SELECTOR = ".v042-page-home"
+LAST_CHILD_OF_VIEW_PANEL = "__LAST_CHILD_OF_VIEW_PANEL__"
+DEFAULT_FOOTER_SELECTOR = LAST_CHILD_OF_VIEW_PANEL
 
-# ライブ準備(live_prep)は他画面と異なり固定ナビ（.v042-tabbarはliveMode中display:none）を
-# 持たない設計で、「ライブ本番へ」はステップ5コンテンツ末尾のスクロール到達要素として意図的に
-# 配置されている（TARGETSのsetlist_builderが元々この「visible_at_rest or reachable_by_scroll」の
-# 二段判定で検証済み）。他画面の「常時可視な固定フッター」という前提には当てはまらないため、
-# この画面のみ同じ二段判定にフォールバックする（fix7）。
-SCROLL_GATED_FOOTER_SCREENS = {"live_prep"}
+# fix12: 「常時可視な固定フッター」という前提がタブバー撤去で全画面において成立しなくなった
+# ため、visible_at_rest失敗時のscrollIntoView()フォールバックを全画面へ一般化する
+# （旧: live_prepのみの特例だったが、現行のホームハブ型では一般画面も末尾スクロール到達が
+# 正当な到達手段のため、その他画面にも同じ二段判定を適用するのが定義として正しい）。
+SCROLL_GATED_FOOTER_SCREENS = set(s["name"] for s in SCREENS) | {"live_prep"}
 
 
 def check_footer_visible_at_rest(page, screen):
@@ -210,18 +217,18 @@ def check_footer_visible_at_rest(page, screen):
     page.wait_for_timeout(200)
     selector = FOOTER_SELECTOR_BY_SCREEN.get(screen["name"], DEFAULT_FOOTER_SELECTOR)
     EPS = 1.5
-    info = page.evaluate(
-        """(sel) => {
-            const els = document.querySelectorAll(sel);
+    query_js = """(sel) => {
+            const els = sel === "__LAST_CHILD_OF_VIEW_PANEL__"
+                ? (() => { const p = document.querySelector('.v042-view-panel'); return p && p.lastElementChild ? [p.lastElementChild] : []; })()
+                : document.querySelectorAll(sel);
             if (!els.length) return { found: false };
             const el = els[els.length - 1];
             const r = el.getBoundingClientRect();
             const cs = getComputedStyle(el);
             return { found: true, top: r.top, bottom: r.bottom, vh: window.innerHeight,
                      display: cs.display, visibility: cs.visibility };
-        }""",
-        selector,
-    )
+        }"""
+    info = page.evaluate(query_js, selector)
     if not info["found"]:
         return {"name": screen["name"], "pass": False, "reason": "footer selector not found: " + selector}
     if info["display"] == "none" or info["visibility"] == "hidden":
@@ -232,15 +239,36 @@ def check_footer_visible_at_rest(page, screen):
             "name": screen["name"], "pass": visible, "selector": selector, "mode": "visible_at_rest" if visible else "NOT_VISIBLE_AT_REST",
             "top": info["top"], "bottom": info["bottom"], "vh": info["vh"],
         }
-    # スクロール到達要素として設計された画面のみ、scrollIntoView()での到達性にフォールバック
-    page.evaluate("(sel) => { const els = document.querySelectorAll(sel); els[els.length-1].scrollIntoView({block:'nearest'}); }", selector)
+    # 末尾スクロール到達要素として、到達性にフォールバック。LAST_CHILD_OF_VIEW_PANELは
+    # 要素自体がビューポートより大きい場合scrollIntoView({block:'nearest'})が最後まで
+    # 到達しないことがあるため、コンテナ自体をscrollHeightまで直接スクロールする
+    # （fix12実測で確認: schedule/band等はこの方式で正しく末尾へ到達する）。
+    scroll_js = """(sel) => {
+            if (sel === "__LAST_CHILD_OF_VIEW_PANEL__") {
+                const p = document.querySelector('.v042-view-panel');
+                if (p) p.scrollTop = p.scrollHeight;
+                return;
+            }
+            const els = document.querySelectorAll(sel);
+            els[els.length-1].scrollIntoView({block:'nearest'});
+        }"""
+    page.evaluate(scroll_js, selector)
     page.wait_for_timeout(150)
-    after = page.evaluate(
-        """(sel) => { const els = document.querySelectorAll(sel); const el = els[els.length-1];
-            const r = el.getBoundingClientRect(); return {top:r.top, bottom:r.bottom, vh:window.innerHeight}; }""",
-        selector,
-    )
-    reachable = -EPS <= after["top"] and after["bottom"] <= after["vh"] + EPS
+    after_js = """(sel) => {
+            const els = sel === "__LAST_CHILD_OF_VIEW_PANEL__"
+                ? (() => { const p = document.querySelector('.v042-view-panel'); return p && p.lastElementChild ? [p.lastElementChild] : []; })()
+                : document.querySelectorAll(sel);
+            const el = els[els.length-1];
+            const r = el.getBoundingClientRect(); return {top:r.top, bottom:r.bottom, vh:window.innerHeight};
+        }"""
+    after = page.evaluate(after_js, selector)
+    if selector == LAST_CHILD_OF_VIEW_PANEL:
+        # 最下部要素自体がビューポートより大きいことがある（例: 長い曲リスト最終カード）ため、
+        # 「末尾（bottom edge）に到達できるか」のみを判定基準とする。上端がビューポート外に
+        # あるのは「要素全体が1画面に収まる」ことを要求しないため正常。
+        reachable = after["bottom"] <= after["vh"] + EPS
+    else:
+        reachable = -EPS <= after["top"] and after["bottom"] <= after["vh"] + EPS
     return {
         "name": screen["name"], "pass": reachable, "selector": selector,
         "mode": "reachable_by_scroll" if reachable else "UNREACHABLE",
