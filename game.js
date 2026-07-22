@@ -8955,7 +8955,11 @@ function v043aRenderBaseContent(liveMode=false, phoneDuringLive=false) {
   if ((state.view || "home") === "phone") {
     return `<main class="view-panel v042-view-panel phone-open" data-view="phone">${renderHomeScreen()}</main>`;
   }
-  return liveMode && !phoneDuringLive ? renderLivePrep() : renderMainContent();
+  /* fix7: renderLivePrep()はrenderMainContent()と異なり.v042-view-panel（fix6 B4の内側スクローラ）で
+     ラップされておらず、fix6が.v043b-shell/body/#appのoverflow:hiddenロックを全画面へ一般化した際に
+     この画面だけ内側スクローラを持たないままロックのみ適用され、無音のスクロール不能リグレッションと
+     なっていた。renderMainContent()と同一パターンで包む（renderLivePrep()自体は無変更）。 */
+  return liveMode && !phoneDuringLive ? `<main class="view-panel v042-view-panel" data-view="live-prep">${renderLivePrep()}</main>` : renderMainContent();
 }
 
 function v043aHasPriorityOverlay() {
