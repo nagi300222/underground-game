@@ -8809,32 +8809,74 @@ function v043fEnsureContext() {
     master.connect(ctx.destination);
     v043fAudio.ctx = ctx;
     v043fAudio.master = master;
+    /* fix-SE-interrupted: iOSは他アプリの音声割込み等でAudioContext.stateを
+       "interrupted"へ遷移させることがある（"suspended"とは別の値）。visibilitychangeを
+       待たず、状態変化そのものをstatechangeで捕捉し、runningでなくなった瞬間に
+       復帰を試みる（ユーザージェスチャ外からのresume()呼び出しになるため成功が保証される
+       わけではないが、失敗しても実害はなく、成功すればその場で無音期間を短縮できる）。 */
+    if (typeof ctx.addEventListener === "function") {
+      ctx.addEventListener("statechange", () => {
+        if (ctx.state !== "running" && v043fAudio.unlocked && !v043fAudio.muted) v043fTryResume();
+      });
+    }
     return ctx;
   } catch (e) {
     return null;
   }
 }
+/* fix-SE-interrupted: resume()呼び出しと状態確認を一箇所に集約。onRunningは
+   実際にrunningへ復帰できた場合のみ呼ばれる（SE発火の再試行に使う）。resume()は
+   Promiseで非同期完了するため、呼び出し自体はどこから行ってもよいが、iOS Safariの
+   実挙動としては「その時点で有効なユーザージェスチャのコールスタック内」からの
+   呼び出しの方が成功率が高いため、v043fScheduleLiveResultAudio/v043fPlaySeNowからは
+   実際のSE発火トリガー（イベントハンドラ）のコールスタック内で呼ぶ。 */
+function v043fTryResume(onRunning) {
+  const ctx = v043fAudio.ctx;
+  if (!ctx) return;
+  if (ctx.state === "running") {
+    v043fAudio.debugResumedConfirmed = true;
+    if (onRunning) onRunning();
+    return;
+  }
+  v043fAudio.debugResumeAttempted = true;
+  ctx.resume().then(() => {
+    if (ctx.state === "running") {
+      v043fAudio.debugResumedConfirmed = true;
+      v043fPrimeAudioRoute();
+      if (onRunning) onRunning();
+    }
+  }).catch(() => {});
+}
+/* fix-SE-interrupted定石3（検討案の採用）: interrupted/suspendedから復帰した直後に
+   ごく短く極小音量の音を1回鳴らすと、iOS側の音声ルーティングが正常化しやすいという
+   経験則があるため、resume成功の副作用として一度だけ通す。実際に要求されたSE（この
+   直後にonRunning経由で鳴る）とは別の、聴こえない前提のプライミング用途。 */
+function v043fPrimeAudioRoute() {
+  const ctx = v043fAudio.ctx;
+  if (!ctx || ctx.state !== "running") return;
+  try { v043fOsc("sine", 440, 0, ctx.currentTime, 0.01, 0.001); } catch (e) {}
+}
 function v043fUnlock() {
   const ctx = v043fEnsureContext();
   if (!ctx) return;
   v043fAudio.unlocked = true;
-  if (ctx.state === "suspended") {
-    v043fAudio.debugResumeAttempted = true;
-    ctx.resume().then(() => {
-      if (ctx.state === "running") v043fAudio.debugResumedConfirmed = true;
-    }).catch(() => {});
-  } else if (ctx.state === "running") {
-    v043fAudio.debugResumedConfirmed = true;
-  }
+  v043fTryResume();
 }
 function v043fHandleVisibilityResume() {
-  if (!v043fAudio.unlocked || !v043fAudio.ctx) return;
-  if (typeof document !== "undefined" && document.visibilityState === "visible" && v043fAudio.ctx.state === "suspended") {
-    v043fAudio.ctx.resume().catch(() => {});
-  }
+  if (!v043fAudio.unlocked || !v043fAudio.ctx || v043fAudio.muted) return;
+  const visible = typeof document === "undefined" || document.visibilityState === "visible";
+  /* fix-SE-interrupted: "suspended"だけでなく"interrupted"（iOS特有の割込み状態）でも
+     復帰を試みる。running/closedはそのまま何もしない。 */
+  if (visible && v043fAudio.ctx.state !== "running" && v043fAudio.ctx.state !== "closed") v043fTryResume();
 }
 if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
   document.addEventListener("visibilitychange", v043fHandleVisibilityResume);
+}
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+  /* fix-SE-interrupted定石2: visibilitychangeだけでなくfocusでも復帰を試みる
+     （iOSのstandalone/ホーム画面追加時はvisibilitychangeが期待どおり発火しない
+     既知の個体差があるため、focusを保険として追加）。 */
+  window.addEventListener("focus", v043fHandleVisibilityResume);
 }
 /* 最初期タップ解錠フック: 既存の最初期タップ画面renderTitleScreen()を再代入でラップ
    （wrap-by-reassignment、方針v2.0.2標準）。個別ボタンではなくdocument捕捉フェーズの
@@ -8882,7 +8924,9 @@ function v043fUpdateSeDebugBanner() {
     const a = v043fAudio;
     const line1 = `SE calls:${a.debugChoreoCallCount || 0} muted:${a.muted} ctx:${!!a.ctx} unlocked:${a.unlocked} state:${a.ctx ? a.ctx.state : "N/A"}`;
     const line2 = `handlerFired:${!!a.debugUnlockHandlerFired} resumeAttempt:${!!a.debugResumeAttempted} resumedOK:${!!a.debugResumedConfirmed}`;
-    const line3 = a.debugLastChoreoSnapshot ? `lastCanPlay:${a.debugLastChoreoSnapshot.canPlay}` : "lastCanPlay: (結果画面未到達)";
+    const line3 = a.debugLastChoreoSnapshot
+      ? `lastCanPlay:${a.debugLastChoreoSnapshot.canPlay} recovered:${!!a.debugLastChoreoSnapshot.recoveredAfterResume}`
+      : "lastCanPlay: (結果画面未到達)";
     el.textContent = `${line1}\n${line2}\n${line3}`;
   } catch (e) { /* 診断表示のみ。失敗しても本体機能へは無影響 */ }
 }
@@ -9011,12 +9055,21 @@ function v043fPlayF1(t) {
   return [v043fOsc("square", 170, 120, t, .09, .35)].filter(Boolean);
 }
 function v043fPlaySeNow(name) {
-  const t = v043fNow();
-  if (name === "b2") v043fPlayB2(t);
-  else if (name === "f1") v043fPlayF1(t);
-  else if (name === "a3") v043fPlayA3(t);
-  else if (name === "d6") v043fPlayD6(t);
-  else if (name === "e1") v043fPlayE1(t);
+  const play = () => {
+    const t = v043fNow();
+    if (name === "b2") v043fPlayB2(t);
+    else if (name === "f1") v043fPlayF1(t);
+    else if (name === "a3") v043fPlayA3(t);
+    else if (name === "d6") v043fPlayD6(t);
+    else if (name === "e1") v043fPlayE1(t);
+  };
+  if (v043fCanPlay()) { play(); return; }
+  /* fix-SE-interrupted: mutedでもctx/unlocked未整備でもない場合（＝ctx.stateが
+     running以外というだけの場合）のみ、このクリックのコールスタック内でresume()を
+     試み、成功したらそのまま鳴らす。 */
+  if (!v043fAudio.muted && v043fAudio.ctx && v043fAudio.unlocked) {
+    v043fTryResume(() => { if (v043fCanPlay()) play(); });
+  }
 }
 function v043fStopScheduledNodes(nodes) {
   if (!nodes || !nodes.length || !v043fAudio.ctx) return;
@@ -9047,19 +9100,46 @@ function v043fScheduleLiveResultAudio(rank) {
   v043fAudio.debugLastChoreoSnapshot = debugSnapshot;
   if (typeof console !== "undefined" && console.log) console.log("[v043f SE debug] choreo fire:", JSON.stringify(debugSnapshot));
   if (typeof v043fUpdateSeDebugBanner === "function") v043fUpdateSeDebugBanner();
-  if (!v043fCanPlay()) return { nodes: [] };
-  const t0 = v043fAudio.ctx.currentTime;
-  const nodes = [];
-  const collect = arr => { if (arr) nodes.push(...arr); };
-  for (let ms = 0; ms < 1000; ms += 70) collect(v043fPlayC1(t0 + ms / 1000, 0.16));
-  collect(v043fPlayA3(t0 + 1.12));
-  if (rank === "S" || rank === "A") {
-    collect(v043fPlayE1(t0 + 1.27));
-    if (rank === "S") collect(v043fPlayE1(t0 + 1.27 + 0.155));
+  const reveal = { nodes: [] };
+  /* fix-SE-interrupted: t0はscheduleNow()の呼び出し時点で都度取り直す（即時実行と
+     resume後の再試行とで、対象のctx.currentTimeが異なるため）。予約したノードは
+     reveal.nodesへ追記する（早送りタップ時のv043fStopScheduledNodesが、後から
+     復帰・発音したノードも含めて停止できるようにするため、returnした後の
+     非同期追記でも同じ配列参照を使う）。 */
+  const scheduleNow = () => {
+    const t0 = v043fAudio.ctx.currentTime;
+    const collect = arr => { if (arr) reveal.nodes.push(...arr); };
+    for (let ms = 0; ms < 1000; ms += 70) collect(v043fPlayC1(t0 + ms / 1000, 0.16));
+    collect(v043fPlayA3(t0 + 1.12));
+    if (rank === "S" || rank === "A") {
+      collect(v043fPlayE1(t0 + 1.27));
+      if (rank === "S") collect(v043fPlayE1(t0 + 1.27 + 0.155));
+    }
+    for (let ms = 1670; ms < 1670 + 1170; ms += 90) collect(v043fPlayC1(t0 + ms / 1000, 0.10));
+    collect(v043fPlayD6(t0 + 2.97));
+  };
+  if (v043fCanPlay()) {
+    scheduleNow();
+    return reveal;
   }
-  for (let ms = 1670; ms < 1670 + 1170; ms += 90) collect(v043fPlayC1(t0 + ms / 1000, 0.10));
-  collect(v043fPlayD6(t0 + 2.97));
-  return { nodes };
+  /* fix-SE-interrupted: muted・ctx未生成・未解錠のいずれでもない（＝ctx.stateが
+     running以外というだけ、典型的にはinterrupted/suspended）場合のみ、この関数の
+     呼び出し元（.liveProgressNextBtnのクリック）のコールスタック内でresume()を
+     試みる。成功したら、その時点のctx.currentTimeでタイムラインを組み直して発火する。
+     視覚演出（カウントアップ等）は既存のsetTimeoutどおり進むため、SEだけ数十ms〜
+     数百ms遅れて追いつく形になるが、無音のまま終わるよりはるかに良い。 */
+  if (!v043fAudio.muted && v043fAudio.ctx && v043fAudio.unlocked) {
+    v043fTryResume(() => {
+      if (v043fCanPlay()) {
+        scheduleNow();
+        debugSnapshot.recoveredAfterResume = true;
+        debugSnapshot.ctxStateAfterResume = v043fAudio.ctx.state;
+        if (typeof console !== "undefined" && console.log) console.log("[v043f SE debug] choreo recovered after resume:", JSON.stringify(debugSnapshot));
+        if (typeof v043fUpdateSeDebugBanner === "function") v043fUpdateSeDebugBanner();
+      }
+    });
+  }
+  return reveal;
 }
 
 /* --- 斜めワイプ: render()を再代入でラップし、state.view変化のみ検知（他の208箇所のrender()呼び出しには無反応） --- */

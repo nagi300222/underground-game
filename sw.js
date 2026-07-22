@@ -1,4 +1,4 @@
-const CACHE_NAME = "underground-v0-4-3-sedebug";
+const CACHE_NAME = "underground-v0-4-3-seinterrupt";
 const ASSETS = [
   "./",
   "./index.html",
