@@ -1531,6 +1531,13 @@ button:focus:not(:focus-visible), input:focus:not(:focus-visible), select:focus:
   .prep-step-actions {grid-template-columns:1fr;}
   .live-prep-step-controls {position:sticky;bottom:8px;z-index:4;padding:8px;border-radius: 0;background: var(--bg);}
 }
+/* fix10: 上のposition:stickyは、fix6/7以降.v042-view-panelが唯一のスクロールオーナーとなった
+   構成下で、liveMode中は不在の下部タブバー用に.v042-view-panelへ残る大きめのpadding-bottomを
+   スティッキー基準に巻き込み、「次へ」が本来の位置よりかなり高い位置（初期スクロール時点で
+   見出し～説明パネルの中段）に張り付いて前段ブロックへ重なる実害を確認（実測: 初期表示で
+   controls rect T520-B594が、audience-info T571-B646／setlist-hint-panel T656-B781と重畳）。
+   セクション末尾の通常フローに戻す（DOM順は既に末尾のため、position解除のみで正しい位置になる）。 */
+.v042-live-prep .live-prep-step-controls{position:static !important;bottom:auto !important;}
 
 /* v0.4.0c phone + tutorial foundation */
 .tutorial-flow-card {border: 1px solid var(--ink);background: var(--bg);}
@@ -2561,6 +2568,12 @@ body:has(.v042-phone-backdrop){overflow-x:hidden;}
 .v042-live-prep .prepStepBtn b{font-size:12px !important;}
 .v042-live-prep .prepStepBtn small{font-size:10px !important;color: var(--ink) !important;}
 .v042-live-prep .prepStepBtn.active{background: var(--bg) !important;color: var(--ink) !important;border-color: var(--ink) !important;}
+/* fix10: 「初ライブ：ライブハウスイベント：ライブ準備」級の長題で、実機でタイトルOVERFLOW
+   （診断オーバーレイのscrollWidth>clientWidth検出）が継続していた。word-break:keep-all（1683行目）
+   下では「ライブハウスイベント」等コロンを挟まない連続区間が、狭幅端末で折返し不能なまま
+   横はみ出しを起こしうる。最大2行＋超過はellipsis可という受け入れ基準どおり、line-clampで
+   確実に2行へ収め、overflow-wrap:anywhereを非常時の折返し手段として追加し、横はみ出しを根絶する。 */
+.v042-live-prep .section-title h2{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-overflow:ellipsis;white-space:normal;overflow-wrap:anywhere;}
 .v042-live-prep .prepStepBtn.active span,
 .v042-live-prep .prepStepBtn.active b,
 .v042-live-prep .prepStepBtn.active small{color: var(--ink) !important;}
