@@ -180,11 +180,12 @@ SCREENS = [
     }"""},
 ]
 
-# ホームはタブバーを意図的に非表示にし、コマンドタイル群を下部の主要操作として使う設計。
-# 携帯(phone_*)はデバイス風オーバーレイが下部タブバーを完全に置き換え、閉じるボタンが
-# 唯一の常設操作となる設計。ライブ準備(live_prep)もliveMode中は.v042-tabbarがlive-lockで
-# 非表示になる設計のため、#performLiveBtnを代表操作とする。いずれも意図的な非タブバー画面の
-# ため、代表操作セレクタを切り替える。
+# fix11: 発注者裁定により凍結事項が「3タブナビ」→「ホームハブ型」へ改訂され、.v042-tabbarは
+# 全画面で完全不在化された（旧DEFAULT_FOOTER_SELECTORだった.v042-tabbarはもう存在しない）。
+# ホームはコマンドタイル群、携帯(phone_*)は閉じるボタン、ライブ準備(live_prep)は
+# #performLiveBtnを代表操作とする（変更なし）。それ以外の全画面（band/songs/schedule/
+# bandbook/dev/log等）は、ホームハブ型の下で共通して常設される「←︎ホームへ」ボタン
+# （.v042-page-home、各画面のmain内で最初に描画される）を代表操作とする。
 FOOTER_SELECTOR_BY_SCREEN = {
     "home": ".v043b-action-btn",  # コマンドタイル（下部主要操作）の代表1件
     "phone_menu": ".phoneCloseBtn",
@@ -192,7 +193,7 @@ FOOTER_SELECTOR_BY_SCREEN = {
     "phone_sns": ".phoneCloseBtn",
     "live_prep": "#performLiveBtn",
 }
-DEFAULT_FOOTER_SELECTOR = ".v042-tabbar"
+DEFAULT_FOOTER_SELECTOR = ".v042-page-home"
 
 # ライブ準備(live_prep)は他画面と異なり固定ナビ（.v042-tabbarはliveMode中display:none）を
 # 持たない設計で、「ライブ本番へ」はステップ5コンテンツ末尾のスクロール到達要素として意図的に
