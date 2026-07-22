@@ -2399,7 +2399,10 @@ body:has(.v042-phone-backdrop){overflow-x:hidden;}
 .v042-phone-app-body .card,
 .v042-mail-app .mail-detail,
 .v042-sns-app .tweet-card{background: var(--bg) !important;color: var(--ink) !important;border-color: var(--ink) !important;}
-.v042-mail-account,.v042-sns-profile,.v042-inline-edit{background: var(--bg);border: 1px solid var(--ink);border-radius: 0;padding:10px;margin-bottom:10px;}
+.v042-mail-account,.v042-sns-profile,.v042-inline-edit,.v042-sns-compose{background: var(--bg);border: 1px solid var(--ink);border-radius: 0;padding:10px;margin-bottom:10px;}
+.v042-sns-compose textarea{width:100%;min-height:64px;border-radius: 0;border: 1px solid var(--ink);background: var(--bg);color: var(--ink);resize:vertical;font-family:inherit;}
+.v042-sns-compose-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;}
+.v042-sns-compose-row small{color: var(--dim);}
 .v042-sns-profile{display:flex;gap:10px;align-items:center;}
 .v042-sns-profile span{display:block;color: var(--ink);}
 .v042-inline-edit{display:grid;gap:8px;}
@@ -2561,7 +2564,9 @@ body:has(.v042-phone-backdrop){overflow-x:hidden;}
 .v042-phone-shell .sns-body header span{max-width:100% !important;}
 .v042-phone-shell .v042-inline-edit,
 .v042-phone-shell .v042-mail-account,
-.v042-phone-shell .v042-sns-profile{background: var(--bg) !important;color: var(--ink) !important;border-color: var(--ink) !important;}
+.v042-phone-shell .v042-sns-profile,
+.v042-phone-shell .v042-sns-compose{background: var(--bg) !important;color: var(--ink) !important;border-color: var(--ink) !important;}
+.v042-phone-shell .v042-sns-compose textarea{background: var(--bg) !important;color: var(--ink) !important;border-color: var(--ink) !important;}
 
 /* v0.4.2 fix1: live-prep labels and low-contrast controls. */
 .v042-live-prep .live-prep-step-nav{grid-template-columns:repeat(3,minmax(0,1fr)) !important;gap:6px !important;overflow:visible !important;}
