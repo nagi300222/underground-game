@@ -1,0 +1,17 @@
+# ライブハウス名一覧 v1.1（VENUE_NAMES・確定）
+
+用途: SNS投稿・ブッキング・メールで総称を固有名に置換。キャパ帯で3群に分け、実装は`game.js`の`VENUE_NAMES`定数（3群配列）として同梱。ナギ確定版。
+
+## 小箱（序盤・キャパ〜60）
+狐影（こかげ）／UNDER（本作中心ハコ・既出）／BASEMENT 7／新神座（しんかむくら）／SILVER／コスモ／ノイズルーム／COPPER／LUCK FINN
+
+## 中箱（中盤・キャパ60〜200）
+VOLTAGE／KING VIPER／月面クラブ（既出）／MOONHALL／LARGE DOG／彗星と鹿
+
+## 大箱・フェス会場（終盤）
+UNDER FES（プレフェス野外ステージ・既出）／GRAND UNDER FES（最終目標・既出）／Zapp／G-NEST／CLUB WORLD／ラストホール
+
+## 運用メモ
+- キャパ帯とハコを紐付けて割当（小箱イベントに大箱名が出る齟齬を防ぐ）。既存固有名（UNDER系・月面クラブ）は維持。
+- 実装: `VENUE_NAMES`定数（3群配列）としてTEXT-2A改に同梱。SNSトレンド投稿・ブッキング表記・メールで共用。
+- TEXT-2A改の初回反映範囲: SNSトレンド投稿（`generateSnsTrendPost`の`general[]`雑談枠、小箱群からランダム選択）。ブッキング機構本体（`VENUES`定数）・メール文面への展開は今後の波で対応。
