@@ -376,7 +376,7 @@ function analyzeKeywordText(text, theme="") {
 
 const VENUES = [
   { id: "garage", name: "ライブハウスUNDER", capacity: 55, fee: 4500, prepNeed: 12, heatBonus: 2, note: "小箱。序盤でも成功しやすい。Paper Moon Kids（仮）のホーム" },
-  { id: "livehouse_s", name: "駅裏ライブハウス", capacity: 90, fee: 8000, prepNeed: 24, heatBonus: 4, note: "標準的な小箱" },
+  { id: "livehouse_s", name: "新神座", capacity: 90, fee: 8000, prepNeed: 24, heatBonus: 4, note: "標準的な小箱" },
   { id: "livehouse_m", name: "ネオンホール", capacity: 150, fee: 14000, prepNeed: 42, heatBonus: 7, note: "中箱。準備不足だと空席が目立つ" },
   { id: "warehouse", name: "倉庫イベント", capacity: 230, fee: 22000, prepNeed: 58, heatBonus: 10, note: "大きめ。知名度と曲の認知が欲しい" },
   { id: "big_stage", name: "プレフェス野外ステージ", capacity: 340, fee: 32000, prepNeed: 76, heatBonus: 14, note: "格上会場。誰でも出られるが成功率は低い" }
@@ -7417,7 +7417,7 @@ function venueRankLabel(v) {
   if (!v) return "通常";
   if (v.id === "garage") return "小箱";
   if (v.id === "livehouse_s") return "小箱";
-  if (v.id === "livehouse_m") return "中規模ライブハウス";
+  if (v.id === "livehouse_m") return "中箱";
   if (v.id === "warehouse") return "大箱";
   if (v.id === "big_stage") return (state.turn || 1) >= 50 ? "GRAND UNDER FES" : (state.turn || 1) >= 30 ? "UNDER FES" : "業界関係者イベント";
   return "通常";
