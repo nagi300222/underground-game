@@ -147,6 +147,11 @@ TARGETS = [
 
 # fix6 B5（恒久）: 「1画面1スクロールオーナー」＋「初期表示でフッター常時可視」の全画面監査対象。
 # 演出オーバーレイ（TARGETSで個別検証済み）は対象外。
+# fix7で"live_prep"（ライブ準備）を追加。renderLivePrep()はTARGETSのsetlist_builderで
+# 到達性(scrollIntoView)のみ検証されており、このSCREENS一覧（フッター可視性・ネスト検出、
+# および本ファイルで新設したスクロール応答監査）には未登録だった。この登録漏れ自体が、
+# fix6 B4の一般化リグレッション（renderLivePrep()だけ内側スクローラを持たないままロックのみ
+# 適用され、無音のスクロール不能を招いた）を検出できなかった一因（SKIN_ORDER_v4 fix7）。
 SCREENS = [
     {"name": "home", "setup": """() => { state.view='home'; render(); }"""},
     {"name": "band", "setup": """() => { state.view='band'; render(); }"""},
@@ -165,18 +170,36 @@ SCREENS = [
     {"name": "phone_sns", "setup": """() => { state.view='phone'; state.phoneSubView='sns'; render(); }"""},
     {"name": "dev", "setup": """() => { state.devMode=true; state.view='dev'; render(); }"""},
     {"name": "log", "setup": """() => { state.view='log'; render(); }"""},
+    {"name": "live_prep", "setup": """() => {
+        if (typeof refreshLiveSchedule === "function") refreshLiveSchedule();
+        const turn = (state.liveSchedule && state.liveSchedule[0]) || state.turn;
+        state.turn = turn;
+        state.livePrepStep = 5;
+        if (typeof ensureLivePrepSetlist === "function") ensureLivePrepSetlist();
+        render();
+    }"""},
 ]
 
 # ホームはタブバーを意図的に非表示にし、コマンドタイル群を下部の主要操作として使う設計。
 # 携帯(phone_*)はデバイス風オーバーレイが下部タブバーを完全に置き換え、閉じるボタンが
-# 唯一の常設操作となる設計。いずれも意図的な非タブバー画面のため、代表操作セレクタを切り替える。
+# 唯一の常設操作となる設計。ライブ準備(live_prep)もliveMode中は.v042-tabbarがlive-lockで
+# 非表示になる設計のため、#performLiveBtnを代表操作とする。いずれも意図的な非タブバー画面の
+# ため、代表操作セレクタを切り替える。
 FOOTER_SELECTOR_BY_SCREEN = {
     "home": ".v043b-action-btn",  # コマンドタイル（下部主要操作）の代表1件
     "phone_menu": ".phoneCloseBtn",
     "phone_mail": ".phoneCloseBtn",
     "phone_sns": ".phoneCloseBtn",
+    "live_prep": "#performLiveBtn",
 }
 DEFAULT_FOOTER_SELECTOR = ".v042-tabbar"
+
+# ライブ準備(live_prep)は他画面と異なり固定ナビ（.v042-tabbarはliveMode中display:none）を
+# 持たない設計で、「ライブ本番へ」はステップ5コンテンツ末尾のスクロール到達要素として意図的に
+# 配置されている（TARGETSのsetlist_builderが元々この「visible_at_rest or reachable_by_scroll」の
+# 二段判定で検証済み）。他画面の「常時可視な固定フッター」という前提には当てはまらないため、
+# この画面のみ同じ二段判定にフォールバックする（fix7）。
+SCROLL_GATED_FOOTER_SCREENS = {"live_prep"}
 
 
 def check_footer_visible_at_rest(page, screen):
@@ -203,9 +226,25 @@ def check_footer_visible_at_rest(page, screen):
     if info["display"] == "none" or info["visibility"] == "hidden":
         return {"name": screen["name"], "pass": False, "reason": "footer element hidden (display/visibility)"}
     visible = -EPS <= info["top"] and info["bottom"] <= info["vh"] + EPS
+    if visible or screen["name"] not in SCROLL_GATED_FOOTER_SCREENS:
+        return {
+            "name": screen["name"], "pass": visible, "selector": selector, "mode": "visible_at_rest" if visible else "NOT_VISIBLE_AT_REST",
+            "top": info["top"], "bottom": info["bottom"], "vh": info["vh"],
+        }
+    # スクロール到達要素として設計された画面のみ、scrollIntoView()での到達性にフォールバック
+    page.evaluate("(sel) => { const els = document.querySelectorAll(sel); els[els.length-1].scrollIntoView({block:'nearest'}); }", selector)
+    page.wait_for_timeout(150)
+    after = page.evaluate(
+        """(sel) => { const els = document.querySelectorAll(sel); const el = els[els.length-1];
+            const r = el.getBoundingClientRect(); return {top:r.top, bottom:r.bottom, vh:window.innerHeight}; }""",
+        selector,
+    )
+    reachable = -EPS <= after["top"] and after["bottom"] <= after["vh"] + EPS
     return {
-        "name": screen["name"], "pass": visible, "selector": selector,
-        "top": info["top"], "bottom": info["bottom"], "vh": info["vh"],
+        "name": screen["name"], "pass": reachable, "selector": selector,
+        "mode": "reachable_by_scroll" if reachable else "UNREACHABLE",
+        "topAtRest": info["top"], "bottomAtRest": info["bottom"],
+        "topAfterScroll": after["top"], "bottomAfterScroll": after["bottom"], "vh": after["vh"],
     }
 
 
@@ -250,6 +289,84 @@ def check_no_nested_scrollers(page, screen):
         "scrollers": result["scrollers"],
         "nestedPairs": result["nestedPairs"],
     }
+
+
+def synthetic_touch_drag(cdp, x, y, dy, steps=12, step_delay_ms=20):
+    """CDP Input.dispatchTouchEventで実タッチドラッグ(縦方向)を合成する。
+    プログラムでscrollTopを直接書き換えるのとは異なり、ブラウザの実ジェスチャ認識・
+    スクロール配達経路を通すため、「レイアウト上スクロール可能」と「実際にジェスチャが
+    スクロールへ届く」の差（fix7で発見した応答層の盲点）を検出できる（SKIN_ORDER_v4 fix7）。"""
+    ts = time.time()
+    cdp.send("Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": x, "y": y, "id": 1}], "timestamp": ts})
+    for i in range(1, steps + 1):
+        cur_y = y - (dy * i / steps)
+        time.sleep(step_delay_ms / 1000)
+        cdp.send("Input.dispatchTouchEvent", {"type": "touchMove", "touchPoints": [{"x": x, "y": cur_y, "id": 1}], "timestamp": time.time()})
+    cdp.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": [], "timestamp": time.time()})
+
+
+def check_scroll_response(page, cdp, screen):
+    """fix7 C項: 恒久スクロール応答監査。
+    既存のcheck_no_nested_scrollers()と同じ基準（overflow-y:auto/scroll かつ実際に
+    コンテンツが溢れている可視要素）でその画面の実スクロールオーナーを検出し、各オーナーの
+    中心へ合成タッチドラッグを行って実際にscrollTopが動くかを検証する。レイアウト層
+    （fix6 B5）は「スクロール可能かどうか」のみを見ており、ジェスチャが実際にスクロールへ
+    配達されるかという応答層は別軸であることがfix7で判明したため、二重ゲートとして新設した。"""
+    page.evaluate(RESET_OVERLAYS)
+    page.wait_for_timeout(80)
+    page.evaluate(screen["setup"])
+    page.wait_for_timeout(200)
+
+    scrollers = page.evaluate(
+        """() => {
+            const all = Array.from(document.querySelectorAll('body *'));
+            const found = all.filter(el => {
+                const cs = getComputedStyle(el);
+                const canScrollY = ['auto', 'scroll'].includes(cs.overflowY);
+                const overflowsY = el.scrollHeight > el.clientHeight + 1;
+                const r = el.getBoundingClientRect();
+                if (!(canScrollY && overflowsY && r.width > 0 && r.height > 0)) return false;
+                /* 実タッチはそのx,y地点で最前面（hit-test最上位）の要素にしか届かない。
+                   携帯オーバーレイの裏に隠れたままの.v042-view-panel（renderHomeScreen()を
+                   保持し続けるプレースホルダ）等、レイアウト上はoverflow:auto+溢れていても
+                   実際には触れられない要素を、この最前面判定で除外する（fix7で発見） */
+                const cx = Math.min(Math.max(r.x + r.width / 2, 0), window.innerWidth - 1);
+                const cy = Math.min(Math.max(r.y + r.height / 2, 0), window.innerHeight - 1);
+                const top = document.elementFromPoint(cx, cy);
+                return !!top && (top === el || el.contains(top));
+            });
+            return found.map((el, i) => {
+                el.setAttribute('data-fix7-audit-id', String(i));
+                const r = el.getBoundingClientRect();
+                return {
+                    id: i, label: el.tagName + '.' + (el.className || '').toString().slice(0, 60),
+                    x: r.x + r.width / 2, y: r.y + r.height / 2,
+                    scrollHeight: el.scrollHeight, clientHeight: el.clientHeight, scrollTop: el.scrollTop,
+                };
+            });
+        }"""
+    )
+    if not scrollers:
+        return {"name": screen["name"], "pass": True, "scrollers": [], "reason": "no overflowing scroller present (nothing to scroll)"}
+
+    results = []
+    for sc in scrollers:
+        cx = max(1, min(sc["x"], 373))
+        cy = max(1, min(sc["y"], 665))
+        drag_dy = min(300, max(20, sc["scrollHeight"] - sc["clientHeight"]))
+        synthetic_touch_drag(cdp, cx, cy, drag_dy)
+        page.wait_for_timeout(150)
+        after = page.evaluate(
+            """(id) => {
+                const el = document.querySelector(`[data-fix7-audit-id="${id}"]`);
+                return el ? el.scrollTop : null;
+            }""",
+            sc["id"],
+        )
+        delta = (after if after is not None else 0) - sc["scrollTop"]
+        results.append({"target": sc["label"], "scrollTopDelta": delta, "pass": delta > 0})
+
+    return {"name": screen["name"], "pass": all(r["pass"] for r in results), "scrollers": results}
 
 
 def resolve_executable_path():
@@ -329,12 +446,14 @@ def main():
             page.wait_for_timeout(300)
             page.evaluate(SETUP_BASE)
             page.wait_for_timeout(200)
+            cdp = page.context.new_cdp_session(page)
 
             for target in TARGETS:
                 results.append(check_target(page, target))
 
             footer_results = [check_footer_visible_at_rest(page, screen) for screen in SCREENS]
             nested_results = [check_no_nested_scrollers(page, screen) for screen in SCREENS]
+            scroll_response_results = [check_scroll_response(page, cdp, screen) for screen in SCREENS]
 
             browser.close()
     finally:
@@ -345,14 +464,17 @@ def main():
     print(json.dumps(footer_results, indent=2, ensure_ascii=False))
     print("\n--- fix6 B5 (b) nested scrollable ancestors, per screen ---")
     print(json.dumps(nested_results, indent=2, ensure_ascii=False))
+    print("\n--- fix7 C: synthetic touch-drag scroll-response, per screen ---")
+    print(json.dumps(scroll_response_results, indent=2, ensure_ascii=False))
 
-    all_results = results + footer_results + nested_results
+    all_results = results + footer_results + nested_results + scroll_response_results
     failed = [r for r in all_results if not r["pass"]]
     if failed:
-        print(f"\n[NG] {len(failed)} check(s) FAILED vertical reachability (incl. fix6 B5 extensions).", file=sys.stderr)
+        print(f"\n[NG] {len(failed)} check(s) FAILED vertical reachability (incl. fix6 B5 + fix7 C extensions).", file=sys.stderr)
         sys.exit(1)
     print(f"\n[OK] all {len(results)} targets + {len(footer_results)} footer-visibility + "
-          f"{len(nested_results)} nested-scroller checks PASSED vertical reachability.")
+          f"{len(nested_results)} nested-scroller + {len(scroll_response_results)} scroll-response "
+          f"checks PASSED vertical reachability.")
     sys.exit(0)
 
 
