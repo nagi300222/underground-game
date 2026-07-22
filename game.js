@@ -472,7 +472,7 @@ const BAND_DATABASE = Object.freeze({
     id: "kiwi", name: "Kiwi", kana: "キーウィ", internalLv: 1, color: "#B5E04C", markStyle: "B",
     genres: ["ポップロック", "インディーロック", "ゆるいオルタナ"],
     description: "ゆるく明るい空気でライブハウスを和ませるポップロックバンド。",
-    representativeSong: "グリムポップ", representativeName: "モズ", representativePart: null,
+    representativeSong: "グリムポップ", representativeName: "モズ", representativePart: "Vo/Ba",
     skillIds: ["healing_character"],
     tags: ["early", "random_battle", "soft", "friendly"],
     fame: 20, audience: 16
@@ -481,7 +481,7 @@ const BAND_DATABASE = Object.freeze({
     id: "kodama", name: "コダマ", kana: "こだま", internalLv: 1, color: "#8FD6C7", markStyle: "B",
     genres: ["ギターロック", "和風ロック", "インディーロック"],
     description: "静かで少し不思議な余韻を残す和風インディーロックバンド。",
-    representativeSong: "木漏れ日", representativeName: "ヒノカワ", representativePart: null,
+    representativeSong: "木漏れ日", representativeName: "ヒノカワ", representativePart: "Gt",
     skillIds: ["lingering_echo"],
     tags: ["early", "random_battle", "quiet", "emotional"],
     fame: 22, audience: 18
@@ -490,7 +490,7 @@ const BAND_DATABASE = Object.freeze({
     id: "melt", name: "めると", kana: "めると", internalLv: 1, color: "#9FB8FF", markStyle: "B",
     genres: ["ドリームポップ", "ミクスチャー"],
     description: "ボカロP文脈も持つ、ネット発の少し病んだドリームポップ系アーティスト。",
-    representativeSong: "マグマカップ", representativeName: "ロク", representativePart: null,
+    representativeSong: "マグマカップ", representativeName: "ロク", representativePart: "Key",
     skillIds: ["lingering_echo", "influencer"],
     tags: ["early", "sns", "random_battle", "internet"],
     fame: 24, audience: 19
@@ -499,7 +499,7 @@ const BAND_DATABASE = Object.freeze({
     id: "koharugiku", name: "コハルギク", kana: "こはるぎく", internalLv: 1, color: "#FFB27A", markStyle: "A",
     genres: ["歌ものロック", "メロコア"],
     description: "エモい歌詞と疾走感のあるメロディーで駆け抜ける地下に風をもたらすメロコアバンド。",
-    representativeSong: "Rain", representativeName: "シュンカ", representativePart: null,
+    representativeSong: "Rain", representativeName: "シュンカ", representativePart: "Vo/Gt",
     skillIds: ["healing_character", "lingering_echo"],
     tags: ["early", "random_battle", "melocore", "emotional"],
     fame: 25, audience: 21
@@ -517,7 +517,7 @@ const BAND_DATABASE = Object.freeze({
     id: "carbons", name: "CARBONS", kana: "カーボンズ", internalLv: 2, color: "#6C7CE0", markStyle: "C",
     genres: ["オルタナロック"],
     description: "尖ったオルタナロックで序盤に立ちはだかるライバルバンド。",
-    representativeSong: null, representativeName: "ナキリ", representativePart: "Ba/Vo",
+    representativeSong: "ノーカット", representativeName: "ナキリ", representativePart: "Ba/Vo",
     skillIds: ["diamond_rough"],
     tags: ["early", "rival", "sharp", "fixed_event"],
     fame: 30, audience: 26
@@ -526,7 +526,7 @@ const BAND_DATABASE = Object.freeze({
     id: "magnet_wolf", name: "magnet wolf", kana: "マグネットウルフ", internalLv: 2, color: "#8FA0B8", markStyle: "A",
     genres: ["ハードロック"],
     description: "少しダサくて味がある、荒いハードロックバンド。",
-    representativeSong: "ICEBOX", representativeName: "ダイドウジ", representativePart: null,
+    representativeSong: "ICEBOX", representativeName: "ダイドウジ", representativePart: "Gt/Vo",
     skillIds: ["rivalry_spirit"],
     tags: ["early_middle", "random_battle", "hard_rock", "rough"],
     fame: 33, audience: 29
@@ -535,7 +535,7 @@ const BAND_DATABASE = Object.freeze({
     id: "patriot_sunshine", name: "Patriot Sunshine", kana: "パトリオットサンシャイン", internalLv: 2, color: "#E64524", markStyle: "A",
     genres: ["パンクロック", "スカパンク"],
     description: "明るく熱い、青春パンク寄りのスカパンクバンド。",
-    representativeSong: "メタルレイ", representativeName: "アズマル", representativePart: null,
+    representativeSong: "メタルレイ", representativeName: "アズマル", representativePart: "Ba",
     skillIds: ["rivalry_spirit"],
     tags: ["early_middle", "random_battle", "punk", "ska", "bright"],
     fame: 36, audience: 32
@@ -544,7 +544,7 @@ const BAND_DATABASE = Object.freeze({
     id: "d_lion", name: "D-Lion", kana: "ディーライオン", internalLv: 2, color: "#FF8C1A", markStyle: "A",
     genres: ["ミクスチャー", "パンクロック"],
     description: "陽気なミクスチャー/パンクでフロアを揺らす常連バンド。",
-    representativeSong: "LifeTechno", representativeName: "TAMANO", representativePart: null,
+    representativeSong: "LifeTechno", representativeName: "TAMANO", representativePart: "Dr",
     skillIds: ["rivalry_spirit"],
     tags: ["early_middle", "random_battle", "mixture", "party"],
     fame: 39, audience: 35
@@ -562,7 +562,7 @@ const BAND_DATABASE = Object.freeze({
     id: "in_bab", name: "IN-BAB", kana: "インバブ", internalLv: 3, color: "#5F49D6", markStyle: "C",
     genres: ["変化球ロック", "初期BiSH系"],
     description: "メンバーの圧倒的な魅力によって、ライブファンを根こそぎ連れていくロックバンド。",
-    representativeSong: null, representativeName: "Nasu", representativePart: "Vo",
+    representativeSong: "OVERHEAT", representativeName: "Nasu", representativePart: "Vo",
     skillIds: ["heart_inside", "influencer"],
     tags: ["middle", "sns", "idol_rock", "fan_pull", "event_candidate"],
     fame: 50, audience: 47
@@ -571,7 +571,7 @@ const BAND_DATABASE = Object.freeze({
     id: "nova_biscuit", name: "Nova Biscuit", kana: "ノヴァビスケット", internalLv: 3, color: "#E5C296", markStyle: "B",
     genres: ["エモ", "パワーポップ", "インディーロック"],
     description: "宇宙っぽい名前に反して、ライブでは意外と激しいエモ/パワーポップバンド。",
-    representativeSong: "冥王星", representativeName: "ドウセイ", representativePart: null,
+    representativeSong: "冥王星", representativeName: "ドウセイ", representativePart: "Vo/Gt",
     skillIds: ["lingering_echo"],
     tags: ["middle", "random_battle", "emo", "space"],
     fame: 48, audience: 41
@@ -580,7 +580,7 @@ const BAND_DATABASE = Object.freeze({
     id: "polaris", name: "POLARIS", kana: "ポラリス", internalLv: 3, color: "#8FD9F5", markStyle: "B",
     genres: ["幻想演出系ロック"],
     description: "ぶっちぎりの個性で虜にさせる歌と演奏。冷たくも温かいロックバンド。",
-    representativeSong: null, representativeName: "ヘイル", representativePart: "Vo",
+    representativeSong: "残光", representativeName: "ヘイル", representativePart: "Vo",
     skillIds: ["emotional_fantasy"],
     tags: ["middle", "fantasy", "emotional", "event_candidate"],
     fame: 52, audience: 44
@@ -598,7 +598,7 @@ const BAND_DATABASE = Object.freeze({
     id: "luminescence", name: "LUMINESCENCE", kana: "ルミナスセンス", internalLv: 4, color: "#3B7CD1", markStyle: "C",
     genres: ["メロディックハードコア", "スケートパンク", "エモパンク"],
     description: "雨、深海、発光をテーマにした、冷たく速いシアトル系メロディックハードコア。",
-    representativeSong: null, representativeName: "ヘルツ", representativePart: "Vo/Gt",
+    representativeSong: "夜光", representativeName: "ヘルツ", representativePart: "Vo/Gt",
     skillIds: ["deep_sea_rain"],
     tags: ["late", "foreign", "seattle", "melodic_hardcore", "special_event"],
     fame: 62, audience: 55
@@ -680,9 +680,18 @@ const BAND_LORE_DATABASE = Object.freeze({
     { id:"kiwi_lore_1", needRelation:30, title:"ゆるい円陣", text:"Kiwiの円陣は気合いを入れるというより、全員で深呼吸するためのもの。モズは“空気を合わせる”と言っている。" },
     { id:"kiwi_lore_2", needRelation:60, title:"グリムポップの温度", text:"“グリムポップ”は明るい曲だが、歌詞には少しだけ寂しさが混じる。その温度差が、Kiwiらしい余韻になっている。" }
   ] },
-  kodama: { comment: "ヒノカワ『音が消えたあとに残るものまで、曲だと思っているんです。』", lore: [] },
-  melt: { comment: "ロク『ライブハウスって、ネットの海より狭いのに、たまにずっと遠くまで届くよね。』", lore: [] },
-  koharugiku: { comment: "シュンカ『速い曲でも、置いていきたい言葉は雑にしたくないんだ。』", lore: [] },
+  kodama: { comment: "ヒノカワ『音が消えたあとに残るものまで、曲だと思っているんです。』", lore: [
+    { id:"kodama_lore_1", needRelation:30, title:"残響へのこだわり", text:"『きれいに終わる曲がいいとは思わない。すこし掠れて消えていく方が、耳に残るんです。』" },
+    { id:"kodama_lore_2", needRelation:60, title:"滲む和のかたち", text:"『和の匂いを狙って入れてるわけじゃないんです。地下で鳴らすと、自然とその音が滲むだけで。』" }
+  ] },
+  melt: { comment: "ロク『ライブハウスって、ネットの海より狭いのに、たまにずっと遠くまで届くよね。』", lore: [
+    { id:"melt_lore_1", needRelation:30, title:"打ち込みを崩す理由", text:"『打ち込みのままライブでやるのはダサいと思ってた。崩して鳴らした方が、ちゃんと届くって気づいただけ。』" },
+    { id:"melt_lore_2", needRelation:60, title:"病みの在り方", text:"『病んでるって言われるの、否定はしない。ただの弱さじゃなくて、荒いままの本音のことなんだよね。』" }
+  ] },
+  koharugiku: { comment: "シュンカ『速い曲でも、置いていきたい言葉は雑にしたくないんだ。』", lore: [
+    { id:"koharugiku_lore_1", needRelation:30, title:"速さと言葉の両立", text:"『速い曲は勢いだけでいいってよく言われる。でも勢いに乗せてこそ、届けたい言葉が刺さるんだ。』" },
+    { id:"koharugiku_lore_2", needRelation:60, title:"疾走感の理由", text:"『勢いで押し切ってるだけだと思われがちだけど、それは違う。全力で走った奴の音だけが、あとに残るって信じてるんだ。』" }
+  ] },
   triple_arrows: { comment: "タカナシ『下手でも、今しか出せない音はある。まずは一本、矢を飛ばそうぜ。』", lore: [
     { id:"triple_arrows_lore_1", needRelation:30, title:"UNDERの常連席", text:"Triple ArrowsはUNDERの端のテーブルを勝手に“作戦会議席”と呼んでいる。ライブ前はそこでセトリを何度も並べ替える。" },
     { id:"triple_arrows_lore_2", needRelation:60, title:"3本の矢の意味", text:"バンド名の“三本”は、技術・勢い・続ける根性のこと。タカナシは最後の一本が一番折れにくいと言う。" }
@@ -695,25 +704,58 @@ const BAND_LORE_DATABASE = Object.freeze({
     { id:"magnet_wolf_lore_1", needRelation:30, title:"古いアンプ", text:"magnet wolfのアンプはいつも少しノイズが乗る。ダイドウジはそのノイズまで“うちの音”だと言い張る。" },
     { id:"magnet_wolf_lore_2", needRelation:60, title:"ICEBOXの由来", text:"代表曲“ICEBOX”は、寒い倉庫ライブで指が動かなかった夜にできた。荒いリフには、その日の悔しさが残っている。" }
   ] },
-  patriot_sunshine: { comment: "アズマル『暗い場所で明るい音を鳴らすの、けっこう反則だと思わない？』", lore: [] },
-  d_lion: { comment: "TAMANO『踊れるかどうかはジャンルじゃなくて、最初の一音で決まるんだよ。』", lore: [] },
+  patriot_sunshine: { comment: "アズマル『暗い場所で明るい音を鳴らすの、けっこう反則だと思わない？』", lore: [
+    { id:"patriot_sunshine_lore_1", needRelation:30, title:"スカとパンクの境界", text:"『細かいジャンル分けなんて気にしてない。地下のハコが揺れて、みんな笑ってれば、それが一番の本気だ。』" },
+    { id:"patriot_sunshine_lore_2", needRelation:60, title:"明るさの理由", text:"『能天気で選んでるわけじゃない。暗い日ほど、鳴らす音は明るくいようって決めてるだけだ。』" }
+  ] },
+  d_lion: { comment: "TAMANO『踊れるかどうかはジャンルじゃなくて、最初の一音で決まるんだよ。』", lore: [
+    { id:"d_lion_lore_1", needRelation:30, title:"フロアの読み方", text:"『盛り上げようと必死になるほど、客は冷める。力を抜いた一音の方が、ちゃんとフロアに届くんだよ。』" },
+    { id:"d_lion_lore_2", needRelation:60, title:"常連の意地", text:"『毎回同じ曲で沸かせるのは楽じゃない。飽きられない鳴らし方を、ずっと現場で試してるんだよ。』" }
+  ] },
   pachi_pachi: { comment: "ミケ『お客さんを巻き込むんじゃなくて、一緒に落ちていく感じ。そこが一番楽しい。』", lore: [
     { id:"pachi_pachi_lore_1", needRelation:30, title:"手拍子の研究", text:"Pachi-Pachiは曲中の手拍子位置をかなり細かく決めている。自然に見える一体感ほど、実は準備されている。" },
     { id:"pachi_pachi_lore_2", needRelation:60, title:"わたあめの間奏", text:"“わたあめ”の間奏は、客席の声が入って完成するように作られている。ミケは録音音源よりライブ版を本番だと思っている。" }
   ] },
-  in_bab: { comment: "Nasu『かわいいだけじゃ連れていけない。目が合った瞬間に、こっちの熱を渡すんだよ。』", lore: [] },
-  nova_biscuit: { comment: "ドウセイ『宇宙って遠いけど、ライブハウスの天井もだいたい同じくらい遠い日がある。』", lore: [] },
-  polaris: { comment: "ヘイル『冷たい音でも、誰かの帰り道を照らせるなら、それでいい。』", lore: [] },
+  in_bab: { comment: "Nasu『かわいいだけじゃ連れていけない。目が合った瞬間に、こっちの熱を渡すんだよ。』", lore: [
+    { id:"in_bab_lore_1", needRelation:30, title:"目線の作り方", text:"『かわいく見せる練習はしてない。客席のどこを見るかだけ、死ぬほど本気で決めてるんだよ。』" },
+    { id:"in_bab_lore_2", needRelation:60, title:"連れていく意味", text:"『ファンを増やすなんて言い方は好きじゃない。ひとりひとりの名前を覚えて、近づいていくだけなんだよ。』" }
+  ] },
+  nova_biscuit: { comment: "ドウセイ『宇宙って遠いけど、ライブハウスの天井もだいたい同じくらい遠い日がある。』", lore: [
+    { id:"nova_biscuit_lore_1", needRelation:30, title:"名前の意味", text:"『宇宙っぽい名前で期待されがちだけど、それは違う。ただ、地下の天井を見上げたときの距離が、そう見えただけなんだ。』" },
+    { id:"nova_biscuit_lore_2", needRelation:60, title:"激しさの理由", text:"『静かな曲をやりたい日もある。でも音源に閉じ込めた本気を、ライブでは全部鳴らしたくなるんだ。』" }
+  ] },
+  polaris: { comment: "ヘイル『冷たい音でも、誰かの帰り道を照らせるなら、それでいい。』", lore: [
+    { id:"polaris_lore_1", needRelation:30, title:"演出への向き合い方", text:"『派手な演出で誤魔化してると思われがちだけど、逆だ。何も足さなくても届く音を、ずっと探してるだけなんだ。』" },
+    { id:"polaris_lore_2", needRelation:60, title:"冷たさの正体", text:"『冷たい声だってよく言われる。でも凍った音ほど、地下の暗がりではよく鳴るんだ。』" }
+  ] },
   shelter: { comment: "クリオ『上手いだけなら練習で足りる。守りたい場所があるから、音は強くなる。』", lore: [
     { id:"shelter_lore_1", needRelation:30, title:"楽屋の静けさ", text:"SHELTERの楽屋は意外なほど静かだ。本番前のクリオは、誰よりも早く会場の空気だけを聴いている。" },
     { id:"shelter_lore_2", needRelation:60, title:"RED MOONの赤", text:"“RED MOON”は派手な曲に見えて、ライブハウスを守るための曲でもある。照明の赤は、帰る場所の印だという。" }
   ] },
-  luminescence: { comment: "ヘルツ『雨の日の低音は沈む。でも沈んだ音だけが、底で光ることもある。』", lore: [] },
-  jack_bomb: { comment: "アラカ『爆発って一瞬だろ？ だからその前の静けさをサボると、ただの大きい音になる。』", lore: [] },
-  hyper_marmoty: { comment: "ヤマモト『まっすぐって、簡単そうで一番ごまかせないんだよな！』", lore: [] },
-  ultimate_quokkas: { comment: "ワラジ『笑ってるだけじゃないよ。笑ってるから、転んでもすぐ立てるんだ。』", lore: [] },
-  rumble_sand: { comment: "サウスポート『砂嵐の中でも、前にいる奴の背中だけは見える。それがバンドだ。』", lore: [] },
-  neon_reef: { comment: "ミノア『深く潜るほど、音は静かになる。静かな音ほど、逃げ場がなくなる。』", lore: [] },
+  luminescence: { comment: "ヘルツ『雨の日の低音は沈む。でも沈んだ音だけが、底で光ることもある。』", lore: [
+    { id:"luminescence_lore_1", needRelation:30, title:"発光の理屈", text:"『きれいに光らせようとは思ってない。沈んだ分だけ圧をためて、鳴らした瞬間に弾けるだけだ。』" },
+    { id:"luminescence_lore_2", needRelation:60, title:"速さと沈黙", text:"『ずっと速いわけじゃない。溜めた沈黙が長いほど、次の一音が遠くまで届くんだ。』" }
+  ] },
+  jack_bomb: { comment: "アラカ『爆発って一瞬だろ？ だからその前の静けさをサボると、ただの大きい音になる。』", lore: [
+    { id:"jack_bomb_lore_1", needRelation:30, title:"爆発の作り方", text:"『デカい音を出せば盛り上がると思ってるやつは素人だ。溜めて溜めて、ハコの空気ごと刺さる瞬間を作るんだよ。』" },
+    { id:"jack_bomb_lore_2", needRelation:60, title:"静けさの使い方", text:"『うるさいだけのバンドだと思われるのは心外だ。一番静かな数秒があるから、あとの爆発が本気に見えるんだよ。』" }
+  ] },
+  hyper_marmoty: { comment: "ヤマモト『まっすぐって、簡単そうで一番ごまかせないんだよな！』", lore: [
+    { id:"hyper_marmoty_lore_1", needRelation:30, title:"まっすぐの代償", text:"『器用に立ち回れば楽だってのは分かってる！でも荒くてもまっすぐ鳴らした方が、後で嘘くさくならないんだよな。』" },
+    { id:"hyper_marmoty_lore_2", needRelation:60, title:"シャウトの理由", text:"『声を張れば熱いってわけじゃない！ただ、届けたい一言だけは、絶対に喉に残さず出し切るんだよな。』" }
+  ] },
+  ultimate_quokkas: { comment: "ワラジ『笑ってるだけじゃないよ。笑ってるから、転んでもすぐ立てるんだ。』", lore: [
+    { id:"ultimate_quokkas_lore_1", needRelation:30, title:"笑顔の裏側", text:"『能天気なだけだと思われがちだけど、そんなに単純じゃない。転んだ現場を何回も見てきたから、笑う強さを知ってるんだよ。』" },
+    { id:"ultimate_quokkas_lore_2", needRelation:60, title:"スカのリズム", text:"『難しい理論はよく分からない。ただ、跳ねるリズムが客席に届いた瞬間だけは、誰よりも本気で見てるんだよ。』" }
+  ] },
+  rumble_sand: { comment: "サウスポート『砂嵐の中でも、前にいる奴の背中だけは見える。それがバンドだ。』", lore: [
+    { id:"rumble_sand_lore_1", needRelation:30, title:"荒さの流儀", text:"『きれいに整えた音を出す気はない。荒いままの方が、でかいステージにもちゃんと刺さるんだ。』" },
+    { id:"rumble_sand_lore_2", needRelation:60, title:"重さの理由", text:"『速さで押すバンドは他にいくらでもいる。うちは重い音で、床ごと客の足を止めにいくんだ。』" }
+  ] },
+  neon_reef: { comment: "ミノア『深く潜るほど、音は静かになる。静かな音ほど、逃げ場がなくなる。』", lore: [
+    { id:"neon_reef_lore_1", needRelation:30, title:"完成という誤解", text:"『完成されたって言われるの、実はそんなに嬉しくない。まだ削れる場所を、いつも探してるだけなんだ。』" },
+    { id:"neon_reef_lore_2", needRelation:60, title:"深海のテンポ", text:"『速い曲が苦手なわけじゃない。深く潜るテンポの方が、長く名前を置いていけると思ってるんだ。』" }
+  ] },
   kaede: { comment: "カエデ『言葉は、届いたあとに曲になることがある。だから最後の一文字まで置きにいく。』", lore: [
     { id:"kaede_lore_1", needRelation:30, title:"一人のリハ", text:"KAEDEはバンド編成の日でも、一度だけ一人でステージに立つ。会場の返事を先に聞くためらしい。" },
     { id:"kaede_lore_2", needRelation:60, title:"Dragonflyの余白", text:"“Dragonfly”の最後の余白は、歌詞を書かなかった部分ではなく、客席が自分のことを思い出すための時間。" }
