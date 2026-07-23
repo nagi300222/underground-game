@@ -525,7 +525,7 @@ const BAND_DATABASE = Object.freeze({
     id: "carbons", name: "CARBONS", kana: "カーボンズ", internalLv: 2, color: "#6C7CE0", markStyle: "C",
     genres: ["オルタナロック"],
     description: "尖ったオルタナロックで序盤に立ちはだかるライバルバンド。",
-    representativeSong: "ノーカット", representativeName: "ナキリ", representativePart: "Ba/Vo",
+    representativeSong: "ノーカット", representativeName: "カラト", representativePart: "Ba/Vo",
     skillIds: ["diamond_rough"],
     tags: ["early", "rival", "sharp", "fixed_event"],
     fame: 30, audience: 26
@@ -704,8 +704,8 @@ const BAND_LORE_DATABASE = Object.freeze({
     { id:"triple_arrows_lore_1", needRelation:30, title:"UNDERの常連席", text:"Triple ArrowsはUNDERの端のテーブルを勝手に“作戦会議席”と呼んでいる。ライブ前はそこでセトリを何度も並べ替える。" },
     { id:"triple_arrows_lore_2", needRelation:60, title:"3本の矢の意味", text:"バンド名の“三本”は、技術・勢い・続ける根性のこと。タカナシは最後の一本が一番折れにくいと言う。" }
   ] },
-  carbons: { comment: "ナキリ『原石って言葉、好きじゃない。磨く手間まで含めて自分の音でしょ。』", lore: [
-    { id:"carbons_lore_1", needRelation:30, title:"尖ったリハ", text:"CARBONSのリハは短い。ナキリは音を出した瞬間の違和感だけ拾い、余計な確認をほとんどしない。" },
+  carbons: { comment: "カラト『原石って言葉、好きじゃない。磨く手間まで含めて自分の音でしょ。』", lore: [
+    { id:"carbons_lore_1", needRelation:30, title:"尖ったリハ", text:"CARBONSのリハは短い。カラトは音を出した瞬間の違和感だけ拾い、余計な確認をほとんどしない。" },
     { id:"carbons_lore_2", needRelation:60, title:"削らない理由", text:"CARBONSは聴きやすく整えるより、引っかかりを残すことを選ぶ。その棘が、次のライブへの記憶になる。" }
   ] },
   magnet_wolf: { comment: "ダイドウジ『荒い？ いいんだよ。噛み跡が残るくらいじゃないと、狼って名乗れねえ。』", lore: [
@@ -1032,7 +1032,7 @@ const BAND_EVENT_DATABASE = Object.freeze({
     },
     effects: {
       relationAdd: 25,
-      addLog: "CARBONSとの対バン後、ナキリから声をかけられた。",
+      addLog: "CARBONSとの対バン後、カラトから声をかけられた。",
       setFlags: ["flag_carbons_return"]
     },
     unlockSkillId: "diamond_rough"
@@ -1257,7 +1257,7 @@ const BAND_EVENT_DATABASE = Object.freeze({
     },
     effects: {
       relationAdd: 10,
-      addLog: "CARBONSのナキリから、尖りを磨くための課題をもらった。"
+      addLog: "CARBONSのカラトから、尖りを磨くための課題をもらった。"
     },
     unlockSkillId: null
   },
@@ -1823,15 +1823,16 @@ const BAND_EVENT_TYPE_META = {
 };
 
 // バンドイベント→︎ノベルシーンの対応。ここにあるイベントは通常ポップアップの代わりに会話イベントで見せる。
+// TEXT-3バッチ1: event_carbons_after_party_success／event_carbons_return_talkは、静的な1:1対応ではなく
+// resolveCarbonsRivalSceneId()によるfame比較の動的分岐（carbons_rival_win／lose）へ切り替えたため、
+// このマップからは意図的に除外している（applyBandEventEffects側でCARBONS_RIVAL_STORY_EVENT_IDSを先判定）。
 const BAND_EVENT_STORY_MAP = {
   event_triple_arrows_invite_live: "triple_arrows_invite",
   event_shelter_watched_live: "shelter_encounter",
   event_pachi_pachi_first_battle: "pachi_pachi_first_live",
   event_pachi_pachi_second_success: "pachi_pachi_sweetness_unlock",
-  event_carbons_after_party_success: "carbons_diamond_rough",
   event_shelter_after_live_talk: "shelter_rock_spirit",
   event_triple_arrows_after_invite_rematch: "triple_arrows_next_arrow",
-  event_carbons_return_talk: "carbons_polish_talk",
   event_pachi_pachi_floor_sign: "pachi_pachi_floor_sign",
   event_shelter_backstage_advice: "shelter_backstage_advice",
   event_kiwi_greenroom_talk: "kiwi_greenroom_talk",
@@ -1863,7 +1864,7 @@ function applyBandEventEffects(ev, opts = {}) {
   if (fx.addLog) log(fx.addLog, "event");
   let inviteOffer = null;
   if (ev.id === "event_triple_arrows_invite_live") inviteOffer = createTripleArrowsInviteOffer();
-  const sceneId = BAND_EVENT_STORY_MAP[ev.id];
+  const sceneId = CARBONS_RIVAL_STORY_EVENT_IDS.includes(ev.id) ? resolveCarbonsRivalSceneId() : BAND_EVENT_STORY_MAP[ev.id];
   const storyWillPlay = !opts.silentPopup && !!sceneId && novelEventsOn() && !state.activeStoryEvent;
   if (ev.unlockSkillId) grantBandSkill(ev.unlockSkillId, ev.bandId, "交流イベント", { silentPopup: storyWillPlay });
   if (!opts.silentPopup) {
@@ -5854,13 +5855,13 @@ const STORY_SCENE_DATABASE = {
     title: "尖った音のあとで",
     background: "backstage",
     actors: [
-      { id:"sil_nakiri", name:"ナキリ", position:"left", type:"short" },
+      { id:"sil_karato", name:"カラト", position:"left", type:"short" },
       { id:"sil_player", name:"主人公", position:"right", type:"player" }
     ],
     scenes: [
-      { speaker:"ナキリ", portrait:"sil_nakiri", text:"今日のライブ、悪くなかった。……でも、まだ丸い。" },
+      { speaker:"カラト", portrait:"sil_karato", text:"今日のライブ、悪くなかった。……でも、まだ丸い。" },
       { speaker:"主人公", portrait:"sil_player", text:"丸い？" },
-      { speaker:"ナキリ", portrait:"sil_nakiri", text:"削れよ。傷つくくらい尖った音の方が、残る時もある。" },
+      { speaker:"カラト", portrait:"sil_karato", text:"削れよ。傷つくくらい尖った音の方が、残る時もある。" },
       { speaker:"主人公", portrait:"sil_player", text:"……覚えておきます。" }
     ],
     rewards: [
@@ -5891,8 +5892,8 @@ const STORY_SCENE_DATABASE = {
     ],
     afterLog: "ノベルイベント：SHELTER遭遇イベントを見た。"
   },
-  member_join_generic: {
-    id: "member_join_generic",
+  member_join_rough_1: {
+    id: "member_join_rough_1",
     title: "新メンバー加入",
     background: "studio",
     actors: [
@@ -5900,11 +5901,79 @@ const STORY_SCENE_DATABASE = {
       { id:"sil_player", name:"主人公", position:"right", type:"player" }
     ],
     scenes: [
-      { speaker:"{memberName}", portrait:"sil_new_member", text:"募集見ました。まだメンバー、探してますか？" },
-      { speaker:"主人公", portrait:"sil_player", text:"もちろん。担当は？" },
+      { speaker:"{memberName}", portrait:"sil_new_member", text:"募集、見ました。まだ探してますか？" },
+      { speaker:"主人公", portrait:"sil_player", text:"担当は？" },
       { speaker:"{memberName}", portrait:"sil_new_member", text:"{part}です。{partLine}" },
-      { speaker:"主人公", portrait:"sil_player", text:"じゃあ、一回合わせてみよう。よろしく、{memberName}。" },
-      { speaker:"主人公", portrait:"sil_player", text:"{partFlavor}" }
+      { speaker:"{memberName}", portrait:"sil_new_member", text:"バンドに入れてもらえませんか。" },
+      { speaker:"主人公", portrait:"sil_player", text:"一緒にやろう。よろしく、{memberName}。" }
+    ],
+    rewards: [
+      { label:"{memberName} が{joinStatus}した" },
+      { label:"担当：{part} / 得意：{mainGenre}" },
+      { label:"{partFlavor}" }
+    ],
+    afterLog: "ノベルイベント：新メンバー加入イベントを見た。"
+  },
+  member_join_rough_2: {
+    id: "member_join_rough_2",
+    title: "新メンバー加入",
+    background: "studio",
+    actors: [
+      { id:"sil_new_member", name:"加入メンバー", position:"left", type:"member" },
+      { id:"sil_player", name:"主人公", position:"right", type:"player" }
+    ],
+    scenes: [
+      { speaker:"{memberName}", portrait:"sil_new_member", text:"あの、募集の。まだ間に合いますか？" },
+      { speaker:"主人公", portrait:"sil_player", text:"担当は？" },
+      { speaker:"{memberName}", portrait:"sil_new_member", text:"{part}です。{partLine}" },
+      { speaker:"主人公", portrait:"sil_player", text:"じゃあ音、合わせてみるか。" },
+      { speaker:"{memberName}", portrait:"sil_new_member", text:"はい！　やります！" }
+    ],
+    rewards: [
+      { label:"{memberName} が{joinStatus}した" },
+      { label:"担当：{part} / 得意：{mainGenre}" },
+      { label:"{partFlavor}" }
+    ],
+    afterLog: "ノベルイベント：新メンバー加入イベントを見た。"
+  },
+  member_join_serious_1: {
+    id: "member_join_serious_1",
+    title: "新メンバー加入",
+    background: "studio",
+    actors: [
+      { id:"sil_new_member", name:"加入メンバー", position:"left", type:"member" },
+      { id:"sil_player", name:"主人公", position:"right", type:"player" }
+    ],
+    scenes: [
+      { speaker:"{memberName}", portrait:"sil_new_member", text:"募集、見ました。{part}です。" },
+      { speaker:"主人公", portrait:"sil_player", text:"経験は？" },
+      { speaker:"{memberName}", portrait:"sil_new_member", text:"{partLine}　……前のバンド、辞めたばかりで。" },
+      { speaker:"主人公", portrait:"sil_player", text:"……そっか。" },
+      { speaker:"{memberName}", portrait:"sil_new_member", text:"今度は、最後までやりたいんです。入れてください。" },
+      { speaker:"主人公", portrait:"sil_player", text:"わかった。一緒にやろう。" }
+    ],
+    rewards: [
+      { label:"{memberName} が{joinStatus}した" },
+      { label:"担当：{part} / 得意：{mainGenre}" },
+      { label:"{partFlavor}" }
+    ],
+    afterLog: "ノベルイベント：新メンバー加入イベントを見た。"
+  },
+  member_join_serious_2: {
+    id: "member_join_serious_2",
+    title: "新メンバー加入",
+    background: "studio",
+    actors: [
+      { id:"sil_new_member", name:"加入メンバー", position:"left", type:"member" },
+      { id:"sil_player", name:"主人公", position:"right", type:"player" }
+    ],
+    scenes: [
+      { speaker:"{memberName}", portrait:"sil_new_member", text:"ライブ、観ました。{part}です。" },
+      { speaker:"主人公", portrait:"sil_player", text:"うちの音、どうだった？" },
+      { speaker:"{memberName}", portrait:"sil_new_member", text:"{partLine}　正直、荒いと思いました。" },
+      { speaker:"主人公", portrait:"sil_player", text:"……はっきり言うな。" },
+      { speaker:"{memberName}", portrait:"sil_new_member", text:"でも、あの荒さに混ざりたい。入れてください。" },
+      { speaker:"主人公", portrait:"sil_player", text:"いいよ。よろしく、{memberName}。" }
     ],
     rewards: [
       { label:"{memberName} が{joinStatus}した" },
@@ -5954,27 +6023,6 @@ const STORY_SCENE_DATABASE = {
       { label:"客席巻き込み評価のヒントを得た" }
     ],
     afterLog: "ノベルイベント：弾ける甘味獲得イベントを見た。"
-  },
-  carbons_diamond_rough: {
-    id: "carbons_diamond_rough",
-    title: "ダイヤの原石",
-    background: "backstage",
-    actors: [
-      { id:"sil_nakiri", name:"ナキリ", position:"left", type:"short" },
-      { id:"sil_player", name:"主人公", position:"right", type:"player" }
-    ],
-    scenes: [
-      { speaker:"ナキリ", portrait:"sil_nakiri", text:"今日のは、少しだけ刺さった。" },
-      { speaker:"主人公", portrait:"sil_player", text:"少しだけ、ですか。" },
-      { speaker:"ナキリ", portrait:"sil_nakiri", text:"まだ石ころだよ。でも、磨く価値はある。" },
-      { speaker:"主人公", portrait:"sil_player", text:"次は、もっと尖らせてきます。" }
-    ],
-    rewards: [
-      { label:"交流スキル「ダイヤの原石」を獲得" },
-      { label:"CARBONSとの交流が深まった" },
-      { label:"再登場フラグが立った" }
-    ],
-    afterLog: "ノベルイベント：ダイヤの原石獲得イベントを見た。"
   },
   under_fes_before: {
     id: "under_fes_before",
@@ -6036,25 +6084,6 @@ const STORY_SCENE_DATABASE = {
       { label:"再戦後の短編イベント土台" }
     ],
     afterLog: "ノベルイベント：Triple Arrows追加交流を見た。"
-  },
-  carbons_polish_talk: {
-    id: "carbons_polish_talk",
-    title: "磨くほど尖る",
-    background: "backstage",
-    actors: [
-      { id:"sil_nakiri", name:"ナキリ", position:"left", type:"short" },
-      { id:"sil_player", name:"主人公", position:"right", type:"player" }
-    ],
-    scenes: [
-      { speaker:"ナキリ", portrait:"sil_nakiri", text:"尖るって、雑に暴れることじゃない。" },
-      { speaker:"主人公", portrait:"sil_player", text:"削って、残すものを決めるってことですか。" },
-      { speaker:"ナキリ", portrait:"sil_nakiri", text:"そう。いらない優しさを削れ。残った音だけが刺さる。" }
-    ],
-    rewards: [
-      { label:"CARBONSとの追加交流" },
-      { label:"尖り・オリジナル性イベント土台" }
-    ],
-    afterLog: "ノベルイベント：CARBONS追加交流を見た。"
   },
   pachi_pachi_floor_sign: {
     id: "pachi_pachi_floor_sign",
@@ -6340,9 +6369,80 @@ const STORY_SCENE_DATABASE = {
       { label:"完成度と演出のヒント" }
     ],
     afterLog: "ノベルイベント：Neon Reef研究イベントを見た。"
+  },
+  carbons_rival_win: {
+    id: "carbons_rival_win",
+    title: "負けてられるかよ",
+    background: "backstage",
+    actors: [
+      { id:"sil_karato", name:"カラト", position:"left", type:"short" },
+      { id:"sil_player", name:"主人公", position:"right", type:"player" }
+    ],
+    scenes: [
+      { speaker:"地の文", text:"CARBONSのカラトが、不機嫌な顔でこっちに来る。" },
+      { speaker:"カラト", portrait:"sil_karato", text:"よお、かなり盛り上げてたじゃねーか" },
+      { speaker:"主人公", portrait:"sil_player", text:"ああ。結構今日の客層にハマって…" },
+      { speaker:"カラト", portrait:"sil_karato", text:"違うだろ、お前らの方が上だったんだよ！" },
+      { speaker:"主人公", portrait:"sil_player", text:"いや、上とか下とかないんじゃないか？" },
+      { speaker:"カラト", portrait:"sil_karato", text:"うるせぇ、くそっ、負けてられるかよ……" },
+      { speaker:"地の文", text:"カラトは、そう言い残して去っていった。" }
+    ],
+    rewards: [
+      { label:"{bandName}のカラトと言葉を交わした" },
+      { label:"{bandName}との交流が深まった" }
+    ],
+    afterLog: "ノベルイベント：カラトに啖呵を切られた（優勢）。"
+  },
+  carbons_rival_lose: {
+    id: "carbons_rival_lose",
+    title: "俺たちこそ絶対に",
+    background: "backstage",
+    actors: [
+      { id:"sil_karato", name:"カラト", position:"left", type:"short" },
+      { id:"sil_player", name:"主人公", position:"right", type:"player" }
+    ],
+    scenes: [
+      { speaker:"地の文", text:"CARBONSのカラトが、怪訝な顔でこっちに来る。" },
+      { speaker:"カラト", portrait:"sil_karato", text:"よお、お前ら今日は調子悪いのか？" },
+      { speaker:"主人公", portrait:"sil_player", text:"え、いやそんなことはない…けど" },
+      { speaker:"カラト", portrait:"sil_karato", text:"いつまでもあんなライブしてると置いていくぞ" },
+      { speaker:"主人公", portrait:"sil_player", text:"なっ…（くそー！悔しい！）" },
+      { speaker:"カラト", portrait:"sil_karato", text:"俺たちは絶対にUNDER FESに出てやるからな" },
+      { speaker:"主人公", portrait:"sil_player", text:"俺たちこそ絶対に出演してみせる！" },
+      { speaker:"地の文", text:"カラトは少し笑いながら去っていった。" }
+    ],
+    rewards: [
+      { label:"{bandName}のカラトに発破をかけられた" },
+      { label:"{bandName}との交流が深まった" }
+    ],
+    afterLog: "ノベルイベント：カラトに発破をかけられた（劣勢）。"
   }
 
 };
+
+/* TEXT-3バッチ1 A項: メンバー加入シーンの4パターン化。同一プレイでの連続重複（同じ変種が2回続く）を
+   避けるため、直前に使われたシーンIDをstate.storyFlags.lastMemberJoinSceneIdへ記録し、次回選出時に
+   候補から除外したうえで乱数選択する（rand()は既存のSNSトレンド投稿選出等と同じ均等乱数ヘルパー）。 */
+const MEMBER_JOIN_STORY_IDS = ["member_join_rough_1", "member_join_rough_2", "member_join_serious_1", "member_join_serious_2"];
+function pickMemberJoinStoryId() {
+  state.storyFlags = state.storyFlags || {};
+  const last = state.storyFlags.lastMemberJoinSceneId;
+  const pool = MEMBER_JOIN_STORY_IDS.filter(id => id !== last);
+  const pick = pool[rand(0, pool.length - 1)];
+  state.storyFlags.lastMemberJoinSceneId = pick;
+  return pick;
+}
+
+/* TEXT-3バッチ1 B項: CARBONS＝カラトとのライバル関係。同一の2イベント（event_carbons_after_party_success／
+   event_carbons_return_talk）は、発火時点のプレイヤーfameとCARBONS固定fame（BAND_DATABASE値）を比較し、
+   どちらの文面（carbons_rival_win／carbons_rival_lose）を見せるかだけを都度切り替える。イベント本体の
+   トリガー条件（ターン範囲・条件）・報酬（スキル付与・交流値）は一切変更しない（applyBandEventEffects側で分岐）。 */
+const CARBONS_RIVAL_STORY_EVENT_IDS = Object.freeze(["event_carbons_after_party_success", "event_carbons_return_talk"]);
+function resolveCarbonsRivalSceneId() {
+  const playerFame = Number(state.band?.fame || 0);
+  const carbonsFame = Number(bandById("carbons")?.fame || 0);
+  return playerFame > carbonsFame ? "carbons_rival_win" : "carbons_rival_lose";
+}
 
 function storyEventOptions() {
   return Object.values(STORY_SCENE_DATABASE).map(ev => ({ id:ev.id, title:ev.title }));
@@ -8351,7 +8451,7 @@ function joinApplicantById(id) {
   setApplicantList(list);
   log(`${applicant.name}が${applicant.joinStatus}として加入した。加入済みメンバーは全員バンド構成に入り、ライブ準備で担当を選べる。`);
   v043fPlaySeNow("join"); /* PR-J2 B項: メンバー加入 */
-  const joinStoryPlayed = novelEventsOn() && startStoryEvent("member_join_generic", { silent: true, context: memberJoinStoryContext(applicant) });
+  const joinStoryPlayed = novelEventsOn() && startStoryEvent(pickMemberJoinStoryId(), { silent: true, context: memberJoinStoryContext(applicant) });
   if (!joinStoryPlayed) {
     showEventPopup(applicant.joinStatus === "仮加入" ? "仮加入！" : "新メンバー加入！", `${applicant.name} がバンドに加わった！\n担当：${applicant.part}\n得意：${applicant.mainGenre}\n加入済みメンバーは全員ライブ準備に表示される。`, applicant.joinStatus === "仮加入" ? "event" : "rare", applicant.joinStatus === "仮加入" ? v043eIcon("band") : v043eIcon("fame"));
   }
@@ -14666,7 +14766,7 @@ function renderPhoneScreen() {
    bandColorIndexFromName()自体は存置（全廃しない）。sil_xxxのNPCはBAND_DATABASEのrepresentativeNameと一致する
    ものだけをバンドに紐付ける（既存データ棚卸しで確認済みの13名。スバル/店長/主人公等はバンド非紐付けのまま） */
 const NPC_BAND_MAP = Object.freeze({
-  sil_takanashi: "triple_arrows", sil_nakiri: "carbons", sil_clio: "shelter",
+  sil_takanashi: "triple_arrows", sil_karato: "carbons", sil_clio: "shelter",
   sil_mike: "pachi_pachi", sil_mozu: "kiwi", sil_daidoji: "magnet_wolf",
   sil_hail: "polaris", sil_kaede: "kaede", sil_largo: "lact", sil_nasu: "in_bab",
   sil_araka: "jack_bomb", sil_waraji: "ultimate_quokkas", sil_yamamoto: "hyper_marmoty"
